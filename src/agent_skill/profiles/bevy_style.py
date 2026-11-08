@@ -9,15 +9,22 @@ whether a type's name matches the trait it implements.
 """
 
 import re
-from dataclasses import dataclass, field
-from typing import override
-lazy from collections.abc import Iterable, Iterator
+from dataclasses import replace
+lazy from collections.abc import Iterator
 
-from agent_skill.lang.rust import BEVY_STYLE, Crate
-from agent_skill.profiles import NotDecisive, Profile, register
-from agent_skill.report import Finding, fail
+from agent_skill.lang.rust import BEVY, BEVY_STYLE, RUST_STYLE
+from agent_skill.profiles.record import (
+    Delta,
+    Evals,
+    NotDecisive,
+    Profile,
+    keyed,
+    listed,
+    rules,
+)
+from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import group
-lazy from agent_skill.model import Block, Skill
+lazy from agent_skill.model import Block
 
 #: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by
 #: rustfmt.
@@ -42,148 +49,21 @@ SUFFIX = {"Plugin": "Plugin", "SystemSet": "Systems"}
 
 IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.MULTILINE)
 
+# The branches of `conventions` this standard's own rules fire through.
+COMPONENT_DERIVE = declare("conventions", "bv_component_derive", Level.FAIL)
+COMPONENT_REFLECT = declare("conventions", "bv_component_reflect", Level.FAIL)
+PRIVATE_FIELD = declare("conventions", "bv_private_field", Level.FAIL)
+PLUGIN_SUFFIX = declare("conventions", "bv_plugin_suffix", Level.FAIL)
+PLUGIN_DERIVE = declare("conventions", "bv_plugin_derive", Level.FAIL)
+SET_SUFFIX = declare("conventions", "bv_set_suffix", Level.FAIL)
 
-@dataclass
-class BevyStyle(Profile):
-    """What bevy-style's checks need to know about it."""
-
-    name: str = "bevy-style"
-    prefix: str = "BV"
-    languages: tuple[str, ...] = ("rust",)
-    marked_languages: tuple[str, ...] = ("toml", "bash", "yaml")
-    toolchain: str = "rust"
-    tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
-    language: str = "Bevy"
-    library: str = "bevy"
-    verified_as: str = (
-        "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"
-    )
-    strict_scope: str = "shipped and long-running"
-    delta_step: str = (
-        "**Load `rust-style` as well** for anything that is a Rust question "
-        "rather than a Bevy question."
-    )
-    crate: Crate | None = BEVY_STYLE
-    #: Each snippet is the defect its rule forbids, written the way it
-    #: turns up in real code. A fixture shaped to match proves the
-    #: fixture, not the pattern.
-    fires: dict[str, tuple[str, ...]] = field(
-        default_factory=lambda: {
-            "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
-            "BV-MIG-14": (
-                "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
-                (
-                    "let observer = Observer::new("
-                    '|add: On<Add>| info!("{}", add.entity))'
-                    ".with_component(health);"
-                ),
-            ),
-            "BV-MIG-15": (
-                (
-                    "fn start_game(click: On<Pointer<Click>>, "
-                    "mut starts: ResMut<Starts>) {"
-                ),
-                (
-                    'info!("{:?} at {}", press.pointer_id, '
-                    "press.pointer_location.position);"
-                ),
-            ),
-            "BV-MIG-16": (
-                "next.as_mut().set_if_neq(Screen::Playing);",
-                (
-                    "fn style_buttons("
-                    "mut buttons: Query<(&Interaction, &mut BackgroundColor)>) {"
-                ),
-                "let mut placeholder: AssetId<Image> = AssetId::invalid();",
-            ),
-            "BV-MIG-17": (
-                "app.add_plugins(EditableTextInputPlugin);",
-                "TextFont { font: FontSource::SansSerif, ..default() },",
-                "TextFont { font: FontSource::SystemUi, ..default() },",
-                "commands.spawn((Mesh3d(mesh), MeshMaterial3d(material), MeshTag(7)));",
-                "let default = <ReflectDefault as FromType<Settings>>::from_type();",
-                "use bevy_math::primitives::Circle;",
-                'let atlas = server.load_with_settings("atlas.png", srgb);',
-                "#import bevy_pbr::forward_io::VertexOutput",
-            ),
-        }
-    )
-    #: Measured, not judged: each of these was promoted to accuse and
-    #: hit the standard's own compliant examples. The reason names what
-    #: the span finds and what, outside the match, decides whether the
-    #: hit is a defect — never how many examples it hit the day someone
-    #: measured, which is a number `_render` already prints live two
-    #: fields away and nothing re-measures.
-    not_decisive: dict[str, NotDecisive] = field(
-        default_factory=lambda: {
-            "BV-ECS-11": NotDecisive(
-                "Vec<Entity>",
-                "the span finds every `Vec<Entity>`; whether that link is a "
-                "relationship, or carries a written reason it cannot be one, decides",
-            ),
-            "BV-ECS-13": NotDecisive(
-                "Handle<",
-                "the span finds every handle; whether it sits bare inside a `spawn` "
-                "tuple rather than in a component of its own decides",
-            ),
-            "BV-MIG-18": NotDecisive(
-                ".clone()",
-                "the span finds every `.clone()`; whether the receiver is a `Ref<`, "
-                "where the call's meaning changed, decides — and the type is not on "
-                "the line",
-            ),
-            "BV-SCHED-08": NotDecisive(
-                "just_pressed",
-                "the span finds every input read; whether the system runs in "
-                "`FixedUpdate` rather than `Update` decides, and the schedule is not "
-                "on the line",
-            ),
-            "BV-SCHED-12": NotDecisive(
-                "configure_sets",
-                "the span finds every set configuration; whether that set is "
-                "configured more than once decides, which is a fact about the whole "
-                "file",
-            ),
-            "BV-SCHED-23": NotDecisive(
-                "run_if",
-                "the span finds every run condition; whether it gates on a `paused` "
-                "flag rather than on `Time<Virtual>` decides",
-            ),
-            "BV-STATE-03": NotDecisive(
-                "insert_resource",
-                "the span finds every `insert_resource`; whether it is inside a "
-                "`Startup` system, and whether the value depends on the world, decides",
-            ),
-            "BV-TEST-07": NotDecisive(
-                "entities().len()",
-                "the span finds every entity count; whether the assert is about a "
-                "total rather than about the component the test cares about decides",
-            ),
-            "BV-VIEW-04": NotDecisive(
-                "Text::new",
-                "the span finds every text spawn; whether the same tuple also carries "
-                "a font and a colour decides, which the matched line does not show",
-            ),
-        }
-    )
-
-    @override
-    def pin(self) -> str:
-        """The exact `bevy` version the verified crate depends on."""
-        for dep in self.crate.dependencies if self.crate else ():
-            if m := re.match(r'bevy = \{ version = "=([0-9][^"]*)"', dep):
-                return group(m)
-        return ""
-
-    @override
-    def conventions(self, skill: Skill) -> Iterable[Finding]:
-        """bevy-style's own rules, applied to its own examples."""
-        for b in skill.advice("rust"):
-            yield from _component_shape(b)
-            yield from _suffixes(b)
+#: The verified crate under its anchor's `clippy.toml`: a delta ships
+#: only the assets it departs in, and clippy's settings are not one of
+#: them, so the configuration is `rust-style`'s itself, not a copy.
+CRATE = replace(BEVY_STYLE, clippy=RUST_STYLE.clippy)
 
 
-def _component_shape(block: Block) -> Iterator[Finding]:
+def component_shape(block: Block) -> Iterator[Finding]:
     """What every component in this standard's examples must look like.
 
     BV-ECS-01 public fields, BV-ECS-03 `Debug` and `Reflect` with
@@ -198,19 +78,22 @@ def _component_shape(block: Block) -> Iterator[Finding]:
             derives |= {t.strip() for t in d.group(1).split(",")}
         if "Component" not in derives:
             continue
-        line = block.at(block.body[: m.start()].count(chr(10)))
-        where = f"{block.file}:{line} [{block.rule}]"
+        where = block.where_at(block.body[: m.start()].count(chr(10)))
 
         fields = (group(m, "tuple") or group(m, "named")).strip()
         want = MARKER_DERIVES if not fields else DATA_DERIVES
         for trait in want:
             if trait not in derives:
                 yield fail(
-                    f"BV-ECS-03/10: component `{name}` does not derive `{trait}`", where
+                    f"BV-ECS-03/10: component `{name}` does not derive `{trait}`",
+                    where,
+                    COMPONENT_DERIVE,
                 )
         if "#[reflect(Component)]" not in attrs:
             yield fail(
-                f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`", where
+                f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`",
+                where,
+                COMPONENT_REFLECT,
             )
 
         # The collection side of a relationship is the one component
@@ -220,10 +103,14 @@ def _component_shape(block: Block) -> Iterator[Finding]:
             continue
         for member in (f.strip() for f in fields.split(",") if f.strip()):
             if not FIELD_ATTR.sub("", member).strip().startswith("pub "):
-                yield fail(f"BV-ECS-01: `{name}` has a private field — {member}", where)
+                yield fail(
+                    f"BV-ECS-01: `{name}` has a private field — {member}",
+                    where,
+                    PRIVATE_FIELD,
+                )
 
 
-def _suffixes(block: Block) -> Iterator[Finding]:
+def suffixes(block: Block) -> Iterator[Finding]:
     """BV-ARCH-09 and BV-ARCH-10 — a plugin type's name and derives.
 
     A plugin written as a function is caught by BV-ARCH-09's own
@@ -233,13 +120,13 @@ def _suffixes(block: Block) -> Iterator[Finding]:
     """
     for m in IMPL_PLUGIN.finditer(block.body):
         name = m.group(1)
-        line = block.at(block.body[: m.start()].count("\n"))
-        where = f"{block.file}:{line} [{block.rule}]"
+        where = block.where_at(block.body[: m.start()].count("\n"))
         if not name.endswith(SUFFIX["Plugin"]):
             yield fail(
                 f"BV-ARCH-10: `{name}` implements `Plugin` "
                 "and does not end in `Plugin`",
                 where,
+                PLUGIN_SUFFIX,
             )
         declared = re.search(
             rf"((?:#\[[^\]]*\]\s*)*)\bpub struct {re.escape(name)}\b", block.body
@@ -254,6 +141,7 @@ def _suffixes(block: Block) -> Iterator[Finding]:
                 yield fail(
                     f"BV-ARCH-09: plugin type `{name}` does not derive `{required}`",
                     where,
+                    PLUGIN_DERIVE,
                 )
 
     lines = block.lines
@@ -269,8 +157,195 @@ def _suffixes(block: Block) -> Iterator[Finding]:
             yield fail(
                 f"BV-ARCH-10: `{name.group(1)}` derives `SystemSet` "
                 "and does not end in `Systems`",
-                f"{block.file}:{block.at(i)} [{block.rule}]",
+                block.where_at(i),
+                SET_SUFFIX,
             )
 
 
-register(BevyStyle())
+PROFILE = Profile(
+    name="bevy-style",
+    prefix="BV",
+    languages=("rust",),
+    marked_languages=("toml", "bash", "yaml"),
+    tools=("rustc", "clippy", "rustdoc"),
+    language="Bevy",
+    verified_as=(
+        "compiles as written against Bevy {pin} on Rust {toolchain}, edition 2024"
+    ),
+    # rust-style's: a delta's `[M!]` is its anchor's (normalize-the-
+    # standards, decision 10), and SKILL.md says how a game reads it.
+    strict_scope="library and high-reliability",
+    delta=Delta(
+        anchor="rust-style",
+        step=(
+            "**Load `rust-style` as well** for anything that is a Rust question "
+            "rather than a Bevy question."
+        ),
+    ),
+    toolchain=CRATE,
+    # The engine, not the language: what the H1 names.
+    subject=BEVY.pin,
+    # Compared with rust-style for tier, as every standard is.
+    # Each snippet is the defect its rule forbids, written the way it
+    # turns up in real code. A fixture shaped to match proves the
+    # fixture, not the pattern.
+    fires=keyed(
+        {
+            "BV-EVENT-08": ("commands.trigger_targets(Damage(5), target);",),
+            "BV-ARCH-12": ("    fn is_unique(&self) -> bool {",),
+            "BV-ASSET-03": (
+                (
+                    "const LOGO: Handle<Image> = "
+                    'uuid_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");'
+                ),
+            ),
+            "BV-ASSET-10": (
+                'let level = std::fs::read_to_string("assets/levels/1.ron")?;',
+            ),
+            "BV-BUILD-01": ('bevy_ecs = "0.20"',),
+            "BV-BUILD-08": (
+                'bevy = { version = "=0.20.1", features = ["2d", "dynamic_linking"] }',
+            ),
+            "BV-BUILD-11": ("app.add_plugins(RenderDebugOverlayPlugin::default());",),
+            "BV-ECS-05": ("#[non_exhaustive]",),
+            "BV-ECS-06": (
+                "#[derive(Bundle, Default)]",
+                "fn enemy_bundle() -> impl Bundle {",
+            ),
+            "BV-EVENT-03": ("#[derive(Message, Event, Debug, Clone)]",),
+            "BV-EVENT-04": ("app.init_resource::<Messages<DamageDealt>>();",),
+            "BV-EVENT-05": ("for hit in hits.iter_current_update_messages() {",),
+            "BV-EVENT-09": ("let victim = trigger.target();",),
+            "BV-EVENT-11": ("impl SetEntityEventTarget for Died {",),
+            "BV-EVENT-18": (
+                "fn on_died(trigger: On<Died>, mut score: ResMut<Score>) {",
+            ),
+            "BV-SCHED-20": (
+                (
+                    "app.add_systems("
+                    "Update, (spawn_wave, ApplyDeferred, count_wave).chain());"
+                ),
+            ),
+            "BV-SCHED-22": ("schedule.set_executor(SingleThreadedExecutor::new());",),
+            "BV-STATE-10": ("pub struct Paused(pub bool);",),
+            "BV-STATE-16": ("fn force_menu(mut state: ResMut<State<Screen>>) {",),
+            "BV-TEST-05": ("std::thread::sleep(Duration::from_millis(20));",),
+            "BV-VIEW-15": (
+                "fn hide(mut views: Query<&mut ViewVisibility, With<Ghost>>) {",
+            ),
+            "BV-VIEW-16": (
+                "fn refit(mut boxes: Query<&mut Aabb>) {",
+                "commands.entity(ghost).remove::<Aabb>();",
+            ),
+            "BV-EVENT-13": (
+                "fn on_spawn(trigger: Trigger<OnAdd, Enemy>, mut commands: Commands) {",
+                "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
+                (
+                    "let observer = Observer::new("
+                    '|add: On<Add>| info!("{}", add.entity))'
+                    ".with_component(health);"
+                ),
+            ),
+            "BV-STATE-02": ("fn sweep(all: Query<Entity>, mut commands: Commands) {",),
+            "BV-STATE-17": ("next.as_mut().set_if_neq(Screen::Playing);",),
+            "BV-VIEW-06": (
+                (
+                    "fn style_buttons("
+                    "mut buttons: Query<(&Interaction, &mut BackgroundColor)>) {"
+                ),
+            ),
+            "BV-VIEW-04": (
+                "TextFont { font: FontSource::SansSerif, ..default() },",
+                "TextFont { font: FontSource::SystemUi, ..default() },",
+            ),
+            "BV-VIEW-18": ("#import bevy_pbr::forward_io::VertexOutput",),
+            "BV-ASSET-07": (
+                'let atlas = server.load_with_settings("atlas.png", srgb);',
+            ),
+            "BV-MIG-02": (
+                "commands.spawn((Mesh3d(mesh), MeshMaterial3d(material), MeshTag(7)));",
+                "Sprite { anchor: Anchor::Center, ..default() },",
+            ),
+        }
+    ),
+    # Each of these ships an `rg` pattern that no fixture in `fires`
+    # proves yet. Giving one a fixture means deleting it here, which
+    # `sensitivity` insists on, so the list only shrinks.
+    unproven=rules("BV-ARCH-09"),
+    # Measured, not judged: each of these was promoted to accuse and
+    # hit the standard's own compliant examples. The reason names what
+    # the span finds and what, outside the match, decides whether the
+    # hit is a defect — never how many examples it hit the day someone
+    # measured, which is a number `_render` already prints live two
+    # fields away and nothing re-measures.
+    not_decisive=keyed(
+        {
+            "BV-ECS-11": NotDecisive(
+                "Vec<Entity>",
+                "the span finds every `Vec<Entity>`; whether that link is a "
+                "relationship, or carries a written reason it cannot be one, decides",
+            ),
+            "BV-ECS-13": NotDecisive(
+                "Handle<",
+                "the span finds every handle; whether it sits bare inside a `spawn` "
+                "tuple rather than in a component of its own decides",
+            ),
+            "BV-MIG-03": NotDecisive(
+                ".clone()",
+                "the span finds every `.clone()`; whether the receiver is a `Ref<`, "
+                "where the call's meaning changed, decides — and the type is not on "
+                "the line",
+            ),
+            "BV-SCHED-09": NotDecisive(
+                "just_pressed",
+                "the span finds every input read; whether the system runs in "
+                "`FixedUpdate` rather than `Update` decides, and the schedule is not "
+                "on the line",
+            ),
+            "BV-SCHED-13": NotDecisive(
+                "configure_sets",
+                "the span finds every set configuration; whether that set is "
+                "configured more than once decides, which is a fact about the whole "
+                "file",
+            ),
+            "BV-SCHED-24": NotDecisive(
+                "run_if",
+                "the span finds every run condition; whether it gates on a `paused` "
+                "flag rather than on `Time<Virtual>` decides",
+            ),
+            "BV-STATE-04": NotDecisive(
+                "insert_resource",
+                "the span finds every `insert_resource`; whether it is inside a "
+                "`Startup` system, and whether the value depends on the world, decides",
+            ),
+            "BV-TEST-07": NotDecisive(
+                "entities().len()",
+                "the span finds every entity count; whether the assert is about a "
+                "total rather than about the component the test cares about decides",
+            ),
+            "BV-VIEW-04": NotDecisive(
+                "Text::new",
+                "the span finds every text spawn; whether the same tuple also carries "
+                "a font and a colour decides, which the matched line does not show",
+            ),
+        }
+    ),
+    # Bevy's own subsystems: every chapter but those its anchor's
+    # concepts give it a word for.
+    domain={
+        "architecture": "Bevy's plugins and the app they build",
+        "ecs": "Bevy's entity-component-system",
+        "scheduling": "Bevy's schedules and system ordering",
+        "events": "Bevy's messages, events and observers",
+        "state": "Bevy's resources and states",
+        "assets": "Bevy's asset server",
+        "view": "Bevy's UI and rendering",
+    },
+    # The eval suite's cases: two BAD examples to review, two spellings
+    # the target rejects (one-abstract-standard, decision 8).
+    evals=Evals(
+        review=listed("BV-ECS-02", "BV-ARCH-01"),
+        migrate=("remove_children", "DefaultErrorHandler"),
+    ),
+    structural=(component_shape, suffixes),
+)

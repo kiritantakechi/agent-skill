@@ -1,17 +1,11 @@
 ---
 name: python-style
 description: >-
-  The modern Python 3.15 engineering standard — a 262-rule library merging the normative Python
-  specifications (PEP 8, PEP 257, PEP 20, and the Python Typing Spec), the empirical conventions of
-  the CPython standard library, and Ruff's rule catalogue as its house standard. Covers naming,
-  types and annotations, data modelling, errors and control flow, free threading and what the GIL
-  stopped guaranteeing, asyncio, output and logging, performance, the public API, documentation,
-  testing, the build, and the 3.14–3.15 migration tables. Use this whenever writing, reviewing,
-  refactoring, scaffolding, or debugging ANY Python — a package, one function, a pyproject.toml, a
-  dataclass, a thread pool, a test — even if the user never mentions "style", "standards", or
-  "quality". Also use when asked to make Python "idiomatic", "modern", "clean", or
-  "production-grade", when auditing a Python codebase, when the current spelling of a
-  standard-library symbol is uncertain, and when moving code to the free-threaded build.
+  Use when writing, reviewing, refactoring, scaffolding or debugging any Python, moving it to the
+  free-threaded build, or checking whether a standard-library spelling is still current, even when
+  no one asks for "style", "idiomatic" or "modern" code. Applies to a package, a module, a script, a
+  test suite, a dataclass, a thread pool, `pyproject.toml`, `ruff.toml`, `ty.toml` and a CI
+  workflow. Targets Python 3.15.
 ---
 
 # Python Style — 3.15
@@ -22,7 +16,7 @@ which now redirect to them), the **empirical conventions of the CPython 3.15 sta
 **Ruff's rule catalogue** as the house standard. Where they disagree, this standard picks a side and
 says why.
 
-**Target: CPython 3.15, free-threaded.** Nothing below 3.14t is supported and no compatibility shim
+**Target: CPython 3.15, free-threaded.** Nothing below 3.15 is supported and no compatibility shim
 is described. Section 2 is the highest-value part of this skill: most of what 3.14 and 3.15 changed
 produces silently different behaviour rather than an error, so nothing catches it for you.
 
@@ -36,22 +30,22 @@ produces silently different behaviour rather than an error, so nothing catches i
    Load a second chapter only when the task genuinely spans two; never load all of them.
 4. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `PS-ERR-03`, `PS-TEST-05`. The prefix identifies the owning chapter (section
-6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
-rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
-the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+Rules are cited by ID: `PS-`, then the family of the chapter that owns the rule, then its number.
+Section 6 maps each family to its chapter, so cite the ID when justifying a change and the reader
+can find the full rule and its rationale. When two rules appear to conflict, sections 1 and 3 govern
+how to break the tie.
 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
-the tool enforces them, so they carry no Why and no Check. When rules are renumbered,
-`references/migration.md` maps every old ID to its new one.
+the tool enforces them, so they carry no Why and no Check. When rules are renumbered, the migration
+chapter names the file that maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `# verified` — the block runs as written on
-free-threaded CPython 3.15.1, and any test it ships passes. `# fragment` — shown in context rather
-than run as a unit, usually because it uses names the chapter declares around it. `# rejected —
-<tool>: …` — the rejection is the point, and the marker names the tool that rejects it: `python`,
-`ty`, `ruff`. A trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A
-block in another language carries its marker in that language's comment syntax.
+free-threaded CPython 3.15.2, and any test it ships passes. `# fragment` — shown in context rather
+than run as a unit, usually because it uses names the chapter declares around it.
+`# rejected — <tool>: …` — the rejection is the point, and the marker names the tool that rejects
+it: `python`, `ty`, `ruff`. A trailing `— GOOD` or `— BAD` names which side of the rule the block
+illustrates. A block in another language carries its marker in that language's comment syntax.
 
 ## 1. Tiers
 
@@ -75,53 +69,91 @@ proceed with the stricter reading.
 
 ## 2. Python 3.15 reality check
 
-Most Python on the public internet predates these. The entries that **run either way** are the
-dangerous ones, because nothing catches them for you.
+### 2.1 Compiles, and behaves differently
 
-### 2.1 The changes that produce a wrong answer rather than an error
+| Old | Python 3.15 | Rule |
+|---|---|---|
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-20 |
+| `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | PS-TYPE-17 |
+| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-12 |
+| `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | PS-OUT-03 |
+| `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | PS-OUT-02 |
+| `sys.getfilesystemencoding` | `'utf-8'` under UTF-8 mode, so argv, environment variables and filenames decode as UTF-8 whatever the locale | PS-OUT-02 |
+| `sys.stdout` | writes with the `surrogateescape` error handler under UTF-8 mode, as `sys.stdin` reads, where an unencodable character raised | PS-OUT-02 |
 
-| Change | What silently differs |
-|---|---|
-| `contextlib` decorators on a generator | The context now stays open across the whole generator; it used to close when the generator object was created. Every lock, transaction, `chdir` and `contextvars` token held that way changed duration (PS-CONC-22). |
-| PEP 686 UTF-8 mode on by default | Moves six surfaces at once: `open()`, the filesystem encoding, `os.fsencode`, `locale.getpreferredencoding()` (now a constant), and `sys.stdin`/`stdout` — which gain `surrogateescape`, turning what used to raise into silent mojibake (PS-OUT-02). |
-| `frozendict` is not a `dict` subclass | It inherits from `object`, so `isinstance(x, dict)` is now False for it. The stdlib was updated; third-party code was not. Test `collections.abc.Mapping` (PS-DATA-13). |
-| `functools.singledispatchmethod` | Dispatches on the second argument when wrapping a regular method called as a class attribute, so a different registered implementation can be selected. |
-| The GIL is gone in `3.15t` | Every read-modify-write on shared state that "worked" now loses updates. See section 2.2. |
+A `changed` row of an earlier release is in the migration table, `PS-MIG` in section 6, with its
+Since; its owning rule's Check finds it.
 
-### 2.2 Free threading changes a reason, not a list
+### 2.2 No longer compiles
 
-Cite the *Thread Safety Guarantees* page, not the FAQ's reason that each bytecode instruction is
-atomic: that reason was the GIL, under which the never-atomic `obj.n += 1` shipped for years, and on
-`3.15t` eight threads running it lose about three quarters of their updates
-(`references/concurrency.md` PS-CONC-05).
+| Old | Python 3.15 | Rule |
+|---|---|---|
+| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | PS-MIG-04 |
+| `ctypes.SetPointerType` | nothing; it was undocumented | PS-MIG-04 |
+| `glob.glob0` | `glob.glob()` with `root_dir=` | PS-MIG-04 |
+| `glob.glob1` | `glob.glob()` with `root_dir=` | PS-MIG-04 |
+| `http.server.CGIHTTPRequestHandler` | nothing | PS-MIG-04 |
+| `python -m http.server --cgi` | nothing | PS-MIG-04 |
+| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | PS-MIG-04 |
+| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | PS-MIG-04 |
+| `platform.java_ver` | nothing | PS-MIG-04 |
+| `sre_compile` | `re` | PS-MIG-04 |
+| `sre_constants` | `re` | PS-MIG-04 |
+| `sre_parse` | `re` | PS-MIG-04 |
+| `types.CodeType.co_lnotab` | `co_lines()` | PS-MIG-04 |
+| `typing.no_type_check_decorator` | nothing | PS-TYPE-11 |
+| `wave.Wave_read.getmark` | nothing | PS-MIG-04 |
+| `wave.Wave_read.getmarkers` | nothing | PS-MIG-04 |
+| `wave.Wave_write.getmark` | nothing | PS-MIG-04 |
+| `wave.Wave_write.getmarkers` | nothing | PS-MIG-04 |
+| `wave.Wave_write.setmark` | nothing | PS-MIG-04 |
+| `zipimport.zipimporter.load_module` | `exec_module()` | PS-MIG-04 |
+| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | PS-MIG-04 |
+| `PySys_ResetWarnOptions` | nothing | PS-MIG-04 |
+| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | PS-MIG-04 |
+| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | PS-MIG-04 |
+| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | PS-MIG-04 |
+| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | PS-MIG-04 |
+| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | PS-MIG-04 |
+| `PyWeakref_GetObject` | `PyWeakref_GetRef` | PS-MIG-04 |
+| `Py_GetExecPrefix` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetPath` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetPrefix` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetProgramFullPath` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetProgramName` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetPythonHome` | `PyConfig_Get()` | PS-MIG-04 |
+| `ast.<Node>(…)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | PS-MIG-05 |
+| `datetime.strptime(…, "%d/%m")` | raises `ValueError` for a day with no year; give the format a year directive | PS-MIG-05 |
+| `importlib.resources.files(package=…)` | raises `TypeError`; pass the package positionally | PS-MIG-05 |
+| `sysconfig.is_python_build(check_home=…)` | raises `TypeError`; call it with no argument | PS-MIG-05 |
+| `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | PS-MIG-05 |
+| `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | PS-MIG-05 |
+| `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | PS-MIG-05 |
 
-### 2.3 Spellings that are now wrong
+A `gone` row of an earlier release is in the migration table, `PS-MIG` in section 6, with its Since;
+the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
+shape, whatever its release, and the type checker every `gone` member the code reaches through a
+value.
 
-| Stale | Current |
-|---|---|
-| `from __future__ import annotations` | Nothing. PEP 563 is Superseded; the import now silently degrades `annotationlib` VALUE and FORWARDREF to bare strings |
-| `typing.List`, `Optional[X]`, `Union[A, B]` | `list`, `X \| None`, `A \| B` |
-| `T = TypeVar("T")` plus `Generic[T]` | `class Box[T]:` and `def f[T](x: T) -> T:` |
-| `Alias: TypeAlias = int \| str` | `type Alias = int \| str` |
-| `TypeGuard` | `TypeIs`, unless the narrowed type is not assignable to the input |
-| a hand-rolled `_MISSING = object()` | `sentinel("MISSING")` |
-| `types.MappingProxyType` for an immutable mapping | `frozendict` |
-| moving an import into a function for startup time | `lazy import x` at module scope |
-| `sum(lists, [])` | `[*sub for sub in lists]`, which ruff `RUF017` offers as an unsafe fix |
+### 2.3 What Python 3.15 gained
 
-### 2.4 What the type system gained
-
-| Addition | What it is for |
-|---|---|
-| `TypeForm[T]` (PEP 747) | A parameter that receives a *type expression* — `int \| None`, `list[int]` — which `type[T]` rejects and `object` erases |
-| `TypedDict(closed=True)`, `extra_items=` (PEP 728) | Saying a wire format forbids unknown keys, so a producer's typo is caught rather than silently dropped |
-| `@disjoint_base` (PEP 800) | Declaring two bases cannot be combined, so an impossible class is a type error |
-| `sentinel()` (PEP 661) | A missing-value marker the type system can name, narrowed by `is`, instead of an `object()` the checker sees as `Any` |
-| `frozendict` (PEP 814) | An immutable mapping, in place of `MappingProxyType`, with section 2.1's `isinstance` trap |
-
-Two of these — `extra_items` and `sentinel` in a type expression — are specified but not yet
-implemented by every checker. Specified is the bar this standard uses, so it uses them; see
-`references/types.md` PS-TYPE-02 for where that boundary is drawn.
+- `frozendict` (PEP 814), an immutable mapping, in place of `types.MappingProxyType`, which was only
+  a view (PS-DATA-12).
+- `sentinel()` (PEP 661), a missing-value marker the type system can name, in place of `object()`
+  (PS-TYPE-20).
+- `TypeForm[T]` (PEP 747), for a parameter that receives a type expression, which `type[T]` rejects
+  (PS-TYPE-18).
+- `TypedDict(closed=True)` and `extra_items=` (PEP 728), for a wire format that forbids or
+  constrains unknown keys; specified, which is the bar this standard uses (PS-TYPE-19, PS-TYPE-02).
+- `@disjoint_base` (PEP 800), declaring that two bases cannot be combined (PS-TYPE-15).
+- `lazy import` (PEP 810), in place of an import moved into a function for startup time (PS-MOD-08).
+- Unpacking in a comprehension (PEP 798), `[*sub for sub in lists]`, in place of `sum(lists, [])`
+  (PS-PERF-06).
+- `threading.serialize_iterator`, `concurrent_tee` and `synchronized_iterator`, for an iterator
+  threads share (PS-CONC-13, PS-CONC-14, PS-CONC-15).
+- The `profiling` package (PEP 799): `profiling.tracing` and `profiling.sampling` (PS-PERF-02).
+- `TaskGroup.cancel()`, which ends a group without an exception (PS-ASYNC-02).
+- `sys.abi_info.free_threaded`, which says how the interpreter was built (PS-CONC-01).
 
 ## 3. Design principles
 
@@ -158,98 +190,53 @@ name it costs.
 
 ## 4. Core rules
 
-These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying the full statement.
-
-### Names and shape
-
-- **PS-CORE-01 `[M]`** Apply PEP 8's casing mechanically, and let `ruff format` settle everything it
-  can. Formatting is a command, not a matter of individual discipline.
-  (`references/naming.md` PS-NAME-01, PS-NAME-13).
-- **PS-CORE-02 `[M]`** Put units and qualifiers last — `latency_ms_max`, not `max_latency_ms` — so
-  alphabetical order becomes a semantic grouping and a missing member of a family is visible.
-  (`references/naming.md` PS-NAME-05).
-- **PS-CORE-03 `[M]`** Reject at the top with a guard, then proceed unindented. The body should
-  describe only the case that survived. (`references/errors.md` PS-ERR-16).
-- **PS-CORE-04 `[M]`** Say why, not what. Code records what it does; a comment exists for the
-  reasoning, the alternative rejected, and the constraint that is not visible locally.
-  (`references/naming.md` PS-NAME-16).
-
-### Types
-
-- **PS-CORE-05 `[M]`** Run `ty` at the pinned version with the shipped configuration. An annotation
-  nothing checks is a comment with syntax. (`references/types.md` PS-TYPE-01).
-- **PS-CORE-06 `[M]`** Never write `from __future__ import annotations`. PEP 563 is Superseded, and
-  the import silently degrades `annotationlib` to bare strings. (`references/types.md` PS-TYPE-04).
-- **PS-CORE-07 `[M]`** Write `X | None`, `list[int]`, `class Box[T]`, `type Alias = ...`. The
-  `typing` aliases, `Optional`, and module-level `TypeVar` are all superseded spellings.
-  (`references/types.md` PS-TYPE-07, PS-TYPE-08, PS-TYPE-09, PS-TYPE-10).
-- **PS-CORE-08 `[M]`** Use `object` for "anything" and `Any` only with a comment naming what cannot
-  be expressed. They look alike and are opposites. (`references/types.md` PS-TYPE-13).
-- **PS-CORE-09 `[M]`** Narrow with `TypeIs`, not `TypeGuard`: `TypeGuard` leaves the `else` branch
-  un-narrowed, which is not what anyone expects. (`references/types.md` PS-TYPE-14).
-
-### Data
-
-- **PS-CORE-10 `[M]`** Model a record as `@dataclass(frozen=True, slots=True)` by default, and reach
-  for a mutable one only when you can say what it buys.
-  (`references/data.md` PS-DATA-01, PS-DATA-02).
-- **PS-CORE-11 `[M]`** Never give a mutable or computed default. The default is evaluated once and
-  shared by every caller — and, under free threading, by every thread.
-  (`references/data.md` PS-DATA-08, PS-DATA-09).
-- **PS-CORE-12 `[M!]`** Make the invalid state unrepresentable before validating against it. A type
-  is a check performed everywhere for free; validation is one that can be forgotten at any call
-  site. *Relaxed form:* application code at a boundary may validate a primitive, provided it does so
-  exactly once. (`references/data.md` PS-DATA-15).
-
-### Errors
-
-- **PS-CORE-13 `[M]`** Never swallow an exception and never catch what you cannot handle. Converting
-  a loud failure into a quiet wrong answer is the most expensive thing in this standard.
-  (`references/errors.md` PS-ERR-08, PS-ERR-09).
-- **PS-CORE-14 `[M]`** Never `return`, `break` or `continue` inside `finally` — it discards the
-  in-flight exception silently. PEP 765 makes it a `SyntaxWarning`.
-  (`references/errors.md` PS-ERR-13).
-- **PS-CORE-15 `[M]`** Never use `assert` to validate input: `python -O` removes it, so the
-  validation disappears in exactly the deployment that needed it.
-  (`references/errors.md` PS-ERR-07).
-- **PS-CORE-16 `[M]`** Catch an `ExceptionGroup` with `except*`. A plain `except ValueError` never
-  matches one, so the handler you wrote is silently never entered.
-  (`references/errors.md` PS-ERR-11).
-
-### Concurrency
-
-- **PS-CORE-17 `[M]`** No compound assignment on state two threads can reach. `counter += 1` is a
-  read, a computation and a write. (`references/concurrency.md` PS-CONC-02).
-- **PS-CORE-18 `[M]`** No check-then-act on shared state. Both halves being individually atomic does
-  not make the pair one step. (`references/concurrency.md` PS-CONC-03).
-- **PS-CORE-19 `[M]`** Never share one iterator or generator across threads. A generator raises;
-  any other iterator may silently duplicate or drop elements.
-  (`references/concurrency.md` PS-CONC-12).
-- **PS-CORE-20 `[M]`** A cache is coherent, not single-flight — `lru_cache` and `cached_property`
-  both run the body more than once under contention.
-  (`references/concurrency.md` PS-CONC-15, PS-CONC-16).
-- **PS-CORE-21 `[M]`** Never share a `TextIOWrapper` across threads, `print` and the standard
-  streams included. (`references/concurrency.md` PS-CONC-20).
-- **PS-CORE-22 `[M]`** Start every task inside a `TaskGroup`, give every wait a timeout, and never
-  swallow `CancelledError`. (`references/async.md` PS-ASYNC-03, PS-ASYNC-05, PS-ASYNC-08).
-
-### Boundaries
-
-- **PS-CORE-23 `[M]`** Annotate every parameter and return of a public function, and re-export
-  explicitly — the typing spec makes imported symbols private by default, so a bare import in
-  `__init__.py` is not public. (`references/api.md` PS-API-02, PS-API-06).
-- **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default, and
-  it moved six surfaces rather than one. (`references/output.md` PS-OUT-01, PS-OUT-02).
-- **PS-CORE-25 `[M]`** Log with `%`-style arguments, never an f-string, and never configure logging
-  in a library. (`references/output.md` PS-OUT-11, PS-OUT-13).
-
-### Knowing which interpreter you are on
-
-- **PS-CORE-26 `[M]`** Ask `sys.abi_info.free_threaded` how the interpreter was built and
-  `sys._is_gil_enabled()` what it is doing right now. One dependency can turn the second answer
-  around at import time, and neither a `cp3XXt` wheel tag nor the `abi3t` stable ABI declares that
-  it will not.
-  (`references/concurrency.md` PS-CONC-01, `references/build.md` PS-BUILD-19).
+- **Naming: Casing, Words, Formatting, and Symmetry**
+  - PS-NAME-01 [M] Apply PEP 8's casing rules mechanically
+  - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
+- **Types: Annotations, Generics, Narrowing, and the Checker**
+  - PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
+  - PS-TYPE-04 [M] Never write `from __future__ import annotations`
+  - PS-TYPE-07 [M] Write unions with `|`, and put `None` last
+  - PS-TYPE-08 [M] Declare type parameters with PEP 695 syntax
+  - PS-TYPE-09 [M] Declare an alias with the `type` statement
+  - PS-TYPE-12 [M] Use `object` for "anything", and `Any` only with a reason
+  - PS-TYPE-13 [M] Narrow with `TypeIs`, not `TypeGuard`
+- **Data: Dataclasses, Enums, and Immutability**
+  - PS-DATA-01 [M] Model a record as a frozen dataclass by default
+  - PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
+  - PS-DATA-07 [M] Never give a mutable default
+  - PS-DATA-08 [M] Never compute a default at import time
+  - PS-DATA-14 [M] Make the invalid state unrepresentable before validating against it
+- **Errors and Control Flow: Exceptions, Guards, and the Shape of a Function**
+  - PS-ERR-07 [M] Never use `assert` to validate input
+  - PS-ERR-08 [M] Never catch what you cannot handle
+  - PS-ERR-09 [M] Never swallow an exception silently
+  - PS-ERR-11 [M] Use `except*` for a group, and never mix it with `except`
+  - PS-ERR-13 [M] Never `return`, `break` or `continue` inside `finally`
+  - PS-ERR-16 [M] Reject at the top with a guard, then proceed unindented
+- **Concurrency: Threads, Tasks, Shared State, Cancellation, Iterators, Caches, and Context**
+  - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
+  - PS-CONC-02 [M] Never treat a compound assignment as one step
+  - PS-CONC-03 [M] Never treat check-then-act as one step
+  - PS-CONC-13 [M] Serialise a shared iterator with `threading.serialize_iterator`
+  - PS-CONC-16 [M] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-CONC-24 [M] Start every task inside a `TaskGroup`
+  - PS-CONC-25 [M] Never swallow `CancelledError`
+  - PS-CONC-28 [M] Give every wait a timeout, with `asyncio.timeout`
+- **Output: Encoding, Interpolation, Logging, and Program Output**
+  - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
+  - PS-OUT-02 [M] Never assume UTF-8 mode moved only `open`
+  - PS-OUT-10 [M] Log with `%`-style arguments, never with an f-string
+  - PS-OUT-11 [M] Get a library's logger by `__name__`, and configure nothing in it
+  - PS-OUT-14 [M] Write each record to a shared text stream in one call, never with `print`
+- **API: The Public Surface, Signatures, and Evolution**
+  - PS-API-02 [M] Re-export through `__all__`, never by a bare import
+  - PS-API-07 [M] Annotate every parameter and every return of a public function
+- **Documentation: Docstrings, Comments in Public Places, and What Ships**
+  - PS-DOC-13 [M] Say why, not what
+- **Build: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
+  - PS-BUILD-19 [M] Run `ruff format`; it is not a suggestion
+  - PS-BUILD-21 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 ## 5. Review checklist
 
@@ -277,24 +264,25 @@ protocol — severity model, mechanical pass, output format — in `references/r
 ## 6. Reference map
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
-listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 26
-`PS-CORE-*` rules live in section 4 above; the other 236 live here.
+listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
+262 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `PS-NAME` (21) | Casing and word choice, module and package names, import grouping, what `ruff format` settles, comment discipline, and the symmetry of names |
-| `references/types.md` | `PS-TYPE` (20) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
-| `references/data.md` | `PS-DATA` (18) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
-| `references/errors.md` | `PS-ERR` (20) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
-| `references/concurrency.md` | `PS-CONC` (23) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times |
-| `references/async.md` | `PS-ASYNC` (18) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |
-| `references/output.md` | `PS-OUT` (18) | Encoding after PEP 686, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
-| `references/performance.md` | `PS-PERF` (17) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
-| `references/api.md` | `PS-API` (18) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, module shape, and evolving without breaking |
-| `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
-| `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
-| `references/build.md` | `PS-BUILD` (21) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
-| `references/migration.md` | `PS-MIG` (9) | The four tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
+| `references/naming.md` | `PS-NAME` (13) | Casing and word choice, what `ruff format` settles, and the symmetry of names |
+| `references/types.md` | `PS-TYPE` (24) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, what 3.15 adds, and interfaces and generics |
+| `references/data.md` | `PS-DATA` (16) | Choosing between dataclass, enum and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
+| `references/errors.md` | `PS-ERR` (21) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
+| `references/concurrency.md` | `PS-CONC` (30) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, hold times, starting and owning tasks, cancellation and timeouts, and not blocking the loop |
+| `references/async.md` | `PS-ASYNC` (8) | What only `asyncio` has: the policy API, ending a `TaskGroup` early, the thread boundary of a loop, and async resources and iterators |
+| `references/output.md` | `PS-OUT` (24) | Encoding and UTF-8 mode, interpolation and template strings, logging discipline, stdout against stderr, what a library may not do, colour, how a failure is reported and the exit status, and how a type renders |
+| `references/performance.md` | `PS-PERF` (20) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
+| `references/api.md` | `PS-API` (19) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, the pairs and siblings a surface keeps alike, and evolving without breaking |
+| `references/modules.md` | `PS-MOD` (14) | What a module boundary costs, module and package names, layout under `src/`, what a module does when imported, `lazy import`, the import graph, and the order of a module and a class |
+| `references/documentation.md` | `PS-DOC` (14) | Docstring shape and content, choosing a convention and what that choice disables, doctests, the comments that explain the code, and the documents outside it |
+| `references/testing.md` | `PS-TEST` (27) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
+| `references/build.md` | `PS-BUILD` (23) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
+| `references/migration.md` | `PS-MIG` (9) | Every old spelling 3.14 and 3.15 removed, changed, aliased or deprecated, with its status and owning rule; the command the table generates; what to write now for 3.16; and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 
 ## 7. Bundled assets
@@ -305,7 +293,7 @@ asset and the rule cannot drift apart.
 
 | File | Contents |
 |---|---|
-| `assets/ruff.toml` | The lint configuration: `py315` with stable rules only, the fifteen formatter-conflicting rules disabled, `convention = "google"` so `D417` survives, and the `flake8-type-checking` exemptions that keep PEP 649 annotations resolvable at runtime |
+| `assets/ruff.toml` | The lint configuration: `py315` with stable rules only, every rule on ruff's formatter-conflict list disabled, `convention = "google"` so `D417` survives, and the `flake8-type-checking` exemptions that keep PEP 649 annotations resolvable at runtime |
 | `assets/ty.toml` | The type-checker configuration: every ignore-by-default rule named one at a time rather than promoted wholesale — enabled, or left off with the reason — the strict analysis options, and `concise` output |
 | `assets/pyproject.toml` | Project metadata: PEP 639 SPDX license, PEP 735 dependency groups with every tool pinned exactly, PEP 753 URL labels, and pytest 9's native `[tool.pytest]` table |
 | `assets/ci.yml` | The workflow: pinned `uv`, the free-threaded interpreter installed as its own build, lint and type gates, and the assertion that the GIL is genuinely off at runtime |

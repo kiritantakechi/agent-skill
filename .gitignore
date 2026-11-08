@@ -5,6 +5,6 @@ __pycache__/
 .ruff_cache/
 dist/
 .cache/
-uv.lock
 .zig-cache/
 zig-out/
+plugins/style-standards/evals/results/

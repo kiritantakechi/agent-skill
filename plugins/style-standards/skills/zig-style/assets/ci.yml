@@ -1,12 +1,12 @@
-# CI gate for a Zig 0.17 project. Referenced by ZS-BUILD-29, ZS-BUILD-31, ZS-BUILD-32.
+# CI gate for a Zig 0.17 project. Referenced by ZS-BUILD-23, ZS-BUILD-25, ZS-BUILD-26.
 #
-# The five requirements ZS-BUILD-32 imposes:
+# The five requirements ZS-BUILD-26 imposes:
 #   1. Pin the exact Zig version. Never `latest`, never `master`, never a range.
 #   2. Gate on `zig fmt --check --ast-check`, excluding `zig-pkg` and `.zig-cache`.
 #   3. Run the suite in the `debug` and `safe` modes, with `--summary all` so a cached no-op
 #      is distinguishable from a real pass.
 #   4. Cross-compile matrix: build AND `zig build test` each supported triple. The test binaries
-#      compile and the runs report `skipped` — that is the point (ZS-BUILD-31).
+#      compile and the runs report `skipped` — that is the point (ZS-BUILD-25).
 #   5. The cache key must name every matrix axis, or the legs evict each other.
 
 name: ci
@@ -19,8 +19,8 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: mlugg/setup-zig@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
         with: { version: 0.17.0 }         # pinned exactly — never `latest`
       - run: zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
 
@@ -32,8 +32,8 @@ jobs:
         optimize: [debug, safe]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: mlugg/setup-zig@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
         with:
           version: 0.17.0
           # The cache key names every matrix axis this job declares.
@@ -54,8 +54,8 @@ jobs:
           - x86_64-windows
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: mlugg/setup-zig@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
         with:
           version: 0.17.0
           cache-key: cross-${{ matrix.target }}

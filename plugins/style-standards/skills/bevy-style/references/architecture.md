@@ -1,9 +1,9 @@
 # Architecture: The Boundary, Plugins, Crate Shape
 
-Scope: where Bevy is allowed to appear in a codebase and where it is not, how the simulation is
-kept separable from the engine that drives it, and the shape of a plugin. Everything about *what*
-goes in a component is in the ECS chapter; *when* a system runs is in the scheduling chapter; the
-manifest that expresses a crate split is in the build chapter.
+Scope: where Bevy is allowed to appear in a codebase and where it is not, how the simulation is kept
+separable from the engine that drives it, and the shape of a plugin. Everything about *what* goes in
+a component is in the ECS chapter; *when* a system runs is in the scheduling chapter; the manifest
+that expresses a crate split is in the build chapter.
 
 This chapter is the reason the standard exists. Bevy's API turns over faster than any other
 dependency a game has — three consecutive releases renamed the event system, the scene system and
@@ -31,9 +31,9 @@ the game do not mention the engine.
   - BV-ARCH-14 [S] Give each plugin one module, and re-export it from the crate root
 
 - **The app**
-  - BV-ARCH-15 [M] Keep `main` to plugins and nothing else
+  - BV-ARCH-15 [M] Keep `main` to plugins and the two error policies
   - BV-ARCH-16 [M] Return `AppExit` from `main`
-  - BV-ARCH-17 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
+  - BV-ARCH-17 [M] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
 ---
 
@@ -41,18 +41,18 @@ the game do not mention the engine.
 
 ### BV-ARCH-01 [M] Keep the rules of the game out of the engine's vocabulary
 
-Damage numbers, economy, pathfinding, turn order, save format — the code that decides *what
-happens* takes and returns plain Rust data. `Query`, `Commands`, `Res`, `Entity`, `Component` and
-every other Bevy name belong to the code that decides *when* it happens.
+Damage numbers, economy, pathfinding, turn order, save format — the code that decides *what happens*
+takes and returns plain Rust data. `Query`, `Commands`, `Res`, `Entity`, `Component` and every other
+Bevy name belong to the code that decides *when* it happens.
 
 **Why:** an engine upgrade rewrites signatures, not arithmetic: 0.20's `On<Add<T>>` and
 `PointerClick` touched every file that named the old spellings and no file that did not. The same
 separation is what lets the rules be unit-tested in microseconds without a `World`.
 
 **Check:** for each function, ask what it would take to call it from a test with no `App`. If the
-answer involves building a `World`, and the function computes a game outcome rather than moving
-data between the ECS and something else, it is on the wrong side. Then count the tests that build
-an `App`: if most of them do, the logic is in the systems.
+answer involves building a `World`, and the function computes a game outcome rather than moving data
+between the ECS and something else, it is on the wrong side. Then count the tests that build an
+`App`: if most of them do, the logic is in the systems.
 
 ```rust
 // verified — GOOD: the rule is a function of values, so a test needs no World
@@ -156,34 +156,34 @@ fn absorb(mut hits: MessageReader<Hit>, mut targets: Query<(&mut Health, &mut Sh
 ### BV-ARCH-02 [M] Scale the boundary's mechanism to the project; never the rule
 
 The separation is mandatory at every size. How it is enforced is not: a single-binary game draws it
-between modules, a workspace draws it between crates, and only the crate form can be enforced by
-the compiler.
+between modules, a workspace draws it between crates, and only the crate form can be enforced by the
+compiler.
 
 **Why:** a rule demanding a seven-crate workspace of a game jam prototype is ignored wholesale, and
-one satisfied by good intentions erodes one `use bevy::prelude::*` at a time. A constant
-requirement with a proportional mechanism survives both.
+one satisfied by good intentions erodes one `use bevy::prelude::*` at a time. A constant requirement
+with a proportional mechanism survives both.
 
 **Check:** name the mechanism in the repository's own words — a module list, a crate list, a lint.
 If nobody can say which files are forbidden to name Bevy, the boundary does not exist yet.
 
 | Project shape | Where the line goes | What holds it |
 |---|---|---|
-| One binary | `src/sim/` vs `src/game/` | a CI grep over `src/sim/` |
+| One binary | `src/sim/` vs `src/game/` | a CI step over `src/sim/` (BV-ARCH-07) |
 | One library plus a binary | the library is the domain | the binary's dependency list |
 | Workspace | domain crates vs one view crate | the domain crates' manifests |
 
 ### BV-ARCH-03 [M] Give the boundary exactly one crossing point per direction
 
-Data enters the domain through one function that reads the ECS and builds domain values, and
-leaves through one function that writes domain results back into components. Neither direction
-gets a second implementation elsewhere.
+Data enters the domain through one function that reads the ECS and builds domain values, and leaves
+through one function that writes domain results back into components. Neither direction gets a
+second implementation elsewhere.
 
-**Why:** two translation sites drift, and the drift is silent — one converts a `Transform` to
-metres and the other forgets, so the simulation is correct and the picture is wrong. One crossing
-point also gives the conversion a name and therefore a place to be tested.
+**Why:** two translation sites drift, and the drift is silent — one converts a `Transform` to metres
+and the other forgets, so the simulation is correct and the picture is wrong. One crossing point
+also gives the conversion a name and therefore a place to be tested.
 
-**Check:** grep the view layer for constructions of domain types. More than one site building the
-same domain type from components means the translation has been copied.
+**Check:** read the view layer for constructions of each domain type. More than one site building
+the same domain type from components means the translation has been copied.
 
 ```rust
 // verified
@@ -446,11 +446,11 @@ mod tests {
 ### BV-ARCH-05 [S] Share `glam` across the boundary unless determinism forbids it
 
 `Vec2`, `Vec3`, `Quat` and `Mat4` come from `glam`, which is an ordinary crate that Bevy happens to
-re-export. Domain code may name them directly, and should, so a position does not have to be
-rebuilt at every crossing. Name the `glam` Bevy uses — 0.33 under Bevy 0.20 — and move it with
-every engine bump: a `Vec2` from another `glam` is a different type at the crossing point, with the
-error BV-BUILD-05 describes. A game that ships replays or lockstep multiplayer takes its own
-numeric types instead, and says so where the dependency is declared.
+re-export. Domain code may name them directly, and should, so a position does not have to be rebuilt
+at every crossing. Name the `glam` Bevy uses — 0.33 under Bevy 0.20 — and move it with every engine
+bump: a `Vec2` from another `glam` is a different type at the crossing point, with the error
+BV-BUILD-05 describes. A game that ships replays or lockstep multiplayer takes its own numeric types
+instead, and says so where the dependency is declared.
 
 **Why:** the boundary keeps the *engine* out, and `glam` has no `World`, no schedule and its own
 release cadence; a duplicate vector type costs a conversion on every field of every message. The
@@ -476,7 +476,8 @@ violation.
 
 ### BV-ARCH-07 [M] Make the boundary a job, not a paragraph
 
-The rule that some directory may not mention Bevy is executable in one line. Write it as a CI step.
+The rule that some directory may not mention Bevy is executable in one line. Write it as a step of
+the CI RS-BUILD-26 requires of every crate.
 
 **Why:** an architectural boundary written only in a README is re-crossed by the first contributor
 who has not read it, and by every agent that has not been shown it. The failure is silent for as
@@ -523,9 +524,9 @@ off. A unit struct that later needs a setting gains a field; a function first ha
 
 **Check:** `rg -n 'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
 capital, so a lowercase name is a function, a module-qualified function, or a closure — all three of
-the forms that cannot be named. The *declaration* has no grep of its own, and deliberately:
+the forms that cannot be named. The *declaration* is read rather than matched, and deliberately:
 `fn f(app: &mut App)` is what a plugin function looks like and also what a test helper that drives
-an `App` looks like, so those are read rather than matched.
+an `App` looks like.
 
 ```rust
 // verified — GOOD: no settings, so the type is a unit struct
@@ -573,9 +574,9 @@ mod tests {
 
 ### BV-ARCH-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
 
-`CombatPlugin`, `MovementSystems`. This standard's general rule is that a name does not end in the
-language construct it is; these two types are the exception, and the exception is exactly these two
-traits.
+Departs from RS-NAME-28. A type implementing `Plugin` ends in `Plugin`, and one implementing
+`SystemSet` ends in `Systems` — `CombatPlugin`, `MovementSystems` — and no other type ends in either
+word.
 
 **Why:** `add_plugins` and `configure_sets` take anything convertible, so at the call site the name
 is the only thing telling a reader what kind of thing is added — and `add_systems(Update, X)` and
@@ -621,9 +622,9 @@ impl Plugin for CombatPlugin {
 
 Inside `build`, a plugin adds its own systems, resources, messages and observers, and nothing
 another module defines. A type's `init_resource`, `add_message` and `add_observer` go in the plugin
-of the module that defines it, never in a central `register_everything` that every feature edits.
-A reflected type registers itself through its derive; a generic instantiation, the one exception,
-is registered beside its definition too (BV-ECS-12).
+of the module that defines it, never in a central `register_everything` that every feature edits. A
+reflected type registers itself through its derive; a generic instantiation, the one exception, is
+registered beside its definition too (BV-ECS-12).
 
 **Why:** registration is where a reader learns what a feature is made of, and a plugin that
 registers a neighbour's things cannot be added without it. A central list lets a type be added and
@@ -737,8 +738,9 @@ neither.
 **Why:** the refusal is the good outcome — the alternative is a game that applies gravity twice per
 step with nothing saying so, which is exactly what overriding `is_unique` buys.
 
-**Check:** grep for `fn is_unique`. Each override needs the reason the plugin is meaningfully
-instantiable twice, plus a test that adds it twice and asserts the world is what it should be.
+**Check:** `rg -n 'fn is_unique' src/` finds each override; each needs the reason the plugin is
+meaningfully instantiable twice, plus a test that adds it twice and asserts the world is what it
+should be.
 
 ```rust
 // verified
@@ -790,8 +792,8 @@ same feature.
 
 ### BV-ARCH-14 [S] Give each plugin one module, and re-export it from the crate root
 
-`combat.rs` defines `CombatPlugin` and the components, systems and sets it registers. The crate
-root re-exports the type, so a call site writes `CombatPlugin` rather than `combat::CombatPlugin`.
+`combat.rs` defines `CombatPlugin` and the components, systems and sets it registers. The crate root
+re-exports the type, so a call site writes `CombatPlugin` rather than `combat::CombatPlugin`.
 
 **Why:** it makes the module tree and the plugin tree the same tree, so `add_plugins` reads as a
 table of contents for the source. A module with two plugins is two features that have not been
@@ -802,13 +804,13 @@ have exactly one, and is each plugin type named in the crate root's re-exports?
 
 ## The app
 
-### BV-ARCH-15 [M] Keep `main` to plugins and nothing else
+### BV-ARCH-15 [M] Keep `main` to plugins and the two error policies
 
 `main` builds the `App`, adds plugins, and runs it, from a `src/main.rs` whose plugins live in the
 library beside it. Systems, resources and configuration belong to the plugin that owns them. The
 exception is the two error policies, which are the application's to choose and no plugin's:
 `set_error_handler` (BV-ERR-05), and the `RenderErrorHandler` that must be in place before
-`DefaultPlugins` (BV-ERR-11).
+`DefaultPlugins` (BV-ERR-10).
 
 **Why:** `main` is the one file every reader opens first, and a `main` that adds forty systems tells
 them nothing about how the game is organised. A headless test, a benchmark and a second binary all
@@ -834,24 +836,22 @@ fn main() -> AppExit {
 
 `App::run` returns `AppExit`. Return it.
 
-**Why:** `AppExit::Error` sets the process exit code, which is what a launcher, a test harness, a
-CI job and a crash reporter read to find out whether the game ended or died. Discarding it makes
-every failure look like a clean shutdown to everything outside the process.
+**Why:** `AppExit::Error` sets the process exit code, which is what a launcher, a test harness, a CI
+job and a crash reporter read to find out whether the game ended or died. Discarding it makes every
+failure look like a clean shutdown to everything outside the process.
 
 **Check:** does `fn main` return `AppExit`, and is the value the one `run` returned? A `main` that
 returns a fabricated `AppExit` has the right signature and still discards the real one.
 
-### BV-ARCH-17 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
+### BV-ARCH-17 [M] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
-Window title, asset path, log filter and render settings are set with `.set(…)` on the plugin group
-at the point it is added.
-
-*Relaxed form:* a value that is genuinely only known at runtime — a window size read from a settings
-file — is inserted afterwards, and the code that does so sits next to the `add_plugins` call.
+Window title, asset path, log filter and render settings known when the plugin group is added are
+set with `.set(…)` on it, at that point. A value known only at run time — a window size read from a
+settings file — is written afterwards, by code beside the `add_plugins` call.
 
 **Why:** `.set()` replaces the configuration before the plugin builds; mutating the resource
 afterwards runs the original first. The window is created at the default size and visibly resized,
 and the asset watcher is already running against the wrong directory.
 
-**Check:** search for writes to `WindowPlugin`, `AssetPlugin` or `LogPlugin` state outside the
-`add_plugins` call. Each one either belongs in `.set()` or needs the reason it cannot be.
+**Check:** read for writes to `WindowPlugin`, `AssetPlugin` or `LogPlugin` state outside the
+`add_plugins` call. Each one either belongs in `.set()` or writes a value known only at run time.

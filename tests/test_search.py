@@ -13,6 +13,7 @@ import pytest
 from agent_skill.checks.corpus import Corpus, Unit
 from agent_skill.checks.patterns import Pattern
 from agent_skill.checks.search import Span, find, matches
+from agent_skill.ids import RuleId
 
 
 def corpus_at(tmp_path: Path, *bodies: str) -> Corpus:
@@ -23,8 +24,9 @@ def corpus_at(tmp_path: Path, *bodies: str) -> Corpus:
     for n, body in enumerate(bodies):
         lines = body.split("\n")
         built.starts.append(sum(len(b.split("\n")) for b in bodies[:n]))
+        rule = RuleId("XX", "Y", n)
         built.units.append(
-            Unit(f"ch{n}.md", f"XX-Y-{n:02d}", lines, lines, list(range(len(lines))))
+            Unit(f"ch{n}.md", rule, lines, lines, list(range(len(lines))))
         )
         (built.raw_dir / f"{n:04d}.txt").write_text(body + "\n")
         (built.code_dir / f"{n:04d}.txt").write_text(body + "\n")
@@ -102,7 +104,7 @@ def test_a_fixture_is_stripped_the_way_the_corpus_is() -> None:
     different inputs.
     """
     code_only = Pattern(r"let unused", "-E", "command")
-    assert code_only.over_comments is False
+    assert code_only.over_comments("rust") is False
     assert matches("let unused = total;", code_only, "rust") is True
     assert matches("// let unused = total;", code_only, "rust") is False, (
         "the fixture kept its comment, "
@@ -113,7 +115,7 @@ def test_a_fixture_is_stripped_the_way_the_corpus_is() -> None:
 def test_a_pattern_that_names_a_comment_keeps_its_fixture_whole() -> None:
     """The rule is agreement, not that either is always stripped."""
     over_comments = Pattern(r"^[ \t]*// (let |if |\})", "-E", "command")
-    assert over_comments.over_comments is True
+    assert over_comments.over_comments("rust") is True
     assert (
         matches("    // let unused = compute_total(&items);", over_comments, "rust")
         is True
@@ -128,3 +130,19 @@ def test_stripping_follows_the_language() -> None:
     after_slashes = Pattern(r"count", "-E", "command")
     assert matches("q = total // count", after_slashes, "python") is True
     assert matches("let q = total // count", after_slashes, "rust") is False
+
+
+def test_a_comment_is_the_language_s_own() -> None:
+    """A Python pattern over `# noqa` could never fire.
+
+    Whether a pattern meant the comment was asked as `"//" in text`
+    whatever the language, so `# noqa` was searched for in the code
+    with every comment stripped from it.
+    """
+    noqa = Pattern(r"# noqa: [A-Z]+[0-9]+$", "-E", "command")
+    assert noqa.over_comments("python") is True
+    assert noqa.over_comments("rust") is False
+    assert matches("x = f()  # noqa: S603", noqa, "python") is True
+    slashes = Pattern(r"// SAFETY:", "-F", "command")
+    assert slashes.over_comments("python") is False
+    assert slashes.over_comments("rust") is True

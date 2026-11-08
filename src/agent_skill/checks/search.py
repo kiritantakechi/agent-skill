@@ -9,10 +9,11 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from agent_skill.proc import have, run, tool_path, version_mismatch
+from agent_skill.harness import version_mismatch
+from agent_skill.proc import have, run, tool_path
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
-lazy from agent_skill.text import strip_comment, syntax_for
+lazy from agent_skill.lang import language
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -67,7 +68,7 @@ def find(corpus: Corpus, pattern: Pattern) -> tuple[list[Span] | None, str]:
     stdout. Reading that as zero hits would report a Check as clean on
     the strength of a run that never happened.
     """
-    target = corpus.raw_dir if pattern.over_comments else corpus.code_dir
+    target = corpus.raw_dir if pattern.over_comments(corpus.lang) else corpus.code_dir
     command = [
         tool_path("rg") or "rg",
         "--json",
@@ -142,11 +143,8 @@ def matches(snippet: str, pattern: Pattern, lang: str) -> bool | None:
     fixture whose match depends on comment content could certify a
     pattern the corpus path can never fire on.
     """
-    if not pattern.over_comments:
-        comment, quotes = syntax_for(lang)
-        snippet = "\n".join(
-            strip_comment(x, comment, quotes) for x in snippet.split("\n")
-        )
+    if not pattern.over_comments(lang):
+        snippet = language(lang).code(snippet)
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         target = Path(work) / "fixture.txt"

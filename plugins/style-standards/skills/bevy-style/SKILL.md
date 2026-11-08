@@ -1,29 +1,29 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.20 engineering standard — a 218-rule delta on top of rust-style covering the ECS,
-  scheduling, observers and messages, states and resources, assets, error handling, Cargo features
-  and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
-  API table spanning 0.15 through 0.20. Its spine is keeping the rules of the game out of the
-  engine's vocabulary, so an engine upgrade rewrites signatures and not arithmetic. Use this
-  whenever writing, reviewing, refactoring, scaffolding, porting, or debugging ANY Bevy code — a
-  plugin, a system, a component, a query, a schedule, an observer, a Cargo.toml with bevy in it —
-  even if the user never mentions "style", "standards", or "quality". Also use when migrating a
-  project to a newer Bevy, when Bevy code written for an older release must be brought up to
-  date, and when deciding whether something belongs in a system or in plain Rust.
+  Use when writing, reviewing, refactoring, scaffolding, porting or debugging any Bevy code,
+  bringing code written for an older Bevy up to date, or deciding whether something belongs in a
+  system or in plain Rust, even when no one asks for "style" or "standards". Applies to a plugin, a
+  system, a component, a query, a schedule, an observer, a message, a state, an asset handle, a UI
+  tree and a `Cargo.toml` with `bevy` in it. Targets Bevy 0.20.
 ---
 
 # Bevy Style — 0.20
 
 A **delta on top of `rust-style`**. Everything that standard says about naming, errors, ownership,
 functional style, modules, documentation and Cargo still holds; this one states what changes when
-Bevy is in the dependency list, and nothing else. Section 3 lists every place the two disagree and
-which one wins.
+Bevy is in the dependency list, and nothing else. Section 3 lists every place the two depart.
 
-**Target: Bevy 0.20 on Rust 1.99, edition 2024.** Bevy's API turns over faster
-than any other dependency a game has, and most Bevy code on the public internet — and most of what
-a language model has read — is 0.15 or older. Section 2 and `references/migration.md` exist for
-that reason.
+Its tiers are `rust-style`'s, and so is the code `[M!]` binds in. Read for a game: a shipped game is
+high-reliability code, since a panic takes down a process someone else owns — the player's, or the
+server their session lives on — an authoritative server parses what its clients send, and saves and
+replays are data others cannot reconstruct. A plugin crate others depend on is library code. A jam
+prototype, editor scratch, an example scene and a throwaway tool are none of these, and take each
+`[M!]` rule's relaxed form.
+
+**Target: Bevy 0.20 on Rust 1.99, edition 2024.** Bevy's API turns over faster than any other
+dependency a game has, and most Bevy code on the public internet — and most of what a language model
+has read — is 0.15 or older. Section 2 and the migration chapter exist for that reason.
 
 ## How to use this standard
 
@@ -36,18 +36,18 @@ that reason.
 4. **Load `rust-style` as well** for anything that is a Rust question rather than a Bevy question.
 5. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `BV-ERR-03`, `BV-TEST-05`. The prefix identifies the owning chapter (section
-6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
-rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
-the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+Rules are cited by ID: `BV-`, then the family of the chapter that owns the rule, then its number.
+Section 6 maps each family to its chapter, so cite the ID when justifying a change and the reader
+can find the full rule and its rationale. When two rules appear to conflict, sections 1 and 3 govern
+how to break the tie.
 
-Rules from the other standard keep their own prefix, so an `RS-` citation is always a pointer out
-of this document.
+Rules from the other standard keep their own prefix, so an `RS-` citation is always a pointer out of
+this document.
 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
-the tool enforces them, so they carry no Why and no Check. When rules are renumbered,
-`references/migration.md` maps every old ID to its new one.
+the tool enforces them, so they carry no Why and no Check. When rules are renumbered, the migration
+chapter names the file that maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
 written against Bevy 0.20.1 on Rust 1.99, edition 2024, and any test it ships passes. `// fragment`
@@ -64,225 +64,179 @@ Every rule carries a tier. Apply it literally.
 | Tag | Meaning |
 |---|---|
 | `[M]` | **Mandatory** in all Bevy code. No exceptions without an explicit instruction from the user. |
-| `[M!]` | **Mandatory in shipped and long-running code**; strongly recommended elsewhere. Each `[M!]` rule states its relaxed form. |
+| `[M!]` | **Mandatory in library and high-reliability code**; strongly recommended elsewhere. Each `[M!]` rule states its relaxed form. |
 | `[S]` | **Should.** The default. Deviating is allowed but must be justified in a comment on the line that deviates. |
 
-**Code is "shipped or long-running" — `[M!]` applies as `[M]` — if any of these hold:** players run
-it; it is a plugin crate published for others to depend on; a panic ends a session someone cannot
-resume (a dedicated server, a long play session, a build step); it writes save data or replays; or
-it is the authority in a networked game. **Otherwise** — jam prototypes, editor scratch, example
-scenes, throwaway tools — `[M!]` rules are recommendations, and the relaxed form given with each
-rule is acceptable.
+**Code is "library or high-reliability" — `[M!]` applies as `[M]` — if any of these hold:** it is
+published to a registry or consumed by code you do not control; a panic takes down a process that
+someone else owns (a server, a plugin, an embedded target); it is a security boundary (parsers on
+untrusted input, cryptography, sandboxes, allocators); or it stores data others cannot reconstruct.
+**Otherwise** — scripts, internal binaries, prototypes, examples — `[M!]` rules are recommendations,
+and the relaxed form given with each rule is acceptable.
 
 When you cannot tell which category the code is in, ask, or state your assumption in one line and
 proceed with the stricter reading.
 
 ## 2. Bevy 0.20 reality check
 
-### 2.1 The ones that change behaviour without changing whether it compiles
+### 2.1 Compiles, and behaves differently
 
-1. **Setting the same state now runs the transition.** Since 0.18, `next_state.set(S)` fires
-   `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. Code that called `set`
-   every frame used to be free and now re-runs every setup and teardown system in the game.
-   `set_if_different` is the old behaviour (`references/state.md` BV-STATE-16).
-2. **Bevy maintains `Aabb`.** Since 0.18 it adds and updates the `Aabb` of meshes and sprites, so a
-   system that removes or recomputes one fights the engine (`references/view.md` BV-VIEW-16).
-3. **`Ref<T>` now clones the `Ref`, not the `T`.** 0.19 gave `Ref` its own `Clone` and `Copy`. A
-   `value.clone()` that used to produce a `T` now produces another `Ref<T>`, and only fails to
-   compile if the surrounding code was explicit about the type. Write `ref.deref().clone()` for the
-   old meaning (`references/migration.md` BV-MIG-18).
-4. **`Resource` is a `Component`.** In 0.19, `#[derive(Resource)]` also implements `Component`. A
-   type used as both is now impossible; worse, inserting one as a component despawns the copy on
-   any other entity, and resources appear in `&T` queries. Split the type
-   (`references/state.md` BV-STATE-01).
-5. **`AssetEvent::Modified` needs a real mutation.** Since 0.19 a `get_mut` that only reads raises
-   none, so a reaction that relied on it stops firing (`references/assets.md` BV-ASSET-09).
-6. **Bloom judges luminance in linear.** Since 0.19, a tint tuned against sRGB luminance blooms more
-   than it did (`references/view.md` BV-VIEW-11).
-7. **A logging error handler now swallows panics.** 0.20 hands every panic in a system, observer or
-   command to the `FallbackErrorHandler`, so a release handler that logs keeps the app running past
-   it — overflow traps included. Re-panic when the error carries a panic payload
-   (`references/errors.md` BV-ERR-05).
-8. **`iter_many` yields `Result`.** `.count()` and `for _ in` still compile, and now count ids that
-   do not match the query; on the plain and unique forms `.matched()` is the old meaning
-   (`references/ecs.md` BV-ECS-20).
-9. **`EditableText` on its own is inert.** It spawns and ignores the keyboard. Spawn `TextInput`,
-   which requires it, under `TextInputPlugin` (`references/view.md` BV-VIEW-08).
-10. **The engine's own set chains are weak.** Inside `PostUpdate`'s `UiSystems` and the render
-    schedules, systems with no conflict the ECS can see are no longer ordered, so one relying on
-    hidden ordering can race (`references/scheduling.md` BV-SCHED-13).
-
-`references/migration.md` keeps the same list with a search for each, under "Changes that do not
-show up as a compile error".
-
-### 2.2 Engine features that replaced what games used to hand-roll
-
-| Reach for this | Not this | Since |
+| Old | Bevy 0.20 | Rule |
 |---|---|---|
-| `#[require(…)]` required components | `*Bundle` types, which are gone | 0.15 |
-| `ChildOf` / `Children` relationships | `Parent`, `push_children`, `despawn_recursive` | 0.16 |
-| a system returning `Result` and `?` | `unwrap()` on `Query::single` | 0.16 |
-| observers and `On<E>` | polling a message every frame to react to one thing | 0.14 |
-| `Message` for buffered fan-out, `Event` for reactions | calling both of them "events" | 0.17 |
-| the `2d` / `3d` / `ui` feature collections | a hand-maintained list of thirty features | 0.18 |
-| `bsn!` from `bevy_scene` | nested `with_children` closures | 0.19 |
-| `commands.delayed()` | a `Timer` resource whose only job is to postpone a spawn | 0.19 |
-| `DiagnosticsOverlayPlugin` | a hand-written FPS `Text` system | 0.19 |
-| `Gizmos::text()` / `text_2d()` | spawning a `Text2d` to print a debug value | 0.19 |
-| `TextInput` from `bevy_ui_widgets` | a third-party text-input crate | 0.20 |
-| `#[derive(SettingsGroup)]` (`bevy_settings`) | hand-rolled settings load and save | 0.19 |
-| `Query::contiguous_iter()` | hand-written structure-of-arrays for a hot loop | 0.19 |
-| `.run_if(…)` on an observer | an early `return` at the top of the observer | 0.19 |
-| `.context(…)` on a `Result` or `Option` | `ok_or(…)` at the system boundary | 0.20 |
-| `chain_weak()`, `after_weak()` | strong ordering between systems that never conflict | 0.20 |
-| `Val::Em`, `Val::Rem` | scaling a node by hand with the text size | 0.20 |
+| `App::set_error_handler` | receives every panic in a system, observer or command as an error carrying its payload | BV-ERR-05 |
+| `Query::iter_many` | yields `Result` per id, so `.count()` and `for _ in` take ids the query does not match; `.matched()` is the old meaning | BV-ECS-20 |
+| `TextFont::default` | sizes text at `FontSize::Rem(1.)`, not `Px(20.)`; `TextFont::from_font_size(FontSize::Px(…))` keeps a fixed size | BV-VIEW-04 |
+| `EditableText` | spawned alone, inert; spawn `TextInput`, which requires it | BV-VIEW-08 |
+| `Camera2d` | brings `Tonemapping::Linear`, and with `Hdr` runs the tonemapping pass | BV-VIEW-12 |
+| `Camera3d` | no longer requires `ScreenSpaceTransmission`; a camera drawing transmissive materials adds it | BV-VIEW-12 |
+| `Tonemapping::None` | a full passthrough: no `ColorGrading`, no `DebandDither`, no clamping; `Tonemapping::Linear` is no curve | BV-VIEW-20 |
+| `SpriteMaterial` | a new public type, unrelated to the internal one of the same name, which is `SpriteMeshMaterial` | BV-VIEW-17 |
+| `UiSystems` | ordered weakly, as the render schedules' sets are: systems the ECS sees no conflict between are unordered | BV-SCHED-14 |
+| `"compressed_image_saver"` | a BCn/ASTC backend; the Basis one is `"compressed_image_saver_universal"` | BV-BUILD-03 |
 
-### 2.3 Names that moved, and are still written the old way everywhere
+A `changed` row of an earlier release is in the migration table, `BV-MIG` in section 6, with its
+Since; its owning rule's Check finds it.
 
-`Trigger<E>` is `On<E>`, and `On<Add, T>` is `On<Add<T>>`; `Pointer<Click>` is `PointerClick`;
-`NextState::set_if_neq` is `set_if_different`; `OnAdd` is `Add`; `EventReader`/`EventWriter` are
-`MessageReader`/`MessageWriter`; `Parent` is `ChildOf`; every `*Bundle` is a set of components; the
-old `bevy_scene` is `bevy_world_serialization`, and `bevy_scene` is now the new scene system.
-`references/migration.md` is the full table, and it is the first thing to check when porting code
-written against a tutorial.
+### 2.2 No longer compiles
+
+| Old | Bevy 0.20 | Rule |
+|---|---|---|
+| `resolve_font_source` | `font.font.resolve_font_family(fonts)` | BV-VIEW-04 |
+| `FontSource::SansSerif` | `FontSource::sans_serif()`, or `FontSource::Generic` with a `GenericFontFamily`; every generic family variant likewise | BV-VIEW-04 |
+| `button_bundle` | the feathers `FeathersButton` with `FeathersButtonProps`, used from `bsn!`; each `*_bundle` spawn function likewise | BV-VIEW-07 |
+| `EditableTextInputPlugin` | `TextInputPlugin` | BV-VIEW-08 |
+| `TextScroll` | `EditableText::viewport` (`TextViewport`) | BV-VIEW-08 |
+| `scroll_editable_text` | `EditableText::viewport` (`TextViewport`) | BV-VIEW-08 |
+| `Pointer<Click>` | `PointerClick`, its fields one level up and no `.event`; every `Pointer<X>` is `PointerX`, and a generic `On<Pointer<E>>` is `On<E>` with `E: PointerEvent` | BV-MIG-02 |
+| `pointer_location` | `ev.pointer.position` (`Vec2`), or `ev.pointer.location()` for the `Location`; `ev.pointer_id` is `ev.pointer.id` | BV-MIG-02 |
+| `remove_children` | `detach_children` | BV-ECS-11 |
+| `remove_child` | `detach_child` | BV-ECS-11 |
+| `clear_children` | `detach_all_children` | BV-ECS-11 |
+| `DefaultErrorHandler` | `FallbackErrorHandler` | BV-ERR-05 |
+| `init_non_send_resource` | `App::init_non_send` | BV-ERR-07 |
+| `non_send_resource` | `World::non_send` | BV-ERR-07 |
+| `non_send_resource_mut` | `World::non_send_mut` | BV-ERR-07 |
+| `ExclusiveSystemParam` | `&mut World` as a `SystemParam`; `ExclusiveFunctionSystem` and `ExclusiveMarker` went with it | BV-ECS-29 |
+| `PendingIfNeq` | `PendingIfDifferent` | BV-STATE-17 |
+| `set_state_if_neq` | `set_state_if_different` | BV-STATE-17 |
+| `set_next_state_if_neq` | `set_next_state_if_different` | BV-STATE-17 |
+| `load_with_settings` | `load_builder().with_settings(…).load(path)` | BV-ASSET-07 |
+| `load_override` | `load_builder().override_unapproved()` | BV-ASSET-07 |
+| `load_acquire` | `load_builder().with_guard(…)` | BV-ASSET-07 |
+| `bevy_math::curve` | `bevy_curve`, or `bevy::curve` | BV-ARCH-06 |
+| `bevy_math::cubic_splines` | `bevy_curve`, or `bevy::curve` | BV-ARCH-06 |
+| `bevy_math::primitives` | `bevy_shape`, or `bevy::shape`; `bevy::prelude` names them as it did | BV-ARCH-06 |
+| `#import` | a `.wesl` with `import …;` | BV-VIEW-18 |
+| `#ifdef` | `@if(…)` in a `.wesl` | BV-VIEW-18 |
+| `#define_import_path` | the `.wesl` module's own path | BV-VIEW-18 |
+| `#{MATERIAL_BIND_GROUP}` | `constants::MATERIAL_BIND_GROUP` | BV-VIEW-18 |
+| `"shader_format_glsl"` | nothing: GLSL is gone | BV-VIEW-18 |
+| `"shader_format_wesl"` | nothing: WESL is the only shader language | BV-VIEW-18 |
+| `"bevy_math/curve"` | `"bevy/bevy_curve"` | BV-BUILD-03 |
+| `On<Add, …>` | `On<Add<T>>`, and so for `Insert`, `Discard`, `Remove` and `Despawn`; a custom `On<E, B>` is a `PhantomData` wrapper implementing `EventPattern` | BV-EVENT-13 |
+| `On<Add>` | `On<Add<()>>`, for an observer of dynamic components (`.with_component(id)`) | BV-EVENT-13 |
+| `NextState::set_if_neq` | `set_if_different`; `Mut::set_if_neq` is live | BV-STATE-17 |
+| `bevy_pbr::mesh_view_bindings` | `bevy_pbr::render::mesh_view_bindings` | BV-VIEW-18 |
+| `BorderRadius { top_left: Val::Px(…), … }` | `CornerRadius` fields, such as `px(10.).into()` | BV-MIG-02 |
+| `MeshTag(…)` | `MeshTag::new(x)`, read as `tag.value` | BV-MIG-02 |
+
+A `gone` row of an earlier release is in the migration table, `BV-MIG` in section 6, with its Since;
+the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
+shape, whatever its release, and the type checker every `gone` member the code reaches through a
+value.
+
+### 2.3 What Bevy 0.20 gained
+
+- `#[require(…)]` required components, in place of a `*Bundle` type (BV-ECS-06).
+- `ChildOf` and `Children`, and relationships of a game's own, in place of a hand-kept `Vec<Entity>`
+  (BV-ECS-11).
+- A system that returns `Result` and uses `?`, in place of `unwrap()` on `Query::single`
+  (BV-ERR-01); `.context(…)` on a `Result` or an `Option`, in place of `ok_or(…)` (BV-ERR-03).
+- `Message` for buffered fan-out and `Event` for a reaction, in place of one word for both
+  (BV-EVENT-01), and `.run_if(…)` on an observer, in place of an early `return` (BV-SCHED-16).
+- The `2d`, `3d` and `ui` feature collections, in place of a hand-kept list of features
+  (BV-BUILD-02).
+- `bsn!`, in place of nested `with_children` closures (BV-VIEW-09).
+- `commands.delayed()`, in place of a `Timer` whose only job is to postpone a spawn (BV-SCHED-05).
+- `DiagnosticsOverlayPlugin`, in place of a hand-written FPS `Text` system (BV-BUILD-11).
+- `Gizmos::text()` and `text_2d()`, in place of a spawned `Text2d` for a debug value (BV-VIEW-19).
+- `TextInput`, in place of a third-party text-input crate (BV-VIEW-08).
+- `#[derive(SettingsGroup)]`, in place of hand-rolled settings load and save (BV-STATE-09).
+- `Query::contiguous_iter()`, in place of a hand-kept structure of arrays (BV-ECS-23).
+- `chain_weak()` and `after_weak()`, in place of strong ordering between systems that never conflict
+  (BV-SCHED-14).
+- `Val::Em` and `Val::Rem`, in place of scaling a node by hand with the text size (BV-VIEW-02).
 
 ## 3. Design principles
 
 The spine of this standard is the boundary: the rules of the game live in plain Rust that never
-names Bevy, and the engine is the view and the input around them (`references/architecture.md`
-BV-ARCH-01). An engine upgrade then rewrites signatures and not arithmetic. Everything else follows
-`rust-style`'s principles; the departures are below, and nothing not listed there is relaxed.
+names Bevy, and the engine is the view and the input around them (BV-ARCH-01). An engine upgrade
+then rewrites signatures and not arithmetic. Everything else follows `rust-style`'s principles.
 
-### Where this standard departs from `rust-style`
+Each row is a `rust-style` rule that Bevy makes impossible, harmful or noisy (`overrides`), raises
+(`tightens`) or reaches further (`extends`), the rule here that departs from it, and both tiers.
+Nothing else departs: a divergence not listed here is a defect, not a dialect.
 
-Each row is a rule of the other standard that Bevy makes impossible, harmful, or merely noisy.
-Nothing else is relaxed: a divergence not listed here is a defect, not a dialect.
+| rust-style rule | Relation | bevy-style rule | Tier | Reason |
+|---|---|---|---|---|
+| RS-API-21 | overrides | BV-ECS-01 | [M] → [M] | The ECS is the accessor: reflection, scenes, `bsn!` and the remote protocol read fields directly, and a component cannot defend an invariant, so BV-ARCH-04 defends it in the domain |
+| RS-OUT-10 | extends | BV-ECS-03 | [M] → [M] | Every component, public or not: every panic, `info!` and failed test prints one |
+| RS-API-49 | overrides | BV-ECS-05 | [M] → [M] | A component is spawned by struct literal in every crate, which `#[non_exhaustive]` forbids; it grows by a required component instead |
+| RS-NAME-28 | overrides | BV-ARCH-10 | [M] → [M] | `add_plugins(X)` and `configure_sets(_, X)` are one shape with two meanings, so the name is the only signal, as Bevy's own plugins and sets carry it |
+| RS-ERR-13 | overrides | BV-ERR-02 | [M] → [M] | A system has no caller to match on its error — the schedule hands it to the handler — and the schedule takes no other type; what a caller branches on stays a real type in the domain (BV-ERR-03) |
+| RS-BUILD-20 | overrides | BV-BUILD-04 | [M] → [M] | In a game binary the exact pin makes every Bevy bump, patch included, a commit of its own; a library keeps the caret |
+| RS-BUILD-21 | overrides | BV-BUILD-02 | [M] → [M] | Bevy's 177 features move every release, so a hand-picked list goes stale silently; a collection is upstream's own |
+| RS-BUILD-24 | overrides | BV-BUILD-12 | [M] → [M] | Two lints fire on every system parameter, so no handful of items could carry the `allow` |
+| RS-BUILD-42 | tightens | BV-BUILD-07 | [S] → [M] | An unoptimised Bevy is too slow for frame rate to say anything about the game |
+| RS-TEST-20 | extends | BV-TEST-08 | [M] → [M] | Every test, not only a regression test: a Bevy test passes vacuously when its system was never added or its schedule never ran |
 
-| `rust-style` rule | What applies instead | Why Bevy forces it |
-|---|---|---|
-| `RS-API-15` Keep every struct field private, including the ones with no invariant | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. A newtype's field is public for the same reason: for a component the representation *is* the contract, so making it public gives nothing away. The exemption is paid for by `BV-ARCH-04`. |
-| `RS-NAME-29` Never suffix a name with the language construct | `BV-ARCH-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and its own plugins and sets carry the same suffixes. |
-| `RS-ERR-13` Never expose `Box<dyn Error>` or `anyhow::Error` from a library | `BV-ERR-03` — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
-| `RS-BUILD-25` Never blanket-`allow` at crate level to make CI green | `BV-BUILD-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
-| `RS-BUILD-22` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
-| `RS-FUNC-03` A `for` loop that only pushes is a `collect` | `BV-ECS-18` — iterate a query with `for` | Query iteration is effect, not transformation: the loop writes through `Mut<T>` and the borrow does not survive a collect. |
-| `RS-API-54` Decide `#[non_exhaustive]` for every public enum and struct | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
-
-Two rows that look like they belong here and do not. `RS-BUILD-24` asks for `pedantic` at warn and
-allows "individual lints with a comment giving the reason" — which is exactly what `BV-BUILD-13`
-does, so allowing `needless_pass_by_value` with its reason obeys that rule rather than overriding
-it. And `RS-BUILD-21` is titled "never pin exact versions *in a library*"; `BV-BUILD-04` pins in a
-game binary and keeps the caret for anything published, so the two never meet.
-
-`clippy::wildcard_imports` is not on this list either: it exempts preludes, and
-`use bevy::prelude::*` is a prelude. It is the first line of nearly every Bevy file, and naming
-twenty imports instead would be worse.
-
-`RS-NAME-02` is **not** on this list, and the temptation is real: Bevy's own packages are
-`bevy_ecs`, `bevy_render`, spelled with underscores. That is upstream's namespace, not a licence to
-name your own crates `mygame_combat` — packages published from this standard use hyphens
-(`BV-ARCH-08`).
+Two that look like departures are not. `clippy::wildcard_imports` exempts preludes, and
+`use bevy::prelude::*` is one. And RS-NAME-02 holds as it stands: Bevy's packages spell `bevy_ecs`
+with an underscore in upstream's namespace, and a package published from this standard uses hyphens
+(BV-ARCH-08).
 
 ## 4. Core rules
 
-These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying the full statement.
-
-### The boundary
-
-- **BV-CORE-01 `[M]`** The code that decides what happens takes and returns plain Rust data.
-  `Query`, `Commands`, `Res` and `Entity` belong to the code that decides when it happens. An
-  engine upgrade should rewrite signatures, not arithmetic
-  (`references/architecture.md` BV-ARCH-01).
-- **BV-CORE-02 `[M]`** The separation is mandatory at every project size; only its mechanism scales
-  — modules for one binary, crates for a workspace — and whichever it is, a CI job enforces it
-  rather than a paragraph (`references/architecture.md` BV-ARCH-02 and BV-ARCH-07).
-- **BV-CORE-03 `[M]`** Data that must satisfy a condition cannot be defended inside a component.
-  Model the condition as a domain type with a private field and a fallible constructor, let the
-  component carry the plain value, and construct the domain type at the one crossing point — which
-  is then the only place that field is read
-  (`references/architecture.md` BV-ARCH-04, BV-ARCH-03).
-- **BV-CORE-04 `[M]`** Every plugin is a type implementing `Plugin`, named `*Plugin`, and never a
-  function or a closure: four of Bevy's own APIs address a plugin by its type, and a function's type
-  cannot be written. `main` adds plugins and nothing else
-  (`references/architecture.md` BV-ARCH-09, BV-ARCH-10, BV-ARCH-15).
-
-### Components and queries
-
-- **BV-CORE-05 `[M]`** A component is one fact about an entity. Two fields that change at different
-  times, are written by different systems, or are read by different queries are two components
-  (`references/ecs.md` BV-ECS-02).
-- **BV-CORE-06 `[M]`** Express "an X always has a Y" with `#[require(Y)]`, never with a hand-kept
-  tuple that callers must remember. The `*Bundle` types are gone, and writing your own is the same
-  defect wearing a new name (`references/ecs.md` BV-ECS-06).
-- **BV-CORE-07 `[M]`** A zero-sized marker goes in `With<T>` or `Without<T>`, never in the query's
-  data. Querying it fetches nothing and costs a column
-  (`references/ecs.md` BV-ECS-16).
-- **BV-CORE-08 `[M!]`** Writing through `Mut<T>` marks the component changed whether or not the
-  value differs. Anything a `Changed<T>` filter watches is written with `set_if_neq`
-  (`references/ecs.md` BV-ECS-24).
-- **BV-CORE-09 `[M]`** Name a query type with a `type` alias once it needs two lines, and group a
-  system's parameters with `#[derive(SystemParam)]` once `too_many_arguments` fires at eight
-  (`references/ecs.md` BV-ECS-19, `references/scheduling.md` BV-SCHED-09).
-- **BV-CORE-10 `[M]`** Every component derives `Reflect` and carries `#[reflect(Component)]`. The
-  derive registers it — through `reflect_auto_register`, which `default_app` and the `2d`, `3d`
-  and `ui` collections enable — so only a generic instantiation needs `register_type`. Reflection
-  is what the inspector, the scene format and the remote protocol run on, and it is opt-in per
-  type, so it is forgotten silently (`references/ecs.md` BV-ECS-03, BV-ECS-12).
-
-### Scheduling
-
-- **BV-CORE-11 `[M]`** Simulation runs in `FixedUpdate`; animation, camera and anything that must
-  be smooth run in `Update`. A camera moved from `FixedUpdate` visibly stutters, and per-frame input
-  read from it is dropped on a fast machine and doubled on a slow one
-  (`references/scheduling.md` BV-SCHED-01, BV-SCHED-08).
-- **BV-CORE-12 `[M!]`** Ordering between systems goes through named `SystemSet`s configured once,
-  not a chain of `.before()` and `.after()` at each `add_systems` call
-  (`references/scheduling.md` BV-SCHED-11).
-- **BV-CORE-13 `[M]`** A system that should not always run says so with `.run_if(…)`. An early
-  `return` hides the condition from the schedule, which cannot then skip the system or report it
-  (`references/scheduling.md` BV-SCHED-15).
-- **BV-CORE-14 `[M]`** Take the delta from `Res<Time>` in `Update` and `Res<Time<Fixed>>` in
-  `FixedUpdate`, and never hard-code a per-frame delta
-  (`references/scheduling.md` BV-SCHED-05).
-
-### Events, messages, observers
-
-- **BV-CORE-15 `[M]`** `Message` is buffered fan-out read next frame; `Event` is a reaction that
-  runs now. They are different traits for different jobs, and a type deriving both is almost always
-  a design that has not chosen (`references/events.md` BV-EVENT-01, BV-EVENT-03).
-- **BV-CORE-16 `[M]`** An event that concerns one entity derives `EntityEvent` and carries the
-  entity as a field, read by that field's name. `trigger_targets` is gone
-  (`references/events.md` BV-EVENT-09, BV-EVENT-10).
-- **BV-CORE-17 `[M]`** Register a `Message` type with `app.add_message::<M>()`. Inserting
-  `Messages<M>` as a resource yourself leaks, because nothing then drops old messages
-  (`references/events.md` BV-EVENT-04).
-
-### Errors
-
-- **BV-CORE-18 `[M!]`** A system that can fail returns `Result` and uses `?`. No `unwrap`, no
-  `expect`, no indexing on a path a player can reach
-  (`references/errors.md` BV-ERR-01, and its `indexing_slicing` row).
-- **BV-CORE-19 `[M]`** Install the fallback error handler explicitly, with `App::set_error_handler`
-  in `main`. It also receives panics, so a release handler that logs must re-panic when the error
-  carries a panic payload, or every panic becomes a log line (`references/errors.md` BV-ERR-05).
-- **BV-CORE-20 `[M]`** Prefer the non-panicking half of every pair: `get_resource` over `resource`,
-  `get` over `entity`, `Single` or `single()?` over `single().unwrap()`
-  (`references/errors.md` BV-ERR-07).
-- **BV-CORE-21 `[M]`** `fn main() -> AppExit`, returning what `App::run` returned. Anything else
-  reports a crash as a clean exit (`references/architecture.md` BV-ARCH-16).
-
-### Cargo and versions
-
-- **BV-CORE-22 `[M]`** Pin Bevy exactly in a game binary and use a caret in a published crate. A
-  minor bump is a scheduled migration, not something `cargo update` does to you
-  (`references/build.md` BV-BUILD-04).
-- **BV-CORE-23 `[M]`** Start from a feature collection — `2d`, `3d`, `ui` — and hand-pick features
-  only against a measurement recorded in the manifest
-  (`references/build.md` BV-BUILD-02 and BV-BUILD-03).
-- **BV-CORE-24 `[M]`** Two entries of `rust-style`'s lint table are relaxed for Bevy code and no
-  others: `elided_lifetimes_in_paths` and `clippy::needless_pass_by_value`. `type_complexity` and
-  `too_many_arguments` stay on, because both have a compliant form that is better code
-  (`references/build.md` BV-BUILD-12, BV-BUILD-13 and BV-BUILD-14).
+- **Architecture: The Boundary, Plugins, Crate Shape**
+  - BV-ARCH-01 [M] Keep the rules of the game out of the engine's vocabulary
+  - BV-ARCH-02 [M] Scale the boundary's mechanism to the project; never the rule
+  - BV-ARCH-03 [M] Give the boundary exactly one crossing point per direction
+  - BV-ARCH-04 [M] Keep the invariant in the domain type, and parse at the crossing
+  - BV-ARCH-07 [M] Make the boundary a job, not a paragraph
+  - BV-ARCH-09 [M] Write every plugin as a type
+  - BV-ARCH-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
+  - BV-ARCH-15 [M] Keep `main` to plugins and the two error policies
+  - BV-ARCH-16 [M] Return `AppExit` from `main`
+- **ECS: Components, Required Components, Queries, Change Detection**
+  - BV-ECS-02 [M] Give a component one fact to hold
+  - BV-ECS-03 [M] Derive `Debug` and `Reflect` on every component
+  - BV-ECS-06 [M] Express "always has" with `#[require]`
+  - BV-ECS-12 [M] Register each instantiation of a generic reflected type
+  - BV-ECS-16 [M] Put a zero-sized marker in the filter, never in the data
+  - BV-ECS-19 [M] Name a query type once it needs two lines
+  - BV-ECS-24 [M] Write with `set_if_neq` wherever a `Changed` filter is watching
+- **Scheduling: Schedules, Sets, Ordering, Run Conditions, Time**
+  - BV-SCHED-01 [M] Simulate in `FixedUpdate`, present in `Update`
+  - BV-SCHED-05 [M] Take the delta from the schedule's own clock
+  - BV-SCHED-09 [M] Never read per-frame input from a fixed-rate schedule
+  - BV-SCHED-10 [M] Group system parameters by what they are together
+  - BV-SCHED-12 [M] Express ordering through named sets
+  - BV-SCHED-16 [M] Express a precondition as a run condition, not an early return
+- **Events: Messages, Events, Entity Events, Observers**
+  - BV-EVENT-01 [M] Send a `Message` to fan out, trigger an `Event` to react
+  - BV-EVENT-03 [M] Do not derive both `Message` and `Event` on one type
+  - BV-EVENT-04 [M] Register a message type with `add_message`
+  - BV-EVENT-08 [M] Give an event about one entity the `EntityEvent` derive and an entity field
+  - BV-EVENT-09 [M] Read the target from the named field
+- **Errors: Fallible Systems, the Error Handler, Panicking APIs**
+  - BV-ERR-01 [M!] Return `Result` from a system that can fail
+  - BV-ERR-05 [M] Choose the fallback error handler deliberately
+  - BV-ERR-07 [M] Call the non-panicking half of every pair outside a test
+- **Cargo: Features, Version Pinning, Lints, CI**
+  - BV-BUILD-02 [M] Start from a feature collection
+  - BV-BUILD-03 [M] Hand-pick features only against a recorded measurement
+  - BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
+  - BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
 ## 5. Review checklist
 
@@ -294,37 +248,36 @@ protocol — severity model, mechanical pass, output format — in `references/r
    `Pointer<Click>` or `On<Add, T>`? (BV-MIG-01)
 3. **Errors and panics.** Does every fallible system return `Result`, and does the release error
    handler still end the app on a caught panic? (BV-ERR-01, BV-ERR-05)
-4. **Change detection.** Is any `Changed<T>` watching something written unconditionally?
-   (BV-ECS-24)
-5. **Ordering.** Is ordering expressed in sets, not against a system function? (BV-SCHED-11)
-6. **Run conditions and state.** Would each new system be skipped when it should be? (BV-SCHED-15,
-   BV-STATE-14)
+4. **Change detection.** Is any `Changed<T>` watching something written unconditionally? (BV-ECS-24)
+5. **Ordering.** Is ordering expressed in sets, not against a system function? (BV-SCHED-12)
+6. **Run conditions and state.** Would each new system be skipped when it should be? (BV-SCHED-16,
+   BV-STATE-15)
 7. **Reflection.** Does each new component derive `Reflect`, and is each generic instantiation
    registered? (BV-ECS-03, BV-ECS-12)
 8. **Tests.** Is the rule tested without an `App`, and the plugin with the smallest one?
    (BV-ARCH-01, BV-TEST-02)
-9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form, and which shipped-code
-   condition does not hold?
+9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form, and which of section 1's
+   conditions does not hold?
 
 ## 6. Reference map
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
-listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 24
-`BV-CORE-*` rules live in section 4 above; the other 194 live here.
+listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
+173 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/architecture.md` | `BV-ARCH` (17) | The boundary between the game and the engine, the shape of a plugin and what it registers, and the `App` and its binary |
-| `references/ecs.md` | `BV-ECS` (30) | Components and required components, queries and filters, change detection, relationships, and reflection |
-| `references/scheduling.md` | `BV-SCHED` (23) | Schedules and the fixed timestep, system sets and ordering, run conditions, time, and input |
-| `references/events.md` | `BV-EVENT` (19) | Messages, events and entity events, observers and propagation, and the lifecycle events |
-| `references/state.md` | `BV-STATE` (18) | Resources, `States` and their transitions, and what a state scopes |
-| `references/errors.md` | `BV-ERR` (11) | Fallible systems, observers and commands, the fallback error handler, and the APIs that panic |
-| `references/assets.md` | `BV-ASSET` (11) | Handles and loading, hot reload, asset events, and asset lifetime |
-| `references/build.md` | `BV-BUILD` (16) | Feature collections, the exact Bevy pin, the lint divergences from rust-style, and CI |
-| `references/migration.md` | `BV-MIG` (18) | Every API forbidden since 0.15 and what replaces it, and the changes that still compile |
-| `references/view.md` | `BV-VIEW` (21) | UI nodes and layout, text, cameras, materials and shaders, post-processing, and gizmos |
-| `references/testing.md` | `BV-TEST` (10) | Headless apps, deterministic fixed steps, and what a test asserts |
+| `references/ecs.md` | `BV-ECS` (29) | Components and required components, queries and filters, change detection, relationships, and reflection |
+| `references/scheduling.md` | `BV-SCHED` (24) | Schedules and the fixed timestep, system sets and ordering, run conditions, time, and input |
+| `references/events.md` | `BV-EVENT` (18) | Messages, events and entity events, observers and propagation, and the lifecycle events |
+| `references/state.md` | `BV-STATE` (19) | Resources, `States` and their transitions, and what a state scopes |
+| `references/errors.md` | `BV-ERR` (10) | Fallible systems, observers and commands, the fallback error handler, and the APIs that panic |
+| `references/assets.md` | `BV-ASSET` (10) | Handles and loading, hot reload, asset events, and asset lifetime |
+| `references/build.md` | `BV-BUILD` (14) | Feature collections, the exact Bevy pin, the lint divergences from rust-style, and CI |
+| `references/migration.md` | `BV-MIG` (3) | Every old spelling Bevy 0.15 through 0.20 left behind, with its status and owning rule, and the command the table generates |
+| `references/view.md` | `BV-VIEW` (20) | UI nodes and layout, text, cameras, materials and shaders, post-processing, and gizmos |
+| `references/testing.md` | `BV-TEST` (9) | Headless apps, deterministic fixed steps, and what a test asserts |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical pass, output format, and the order in which to refactor an existing game |
 
 ## 7. Bundled assets
@@ -337,4 +290,4 @@ asset and the rule cannot drift apart.
 |---|---|
 | `assets/Cargo.toml` | The workspace manifest for a game: an exact Bevy pin with a feature collection, the lint table with its two Bevy relaxations and their reasons, and the profiles that keep debug builds playable |
 | `assets/ci.yml` | The workflow: the boundary and one-Bevy checks, clippy and tests under deny-warnings, docs, the weekly advisory audit, the MSRV job and the release build |
-| `assets/rust-toolchain.toml` | The pinned stable toolchain the game builds with |
+| `rust-style`'s `assets/clippy.toml`, `assets/rustfmt.toml` and `assets/rust-toolchain.toml` | Unchanged: a delta ships only the assets it departs in, and these it does not. Its `clippy.toml` already allows `unwrap` and `expect` inside tests, the relaxed form BV-ERR-01 states |

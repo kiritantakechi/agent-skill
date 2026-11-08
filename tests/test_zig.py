@@ -4,7 +4,8 @@ lazy from pathlib import Path
 
 import pytest
 
-from agent_skill.lang.zig import ZIG, force_analysis
+from agent_skill.checks.toolchain import verify
+from agent_skill.lang.zig import ZIG, force_analysis, libc
 from agent_skill.model import Skill
 from agent_skill.proc import have
 
@@ -21,6 +22,33 @@ pub fn public() u32 {
     return 2;
 }
 """
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'extern "c" fn strlen(s: [*:0]const u8) usize;',
+        "const pid = std.c.getpid();",
+        "const gpa = std.heap.c_allocator;",
+        "const raw = std.heap.raw_c_allocator;",
+        "const c = @cImport({});",
+    ],
+)
+def test_a_block_naming_libc_is_linked_against_it(source: str) -> None:
+    assert libc(source) == ["-lc"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "const H = extern struct { a: u8 };",
+        "extern fn zs_c_add(a: u32, b: u32) u32;",
+        "// std.c.abs is mentioned, not called",
+        "const n = std.mem.indexOfScalar(u8, s, 0);",
+    ],
+)
+def test_every_other_block_is_verified_without_libc(source: str) -> None:
+    assert libc(source) == []
 
 
 def test_every_top_level_declaration_is_named() -> None:
@@ -68,6 +96,6 @@ def test_a_private_function_is_analysed(tmp_path: Path) -> None:
     )
     extraction = ZIG.extract(Skill(skill, None), tmp_path / "out")
 
-    findings = list(ZIG.verify(extraction))
+    findings = list(verify(ZIG, extraction))
 
     assert any("expected type 'bool'" in f.message for f in findings), findings

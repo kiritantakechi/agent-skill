@@ -1,5 +1,0 @@
-# The toolchain the game is built with. Pin it so every machine and every CI job
-# compiles the same way. Referenced by rust-style's RS-BUILD-36.
-[toolchain]
-channel = "1.99.1"                   # 1.99.0 miscompiles FFI `bool` returns on x86_64
-components = ["rustfmt", "clippy"]

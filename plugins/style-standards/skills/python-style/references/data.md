@@ -1,14 +1,9 @@
-# Data Modelling: Dataclasses, Enums, Protocols, and Immutability
+# Data: Dataclasses, Enums, and Immutability
 
-Scope: choosing the shape a value takes — dataclass, enum, protocol, `TypedDict`, `NamedTuple`,
-plain class — and what each obliges you to. How to spell the annotation on a field is the types
-chapter; whether the value is safe to share is the concurrency chapter; what a constructor should
-accept is the API chapter.
-
-Two sources are merged here: the **empirical conventions of the CPython standard library**, whose
-`dataclasses`, `enum` and `collections.abc` modules are the reference implementations of every shape
-here, and **Ruff's `RUF`, `B`, `SLOT` and `PYI` families**, which decide the mechanical half. What
-3.15 adds — `frozendict` and `sentinel` — is stated where it replaces something.
+Scope: choosing the shape a value takes — dataclass, enum, `TypedDict`, `NamedTuple`, plain class —
+and what each obliges you to. How to spell the annotation on a field, and the `Protocol` that names
+an interface, are the types chapter; whether the value is safe to share is the concurrency chapter;
+what a constructor should accept is the API chapter.
 
 Unless a block shows its own imports, it assumes `from dataclasses import dataclass`.
 
@@ -21,22 +16,19 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
   - PS-DATA-04 [M] Use `StrEnum` or `IntEnum` only when the value crosses a boundary
   - PS-DATA-05 [S] Prefer a dataclass to a `NamedTuple` unless the value is genuinely a tuple
   - PS-DATA-06 [M] Use a `TypedDict` for a wire format, never for a domain object
-  - PS-DATA-07 [M] Define an interface as a `Protocol`, not an ABC, unless you ship behaviour
 - **Fields and defaults**
-  - PS-DATA-08 [M] Never give a mutable default
-  - PS-DATA-09 [M] Never compute a default at import time
-  - PS-DATA-10 [M] Order fields so every default follows every required field
+  - PS-DATA-07 [M] Never give a mutable default
+  - PS-DATA-08 [M] Never compute a default at import time
+  - PS-DATA-09 [M] Order fields so every default follows every required field
 - **Immutability**
-  - PS-DATA-11 [M] Freeze anything that crosses a boundary
-  - PS-DATA-12 [M] Replace rather than mutate, with `dataclasses.replace`
-  - PS-DATA-13 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
+  - PS-DATA-10 [M] Freeze anything that crosses a boundary
+  - PS-DATA-11 [M] Replace rather than mutate, with `dataclasses.replace`
+  - PS-DATA-12 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 - **Validity**
-  - PS-DATA-14 [M] Validate in `__post_init__`, and raise rather than correct
-  - PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
-  - PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
-  - PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
-- **Symmetry of a data type**
-  - PS-DATA-18 [M] Give every serialiser its inverse
+  - PS-DATA-13 [M] Validate in `__post_init__`, and raise rather than correct
+  - PS-DATA-14 [M] Make the invalid state unrepresentable before validating against it
+  - PS-DATA-15 [M] Give a domain value its own type rather than a bare `str` or `int`
+  - PS-DATA-16 [M] Never let `__eq__` and `__hash__` disagree
 - Decided by tools
 
 ---
@@ -47,14 +39,14 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
 
 `@dataclass(frozen=True, slots=True)`. Reach for a mutable one, or a plain class, only when you can
 say what it buys. One that two threads can reach is frozen, or owns a lock that every write takes
-(PS-CONC-11).
+(PS-CONC-12).
 
 **Why:** one decorator buys `__init__`, `__repr__`, `__eq__` and a field list tooling can read.
 Freezing removes the largest class of record bug — being changed by whoever you handed it to — and
 makes it hashable; the cost is a `replace` call, which makes the change visible.
 
-**Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` needs a reason on
-the line above it.
+**Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` needs a reason on the
+line above it.
 
 ```python
 # verified — GOOD
@@ -63,6 +55,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class Money:
+    """An amount in a currency's minor unit."""
+
     amount_cents: int
     currency: str
 
@@ -74,16 +68,16 @@ assert {price} == {Money(1999, "GBP")}  # hashable, so it works in a set
 ### PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
 
 Anything assigning attributes dynamically, or using `functools.cached_property`, needs the dict.
-Everything else does not. A weak reference is not a reason to keep it: `weakref_slot=True` gives
-it a slot. On a plain class, write the same thing as `__slots__ = ("name",)`.
+Everything else does not. A weak reference is not a reason to keep it: `weakref_slot=True` gives it
+a slot. On a plain class, write the same thing as `__slots__ = ("name",)`.
 
 **Why:** without the instance `__dict__`, a misspelt attribute raises `AttributeError` at the moment
 of the mistake instead of silently becoming a new one. The instance is also smaller and faster, the
 more so on the free-threaded build: a non-GC object is 32 bytes there, against 16 on the default.
 
-**Check:** the `SLOT000`–`SLOT002` rows for the subclass cases. For dataclasses,
-`rg -n '@dataclass' src/` and read for `slots=`. A class instantiated more than a few thousand times
-with no slots is the finding.
+**Check:** ruff `SLOT000`, `SLOT001` and `SLOT002` for a `str`, `tuple` or `namedtuple` subclass.
+For dataclasses, `rg -n '@dataclass' src/` and read for `slots=`. A class instantiated more than a
+few thousand times with no slots is the finding.
 
 ```python
 # verified — GOOD
@@ -93,25 +87,30 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True, weakref_slot=True)
 class Node:
+    """A named node that a weak reference can point at."""
+
     name: str
 
 
 node = Node("root")
-ref = weakref.ref(node)  # held in a slot, not in an instance dict
-assert ref() is node
+reference = weakref.ref(node)  # held in a slot, not in an instance dict
+assert reference() is node
 assert not hasattr(node, "__dict__")
 ```
 
 ### PS-DATA-03 [M] Model a closed set of alternatives as an enum
 
-Not string constants, not a `Literal` union of strings, not integers with a comment.
+Not string constants, not a `Literal` union of strings, not integers with a comment. Alternatives
+that carry different data are a union of one dataclass per member, not one class with a `kind` field
+and attributes that are meaningful for some kinds only.
 
 **Why:** an enum names the set, gives each member a readable `repr` in a traceback, and is the one
-place to add a member, which PS-TYPE-15's `assert_never` turns into a type error wherever the set is
+place to add a member, which PS-TYPE-14's `assert_never` turns into a type error wherever the set is
 consumed. A `Literal` union gets the narrowing and none of the rest.
 
 **Check:** `rg -n '^[A-Z_]+[ \t]*[:=][ \t]*["\x27]' src/` — a group of module-level string constants
-that are only ever compared against each other is an enum.
+that are only ever compared against each other is an enum. A class with a `kind` attribute and
+fields used for some kinds only is the union written without the type checker's help.
 
 ### PS-DATA-04 [M] Use `StrEnum` or `IntEnum` only when the value crosses a boundary
 
@@ -167,49 +166,9 @@ after `json.loads`, and not for anything that lives longer.
 **Check:** every `TypedDict`. If an instance is passed to more than one function, it should have
 been a dataclass by then.
 
-### PS-DATA-07 [M] Define an interface as a `Protocol`, not an ABC, unless you ship behaviour
-
-`class Reader(Protocol)` when you need a shape. An ABC when you have concrete methods subclasses
-inherit.
-
-**Why:** a protocol is structural, so a caller satisfies it with a type they already have and
-neither side imports the other, which is what makes it usable across a package boundary. An ABC
-forces inheritance, coupling the implementer to you and barring two interfaces whose bases conflict.
-
-**Check:** every ABC with no concrete method is a protocol written the coupling way.
-
-```python
-# verified — GOOD
-from typing import Protocol
-
-
-class Sink(Protocol):
-    """Structural: a caller satisfies this without importing it."""
-
-    def write(self, line: str) -> None: ...
-
-
-class Collector:
-    def __init__(self) -> None:
-        self.lines: list[str] = []
-
-    def write(self, line: str) -> None:
-        self.lines.append(line)
-
-
-def emit(sink: Sink, lines: list[str]) -> None:
-    for line in lines:
-        sink.write(line)
-
-
-collector = Collector()
-emit(collector, ["a", "b"])
-assert collector.lines == ["a", "b"]
-```
-
 ## Fields and defaults
 
-### PS-DATA-08 [M] Never give a mutable default
+### PS-DATA-07 [M] Never give a mutable default
 
 `def f(items: list[int] = [])` and `field(default=[])` are the same bug. A field takes
 `field(default_factory=list)`, which runs once per instance.
@@ -218,9 +177,10 @@ assert collector.lines == ["a", "b"]
 so one caller's mutation changes it for every later caller. Under free threading it is shared across
 threads too, so the mutation races as well as leaking.
 
-**Check:** the `B006` row for the argument form, `RUF008` for the dataclass field and `RUF012` for
-the class attribute. `dataclasses` refuses a default whose type is unhashable, so a mutable class
-that keeps `object`'s hash slips through, and a `field(default=` holding one is still the finding.
+**Check:** ruff `B006` for the argument form, `RUF008` for the dataclass field and `RUF012` for a
+class attribute without `ClassVar`. `dataclasses` refuses a default whose type is unhashable, so a
+mutable class that keeps `object`'s hash slips through, and a `field(default=` holding one is still
+the finding.
 
 ```python
 # verified — GOOD
@@ -229,6 +189,8 @@ from dataclasses import dataclass, field
 
 @dataclass(slots=True)
 class Batch:
+    """A named batch, with a list of its own."""
+
     name: str
     items: list[int] = field(default_factory=list)
 
@@ -238,7 +200,7 @@ first.items.append(1)
 assert second.items == []  # not shared
 ```
 
-### PS-DATA-09 [M] Never compute a default at import time
+### PS-DATA-08 [M] Never compute a default at import time
 
 `created_at: datetime = datetime.now()` freezes one timestamp into the class. So does reading an
 environment variable, or a file, or a random seed.
@@ -250,7 +212,7 @@ factory form defers it to construction, which is when the caller meant it.
 **Check:** `rg -n 'field\(default=|=[ \t]*[a-z_]+\.[a-z_]+\(\)' src/` inside class bodies — a call
 in a default is the finding unless it is `default_factory`.
 
-### PS-DATA-10 [M] Order fields so every default follows every required field
+### PS-DATA-09 [M] Order fields so every default follows every required field
 
 Or make the defaulted ones keyword-only with `KW_ONLY`.
 
@@ -263,7 +225,7 @@ interleaved.
 
 ## Immutability
 
-### PS-DATA-11 [M] Freeze anything that crosses a boundary
+### PS-DATA-10 [M] Freeze anything that crosses a boundary
 
 Anything returned from a public function, stored in a cache, used as a dict key, or handed to a
 thread. A container held on `self` leaves as `tuple(self._items)`, which also says the result is not
@@ -277,7 +239,7 @@ the attempt, and an immutable value needs no lock at all.
 unless the docstring transfers ownership explicitly, and a bare `return self._x` of a container is
 the finding outright.
 
-### PS-DATA-12 [M] Replace rather than mutate, with `dataclasses.replace`
+### PS-DATA-11 [M] Replace rather than mutate, with `dataclasses.replace`
 
 `updated = replace(original, status=Status.RETIRED)`.
 
@@ -288,7 +250,7 @@ constructor call is one more site to update every time a field is added.
 **Check:** `rg -n 'replace\(' src/` should be roughly as common as frozen dataclasses are. Their
 absence, alongside frozen types, means someone is rebuilding by hand.
 
-### PS-DATA-13 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
+### PS-DATA-12 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 
 `frozendict`, new in 3.15, for the value, in place of `types.MappingProxyType`.
 `isinstance(x, collections.abc.Mapping)` for the check: `frozendict` is **not a `dict` subclass**;
@@ -305,8 +267,9 @@ the test. `rg -n 'MappingProxyType' src/` finds the spelling it replaces.
 ```python
 # verified — GOOD
 from collections.abc import Mapping
+from typing import Final
 
-DEFAULTS = frozendict({"retries": 3, "timeout_ms": 500})
+DEFAULTS: Final = frozendict({"retries": 3, "timeout_ms": 500})
 
 assert isinstance(DEFAULTS, Mapping)
 assert not isinstance(DEFAULTS, dict)  # the trap: it is not a dict subclass
@@ -315,7 +278,7 @@ assert DEFAULTS["retries"] == 3
 
 ## Validity
 
-### PS-DATA-14 [M] Validate in `__post_init__`, and raise rather than correct
+### PS-DATA-13 [M] Validate in `__post_init__`, and raise rather than correct
 
 Raise `ValueError`. Do not clamp, coerce, or substitute a default.
 
@@ -330,32 +293,34 @@ they passed, not the one they got; a raise puts the construction site in the tra
 # verified — GOOD
 from dataclasses import dataclass
 
+import pytest
+
 
 @dataclass(frozen=True, slots=True)
 class Port:
+    """A TCP port number."""
+
     number: int
 
     def __post_init__(self) -> None:
+        """Reject a number outside 1 to 65535."""
         if not 1 <= self.number <= 65535:
             msg = f"port out of range: {self.number}"
             raise ValueError(msg)
 
 
+def test_out_of_range_is_rejected() -> None:
+    with pytest.raises(ValueError, match="out of range"):
+        Port(0)
+
+
 assert Port(8080).number == 8080
-try:
-    Port(0)
-except ValueError as exc:
-    assert "out of range" in str(exc)
 ```
 
-### PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
+### PS-DATA-14 [M] Make the invalid state unrepresentable before validating against it
 
 An enum instead of a validated string. A `Port` type instead of an `int` you check. Two types
 instead of one type with a flag that says which it is.
-
-*Relaxed form:* application code at a boundary may validate a primitive rather than introduce a
-type, provided the validation happens exactly once and the validated value is not passed on as
-the primitive.
 
 **Why:** validation must be repeated at every construction site and can be forgotten at any of them;
 a type is a check the type checker makes everywhere for free. Every state made unrepresentable is a
@@ -364,9 +329,11 @@ branch you never write and a test you never need.
 **Check:** every `if not valid: raise` in the codebase. Ask what type would make the check
 unnecessary.
 
-### PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
+### PS-DATA-15 [M] Give a domain value its own type rather than a bare `str` or `int`
 
-`UserId`, `Email`, `Cents` — a `NewType` at minimum, a frozen dataclass where there is behaviour.
+`UserId`, `Email`, `Cents` — a `NewType` at minimum, a frozen dataclass where there is behaviour. A
+quantity's unit is part of its type the same way: `Cents`, not an `int` that a name alone says is
+cents; a primitive left as one names its unit instead (PS-NAME-05).
 
 **Why:** in `def transfer(from_: str, to: str, amount: int)`, swapping the two accounts type-checks;
 with distinct types, the transposition is a type error. `NewType` costs nothing at runtime — it is
@@ -390,7 +357,7 @@ def credit(user: UserId, amount: Cents) -> str:
 assert credit(UserId(7), Cents(250)) == "7:250"
 ```
 
-### PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
+### PS-DATA-16 [M] Never let `__eq__` and `__hash__` disagree
 
 If two objects are equal they must hash equal. A mutable object that defines `__eq__` must not
 define `__hash__`.
@@ -399,50 +366,8 @@ define `__hash__`.
 different hashes lands in different buckets and the lookup silently misses. `dataclass` gets this
 right: `eq=True` without `frozen=True` sets `__hash__` to `None`, leaving it unhashable, not broken.
 
-**Check:** `rg -n 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented
-reason the type is unhashable.
-
-## Symmetry of a data type
-
-### PS-DATA-18 [M] Give every serialiser its inverse
-
-If `to_json` exists, `from_json` exists. If `__str__` is meant to round-trip, something parses it.
-The same holds for every verb a type pairs, `encode` with `decode` and `push` with `pop`; how the
-two are spelled is PS-NAME-18.
-
-**Why:** a one-way conversion produces a value you can never recover, and the gap stays invisible
-until someone needs the inverse, by which point the format has already shipped. Writing the pair
-together also tests the format: a round-trip assertion is the cheapest schema check there is.
-
-**Check:** every `to_*`, `__str__` and paired verb on a data type. A missing inverse is either
-deliberate — say so in the docstring — or the finding.
-
-```python
-# verified — GOOD
-from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Self
-
-
-@dataclass(frozen=True, slots=True)
-class Point:
-    x: int
-    y: int
-
-    def to_dict(self) -> dict[str, int]:
-        # Not `asdict`: it returns `dict[str, Any]`, and laundering `Any` into an
-        # annotated return is what PS-TYPE-13 exists to stop.
-        return {"x": self.x, "y": self.y}
-
-    @classmethod
-    def from_dict(cls, raw: Mapping[str, int]) -> Self:
-        return cls(x=raw["x"], y=raw["y"])
-
-
-original = Point(1, 2)
-assert Point.from_dict(original.to_dict()) == original
-assert Point.from_dict(frozendict(x=1, y=2)) == original  # any mapping, not only a dict
-```
+**Check:** `rg -n 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented reason
+the type is unhashable.
 
 ## Decided by tools
 
@@ -450,9 +375,3 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `SLOT000` | error | a `str` subclass with no `__slots__` |
-| ruff | `SLOT001` | error | a `tuple` subclass with no `__slots__` |
-| ruff | `SLOT002` | error | a `namedtuple` subclass with no `__slots__` |
-| ruff | `B006` | error | a mutable default argument |
-| ruff | `RUF008` | error | a mutable default on a dataclass field |
-| ruff | `RUF012` | error | a mutable class attribute without `ClassVar` |

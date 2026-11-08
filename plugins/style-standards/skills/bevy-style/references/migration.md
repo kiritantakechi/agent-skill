@@ -1,582 +1,401 @@
-# Migration: Every API Forbidden Since 0.15, and What Replaces It
+# Migration: Old Spellings Since 0.15, and What Replaced Them
 
-Scope: the names that changed between Bevy 0.15 and 0.20, as a table of what to write instead. This
-is the chapter to open when porting code, when reviewing something that looks like it came from a
-tutorial, and when a name does not resolve.
+Scope: every spelling a game writes that Bevy 0.15 through 0.20 removed, renamed, changed or
+deprecated, keyed by the old spelling, with the rule that owns it. What changed under existing code
+with no spelling to key it is its owning rule's to state. Why a spelling is wrong is its owning
+rule's to say; this chapter is the table and the command it generates. The engine's rendering
+internals, render graph, pipeline specialisation and reflection internals changed as much and are
+not in it: no rule of this standard reaches them, and the upstream migration guides are their
+reference.
 
-Every right-hand column is the **0.20** spelling, not the first hop. Several of these renamed twice
-— `EventWriter::send` became `EventWriter::write` in 0.16 and then `MessageWriter::write` in 0.17 —
-and a table that stops at the first hop sends the reader to a name that is also gone.
-
-The tables are not exhaustive for the engine; they are exhaustive for what a game writes. Rendering
-internals, the render graph, pipeline specialisation and the reflection internals changed at least
-as much, and the upstream migration guides are the reference for those.
+Every rule ID a revision of this standard changed, and what it became, is in
+`references/renames.md`.
 
 ## Contents
 
-- **Using this chapter**
-  - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
+- Old spellings
+- **Reading the table**
+  - BV-MIG-01 [M] Check unfamiliar Bevy code against this chapter before adapting it
   - BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
-
-- **0.15: bundles and text**
-  - BV-MIG-03 [M] Replace every `*Bundle` with the components it inserted
-  - BV-MIG-04 [M] Replace the old text API with the text components
-  - BV-MIG-05 [M] Replace the old UI node API
-
-- **0.16: hierarchy, queries, errors**
-  - BV-MIG-06 [M] Replace `Parent` and the hierarchy commands with relationships
-  - BV-MIG-07 [M] Replace the panicking and deprecated query methods
-
-- **0.17: the big rename**
-  - BV-MIG-08 [M] Replace the buffered-event vocabulary with messages
-  - BV-MIG-09 [M] Rename every system set to end in `Systems`
-  - BV-MIG-10 [M] Replace the remaining 0.17 renames
-
-- **0.18 and 0.19**
-  - BV-MIG-11 [M] Replace the 0.18 renames
-  - BV-MIG-12 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
-  - BV-MIG-13 [M] Replace the remaining 0.19 renames
-
-- **0.20: observers, pointers, deprecations**
-  - BV-MIG-14 [M] Move the bundle off `On` and onto the lifecycle event
-  - BV-MIG-15 [M] Flatten the pointer events
-  - BV-MIG-16 [M] Replace what 0.20 deprecated
-  - BV-MIG-17 [M] Replace the remaining 0.20 renames and removals
-
-- **Changes that do not show up as a compile error**
-  - BV-MIG-18 [M] Re-read every `Ref` that is cloned
+  - BV-MIG-03 [M] Re-read every `Ref` that is cloned
 - Decided by tools
 
 ---
 
-## Using this chapter
+## Old spellings
 
-### BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
+A row's status says what Bevy 0.20 does with its old spelling under the shipped configuration:
+`gone` — it rejects it, as an item it does not have or a shape it does not accept, so the build
+fails where it stands; `changed` — it accepts it, and it means something else, so its owning rule's
+Check finds it; `deprecated` — it accepts it, and it means what it did, with a warning, which the
+shipped CI's `CARGO_BUILD_WARNINGS: deny` makes a failed build. No row is an `alias`: Bevy keeps no
+old name working beside its new one. A spelling with `…` in it is a shape: code left out where the
+`…` stands, which no fixed string finds, so its owning rule's Check does. Its Since is the release
+from which it does so: for a `gone` row the first without the item, which for a name deprecated
+first is a release after the one that renamed it. Section 2.1 lists the `changed` rows of 0.20 and
+section 2.2 the `gone` ones. A row may stand for a family its 0.20 column names. The command after
+the table finds every `gone` spelling the code writes out but a shape; a removed method keyed by its
+type, `Timer::finished`, is called on a value, `timer.finished()`, which names no type a fixed
+string can see, and the compiler rejects it.
 
-Code from a tutorial, a blog post, an answer, or a language model is 0.15-era until something proves
-otherwise. Check it against these tables before adapting it.
+| Old | Bevy 0.20 | Status | Since | Rule |
+|---|---|---|---|---|
+| `SpriteBundle` | `Sprite::from_image(handle)` plus `Transform` | gone | 0.16 | BV-ECS-06 |
+| `SpriteSheetBundle` | `Sprite::from_atlas_image(handle, atlas)` | gone | 0.15 | BV-ECS-06 |
+| `PbrBundle` | `Mesh3d(mesh)` plus `MeshMaterial3d(material)` | gone | 0.16 | BV-ECS-06 |
+| `MaterialMesh2dBundle` | `Mesh2d(mesh)` plus `MeshMaterial2d(material)` | gone | 0.16 | BV-ECS-06 |
+| `ImageBundle` | `ImageNode::new(handle)` | gone | 0.16 | BV-ECS-06 |
+| `PointLightBundle` | `PointLight::default()` plus `Transform` | gone | 0.16 | BV-ECS-06 |
+| `DirectionalLightBundle` | `DirectionalLight::default()` plus `Transform` | gone | 0.16 | BV-ECS-06 |
+| `SpatialBundle` | `Transform`; `Visibility` and the rest are required components | gone | 0.16 | BV-ECS-06 |
+| `TransformBundle` | `Transform` | gone | 0.16 | BV-ECS-06 |
+| `VisibilityBundle` | `Visibility` | gone | 0.16 | BV-ECS-06 |
+| `AudioBundle` | `AudioPlayer(handle)` | gone | 0.16 | BV-ECS-06 |
+| `NodeBundle` | `Node::default()` | gone | 0.16 | BV-VIEW-01 |
+| `ButtonBundle` | `bevy::ui_widgets::Button` plus `Node` | gone | 0.16 | BV-VIEW-06 |
+| `Camera2dBundle` | `Camera2d` | gone | 0.16 | BV-VIEW-12 |
+| `Camera3dBundle` | `Camera3d::default()` | gone | 0.16 | BV-VIEW-12 |
+| `TextBundle` | `Text::new(s)` plus `TextFont` and `TextColor` | gone | 0.16 | BV-VIEW-04 |
+| `Text2dBundle` | `Text2d::new(s)` plus `TextFont` and `TextColor` | gone | 0.16 | BV-VIEW-04 |
+| `TextStyle` | `TextFont { font, font_size, .. }` plus `TextColor(color)` | gone | 0.15 | BV-VIEW-04 |
+| `Text::from_section` | `Text::new(s)`, with `TextFont` and `TextColor` beside it | gone | 0.15 | BV-VIEW-04 |
+| `JustifyText` | `Justify` | gone | 0.17 | BV-VIEW-04 |
+| `BreakLineOn` | `LineBreak` | gone | 0.15 | BV-VIEW-04 |
+| `TextLayout::new_with_justify` | `TextLayout::justify(j)` | gone | 0.19 | BV-VIEW-04 |
+| `TextLayout::new_with_linebreak` | `TextLayout::linebreak(b)` | gone | 0.19 | BV-VIEW-04 |
+| `TextLayout::new_with_no_wrap` | `TextLayout::no_wrap()` | gone | 0.19 | BV-VIEW-04 |
+| `resolve_font_source` | `font.font.resolve_font_family(fonts)` | gone | 0.20 | BV-VIEW-04 |
+| `FontSource::SansSerif` | `FontSource::sans_serif()`, or `FontSource::Generic` with a `GenericFontFamily`; every generic family variant likewise | gone | 0.20 | BV-VIEW-04 |
+| `Style` | `Node` | gone | 0.15 | BV-VIEW-01 |
+| `UiImage` | `ImageNode`, which carries its own colour | gone | 0.15 | BV-VIEW-01 |
+| `UiImageSize` | `ImageNodeSize` | gone | 0.15 | BV-VIEW-01 |
+| `ComputedNode::stack_index` | `ComputedStackIndex` | gone | 0.19 | BV-VIEW-03 |
+| `ComputedNodeTarget` | `ComputedUiTargetCamera` | gone | 0.17 | BV-VIEW-03 |
+| `CoreScrollbarThumb` | `ScrollbarThumb`; `CoreScrollbarDragState` and `CoreSliderDragState` lose `Core` likewise | gone | 0.19 | BV-VIEW-07 |
+| `button_bundle` | the feathers `FeathersButton` with `FeathersButtonProps`, used from `bsn!`; each `*_bundle` spawn function likewise | gone | 0.20 | BV-VIEW-07 |
+| `FeathersPlugin` | `FeathersCorePlugin` | gone | 0.19 | BV-VIEW-07 |
+| `EditableTextInputPlugin` | `TextInputPlugin` | gone | 0.20 | BV-VIEW-08 |
+| `TextScroll` | `EditableText::viewport` (`TextViewport`) | gone | 0.20 | BV-VIEW-08 |
+| `scroll_editable_text` | `EditableText::viewport` (`TextViewport`) | gone | 0.20 | BV-VIEW-08 |
+| `Pointer<Click>` | `PointerClick`, its fields one level up and no `.event`; every `Pointer<X>` is `PointerX`, and a generic `On<Pointer<E>>` is `On<E>` with `E: PointerEvent` | gone | 0.20 | BV-MIG-02 |
+| `pointer_location` | `ev.pointer.position` (`Vec2`), or `ev.pointer.location()` for the `Location`; `ev.pointer_id` is `ev.pointer.id` | gone | 0.20 | BV-MIG-02 |
+| `Parent` | `ChildOf`, read with `child_of.parent()` | gone | 0.16 | BV-ECS-11 |
+| `set_parent` | `insert(ChildOf(p))`; `set_parent_in_place`, which keeps the child's `GlobalTransform`, is live | gone | 0.17 | BV-ECS-11 |
+| `push_children` | `add_children` | gone | 0.15 | BV-ECS-11 |
+| `remove_children` | `detach_children` | gone | 0.20 | BV-ECS-11 |
+| `remove_child` | `detach_child` | gone | 0.20 | BV-ECS-11 |
+| `clear_children` | `detach_all_children` | gone | 0.20 | BV-ECS-11 |
+| `clear_related` | `detach_all_related::<R>()` | gone | 0.18 | BV-ECS-11 |
+| `despawn_recursive` | `despawn()`, which is recursive | gone | 0.17 | BV-ECS-11 |
+| `despawn_descendants` | `despawn_related::<Children>()` | gone | 0.16 | BV-ECS-11 |
+| `ChildBuilder` | `ChildSpawnerCommands`, whose `target_entity()` was `parent_entity()` | gone | 0.16 | BV-ECS-11 |
+| `parent_entity` | `target_entity()` | gone | 0.16 | BV-ECS-11 |
+| `HierarchyQueryExt` | `Query::related()` for `parent()`, `Query::relationship_sources()` for `children()` | gone | 0.16 | BV-ECS-11 |
+| `get_single_mut` | `Query::single_mut()`, which returns `Result` | gone | 0.17 | BV-ERR-01 |
+| `to_readonly` | `Query::as_readonly()` | gone | 0.17 | BV-ECS-15 |
+| `DefaultErrorHandler` | `FallbackErrorHandler` | gone | 0.20 | BV-ERR-05 |
+| `init_non_send_resource` | `App::init_non_send` | gone | 0.20 | BV-ERR-07 |
+| `non_send_resource` | `World::non_send` | gone | 0.20 | BV-ERR-07 |
+| `non_send_resource_mut` | `World::non_send_mut` | gone | 0.20 | BV-ERR-07 |
+| `ExclusiveSystemParam` | `&mut World` as a `SystemParam`; `ExclusiveFunctionSystem` and `ExclusiveMarker` went with it | gone | 0.20 | BV-ECS-29 |
+| `EventReader` | `MessageReader<M>` | gone | 0.18 | BV-EVENT-05 |
+| `EventWriter` | `MessageWriter<M>`, whose `send`, `send_batch` and `send_default` are `write`, `write_batch` and `write_default` | gone | 0.18 | BV-EVENT-01 |
+| `Events` | `Messages<M>` | gone | 0.18 | BV-EVENT-04 |
+| `ManualEventReader` | `MessageCursor` | gone | 0.16 | BV-EVENT-05 |
+| `send_event` | `write_message`, on `World` and on `Commands` | gone | 0.18 | BV-EVENT-01 |
+| `trigger_targets` | an `EntityEvent` carrying its target as a field: `commands.trigger(E { entity })` | gone | 0.18 | BV-EVENT-08 |
+| `event_target_mut` | `SetEntityEventTarget`, which game code does not need | gone | 0.18 | BV-EVENT-11 |
+| `OnAdd` | `Add` | gone | 0.18 | BV-EVENT-13 |
+| `OnInsert` | `Insert` | gone | 0.18 | BV-EVENT-13 |
+| `OnReplace` | `Discard`, not `Replace` | gone | 0.18 | BV-EVENT-13 |
+| `OnRemove` | `Remove` | gone | 0.18 | BV-EVENT-13 |
+| `OnDespawn` | `Despawn` | gone | 0.18 | BV-EVENT-13 |
+| `Replace` | `Discard` | gone | 0.19 | BV-EVENT-13 |
+| `on_replace` | `on_discard` | gone | 0.19 | BV-EVENT-13 |
+| `TransformSystem` | `TransformSystems` | gone | 0.18 | BV-ARCH-10 |
+| `UiSystem` | `UiSystems` | gone | 0.18 | BV-ARCH-10 |
+| `PickSet` | `PickingSystems` | gone | 0.18 | BV-ARCH-10 |
+| `InputSystem` | `InputSystems` | gone | 0.18 | BV-ARCH-10 |
+| `InputFocusSet` | `InputFocusSystems` | gone | 0.18 | BV-ARCH-10 |
+| `TimeSystem` | `TimeSystems` | gone | 0.18 | BV-ARCH-10 |
+| `AccessibilitySystem` | `AccessibilitySystems` | gone | 0.18 | BV-ARCH-10 |
+| `RemoteSet` | `RemoteSystems` | gone | 0.18 | BV-ARCH-10 |
+| `StateTransitionSteps` | `StateTransitionSystems` | gone | 0.18 | BV-ARCH-10 |
+| `bevy::animation::Animation` | `AnimationSystems` | gone | 0.18 | BV-ARCH-10 |
+| `AssetEvents` | `AssetEventSystems` | gone | 0.18 | BV-ARCH-10 |
+| `TrackAssets` | `AssetTrackingSystems` | gone | 0.18 | BV-ARCH-10 |
+| `EventUpdates` | `MessageUpdateSystems` | gone | 0.18 | BV-ARCH-10 |
+| `CameraUpdateSystem` | `CameraUpdateSystems` | gone | 0.18 | BV-ARCH-10 |
+| `RunFixedMainLoopSystem` | `RunFixedMainLoopSystems` | gone | 0.18 | BV-ARCH-10 |
+| `SpriteSystem` | nothing: `SpriteSystems`, its 0.17 name, is gone from `bevy::sprite` and `bevy::sprite_render` too | gone | 0.18 | BV-ARCH-10 |
+| `ExecutorKind` | `Schedule::set_executor(SingleThreadedExecutor::new())` and the other executors | gone | 0.19 | BV-SCHED-22 |
+| `set_executor_kind` | `set_executor` | gone | 0.19 | BV-SCHED-22 |
+| `SimpleExecutor` | `SingleThreadedExecutor` | gone | 0.18 | BV-SCHED-22 |
+| `StateScoped` | `DespawnOnExit` | gone | 0.18 | BV-STATE-15 |
+| `PendingIfNeq` | `PendingIfDifferent` | gone | 0.20 | BV-STATE-17 |
+| `set_state_if_neq` | `set_state_if_different` | gone | 0.20 | BV-STATE-17 |
+| `set_next_state_if_neq` | `set_next_state_if_different` | gone | 0.20 | BV-STATE-17 |
+| `Timer::finished` | `Timer::is_finished()`; `paused()` is `is_paused()` likewise | gone | 0.18 | BV-MIG-02 |
+| `compute_matrix` | `to_matrix`, on `Transform` and `GlobalTransform` | gone | 0.17 | BV-MIG-02 |
+| `Handle::weak_from_u128` | the `uuid_handle!("…")` macro; `Handle` has only `Strong` and `Uuid` | gone | 0.17 | BV-ASSET-03 |
+| `load_with_settings` | `load_builder().with_settings(…).load(path)` | gone | 0.20 | BV-ASSET-07 |
+| `load_override` | `load_builder().override_unapproved()` | gone | 0.20 | BV-ASSET-07 |
+| `load_acquire` | `load_builder().with_guard(…)` | gone | 0.20 | BV-ASSET-07 |
+| `SceneRoot` | `WorldAssetRoot` | gone | 0.19 | BV-MIG-02 |
+| `DynamicScene` | `DynamicWorld`; `from_scene` is `from_world_asset`, and needs a `&TypeRegistry` | gone | 0.19 | BV-MIG-02 |
+| `DynamicSceneBuilder` | `DynamicWorldBuilder`, which needs a `&TypeRegistry` | gone | 0.19 | BV-MIG-02 |
+| `DynamicSceneRoot` | `DynamicWorldRoot` | gone | 0.19 | BV-MIG-02 |
+| `SceneInstanceReady` | `WorldInstanceReady` | gone | 0.19 | BV-MIG-02 |
+| `SceneSpawner` | `WorldInstanceSpawner` | gone | 0.19 | BV-MIG-02 |
+| `SceneLoader` | `WorldAssetLoader` | gone | 0.19 | BV-MIG-02 |
+| `SceneFilter` | `WorldFilter` | gone | 0.19 | BV-MIG-02 |
+| `bevy::a11y::Focus` | `bevy::input_focus::InputFocus` | gone | 0.16 | BV-MIG-02 |
+| `AnimationTarget` | the separate components that replaced it | gone | 0.18 | BV-MIG-02 |
+| `Atmosphere::earthlike` | `Atmosphere::earth` | gone | 0.19 | BV-MIG-02 |
+| `Font::try_from_bytes` | `Font::from_bytes`, which returns the `Font` | gone | 0.19 | BV-MIG-02 |
+| `bevy_math::curve` | `bevy_curve`, or `bevy::curve` | gone | 0.20 | BV-ARCH-06 |
+| `bevy_math::cubic_splines` | `bevy_curve`, or `bevy::curve` | gone | 0.20 | BV-ARCH-06 |
+| `bevy_math::primitives` | `bevy_shape`, or `bevy::shape`; `bevy::prelude` names them as it did | gone | 0.20 | BV-ARCH-06 |
+| `#import` | a `.wesl` with `import …;` | gone | 0.20 | BV-VIEW-18 |
+| `#ifdef` | `@if(…)` in a `.wesl` | gone | 0.20 | BV-VIEW-18 |
+| `#define_import_path` | the `.wesl` module's own path | gone | 0.20 | BV-VIEW-18 |
+| `#{MATERIAL_BIND_GROUP}` | `constants::MATERIAL_BIND_GROUP` | gone | 0.20 | BV-VIEW-18 |
+| `"shader_format_glsl"` | nothing: GLSL is gone | gone | 0.20 | BV-VIEW-18 |
+| `"shader_format_wesl"` | nothing: WESL is the only shader language | gone | 0.20 | BV-VIEW-18 |
+| `"animation"` | `"gltf_animation"` | gone | 0.18 | BV-BUILD-03 |
+| `"bevy_sprite_picking_backend"` | `"sprite_picking"` | gone | 0.18 | BV-BUILD-03 |
+| `"bevy_ui_picking_backend"` | `"ui_picking"` | gone | 0.18 | BV-BUILD-03 |
+| `"bevy_mesh_picking_backend"` | `"mesh_picking"` | gone | 0.18 | BV-BUILD-03 |
+| `"experimental_bevy_feathers"` | `"bevy_feathers"` | gone | 0.19 | BV-BUILD-03 |
+| `"experimental_bevy_ui_widgets"` | `"bevy_ui_widgets"` | gone | 0.19 | BV-BUILD-03 |
+| `"bevy_math/curve"` | `"bevy/bevy_curve"` | gone | 0.20 | BV-BUILD-03 |
+| `Trigger<…>` | `On<E>`, read by the event's own name; `Trigger` is now a trait | gone | 0.18 | BV-EVENT-13 |
+| `On<Add, …>` | `On<Add<T>>`, and so for `Insert`, `Discard`, `Remove` and `Despawn`; a custom `On<E, B>` is a `PhantomData` wrapper implementing `EventPattern` | gone | 0.20 | BV-EVENT-13 |
+| `On<Add>` | `On<Add<()>>`, for an observer of dynamic components (`.with_component(id)`) | gone | 0.20 | BV-EVENT-13 |
+| `App::add_event` | `.add_message::<M>()`; `AnimationClip::add_event` is live | gone | 0.18 | BV-EVENT-04 |
+| `on_event::<…>()` | `on_message::<M>()`, or a `PopulatedMessageReader` | gone | 0.18 | BV-EVENT-05 |
+| `App::observe` | `App::add_observer`, as `Commands::observe` is `Commands::add_observer`; `EntityCommands::observe` is live | gone | 0.15 | BV-EVENT-15 |
+| `NextState::set_if_neq` | `set_if_different`; `Mut::set_if_neq` is live | gone | 0.20 | BV-STATE-17 |
+| `Query::get_single` | `Query::single()`, which returns `Result`; `Gradient::get_single` is live | gone | 0.17 | BV-ERR-01 |
+| `impl Command<Result>` | `impl Command { type Out = Result; }`; `-> impl Command` with a closure returning `Result` | gone | 0.19 | BV-ERR-01 |
+| `Handle<AnimationGraph>` | `AnimationGraphHandle(handle)` as the component; a `Handle` is no component | gone | 0.15 | BV-ECS-13 |
+| `Text { sections: … }` | a `Text` root with `TextSpan` children | gone | 0.15 | BV-VIEW-05 |
+| `TextFont { line_height: … }` | the `LineHeight` component | gone | 0.18 | BV-VIEW-04 |
+| `TextFont { font: handle, … }` | `TextFont { font: FontSource::Handle(handle), .. }` | gone | 0.19 | BV-VIEW-04 |
+| `TextFont { font_size: f32, … }` | `TextFont { font_size: FontSize::Px(…), .. }` | gone | 0.19 | BV-VIEW-04 |
+| `Camera { hdr: … }` | the separate `Hdr` component | gone | 0.17 | BV-VIEW-12 |
+| `Camera { target: … }` | `RenderTarget` as its own component | gone | 0.18 | BV-VIEW-14 |
+| `bevy_pbr::mesh_view_bindings` | `bevy_pbr::render::mesh_view_bindings` | gone | 0.20 | BV-VIEW-18 |
+| `Condition` | `SystemCondition` | gone | 0.17 | BV-SCHED-17 |
+| `Window { cursor_options: … }` | the separate `CursorOptions` component, which `Window` requires | gone | 0.17 | BV-MIG-02 |
+| `Sprite { anchor: … }` | the separate `Anchor` component, which `Sprite` requires: a `Vec2` newtype, `Anchor::CENTER` for `Anchor::Center` and `Anchor(v)` for `Anchor::Custom(v)` | gone | 0.17 | BV-MIG-02 |
+| `Skybox { image: handle, … }` | `Skybox { image: Some(handle), .. }`: the field is an `Option<Handle<Image>>` | gone | 0.19 | BV-MIG-02 |
+| `BorderRadius { top_left: Val::Px(…), … }` | `CornerRadius` fields, such as `px(10.).into()` | gone | 0.20 | BV-MIG-02 |
+| `MeshTag(…)` | `MeshTag::new(x)`, read as `tag.value` | gone | 0.20 | BV-MIG-02 |
+| `#[derive(Event)]` | `#[derive(Message)]` for a buffered event; `Event` is an observed one | changed | 0.17 | BV-EVENT-01 |
+| `NextState::set` | runs `OnExit(S)` and `OnEnter(S)` when the state is already `S`; `set_if_different` is the old meaning | changed | 0.18 | BV-STATE-17 |
+| `App::set_error_handler` | receives every panic in a system, observer or command as an error carrying its payload | changed | 0.20 | BV-ERR-05 |
+| `Query::iter_many` | yields `Result` per id, so `.count()` and `for _ in` take ids the query does not match; `.matched()` is the old meaning | changed | 0.20 | BV-ECS-20 |
+| `Query<Entity>` | matches each resource's entity too, as `Query<EntityRef>` and `Query<EntityMut>` do | changed | 0.19 | BV-STATE-02 |
+| `Ref::clone` | another `Ref<T>`, where it produced a `T`; `r.deref().clone()` is the old meaning | changed | 0.19 | BV-MIG-03 |
+| `Node` | the layout input, what was `Style`; the laid-out size is `ComputedNode`'s | changed | 0.15 | BV-VIEW-03 |
+| `TextSection` | a live trait; the old struct is a `TextSpan` on a child entity | changed | 0.15 | BV-VIEW-05 |
+| `TextFont::default` | sizes text at `FontSize::Rem(1.)`, not `Px(20.)`; `TextFont::from_font_size(FontSize::Px(…))` keeps a fixed size | changed | 0.20 | BV-VIEW-04 |
+| `EditableText` | spawned alone, inert; spawn `TextInput`, which requires it | changed | 0.20 | BV-VIEW-08 |
+| `Camera2d` | brings `Tonemapping::Linear`, and with `Hdr` runs the tonemapping pass | changed | 0.20 | BV-VIEW-12 |
+| `Camera3d` | no longer requires `ScreenSpaceTransmission`; a camera drawing transmissive materials adds it | changed | 0.20 | BV-VIEW-12 |
+| `Bloom` | judges luminance in linear, so a tint tuned against sRGB blooms more | changed | 0.19 | BV-VIEW-11 |
+| `Aabb` | added and kept up to date by Bevy whenever its mesh or sprite changes, so a system that writes or removes one fights the engine; `NoAutoAabb` opts out | changed | 0.18 | BV-VIEW-16 |
+| `Tonemapping::None` | a full passthrough: no `ColorGrading`, no `DebandDither`, no clamping; `Tonemapping::Linear` is no curve | changed | 0.20 | BV-VIEW-20 |
+| `SpriteMaterial` | a new public type, unrelated to the internal one of the same name, which is `SpriteMeshMaterial` | changed | 0.20 | BV-VIEW-17 |
+| `AssetEvent::Modified` | raised only by an actual mutation, so a `get_mut` that only reads raises none | changed | 0.19 | BV-ASSET-09 |
+| `UiSystems` | ordered weakly, as the render schedules' sets are: systems the ECS sees no conflict between are unordered | changed | 0.20 | BV-SCHED-14 |
+| `bevy_scene` | the `bsn!` scene system; the old scene crate is `bevy_world_serialization` | changed | 0.19 | BV-MIG-02 |
+| `Scene` | a trait of the `bsn!` system; the asset is `WorldAsset` | changed | 0.19 | BV-MIG-02 |
+| `ScenePlugin` | the `bsn!` system's plugin; the old one is `WorldSerializationPlugin` | changed | 0.19 | BV-MIG-02 |
+| `AmbientLight` | a camera component; the resource is `GlobalAmbientLight` | changed | 0.18 | BV-MIG-02 |
+| `Atmosphere` | a component of its own entity, not of the camera | changed | 0.19 | BV-MIG-02 |
+| `"compressed_image_saver"` | a BCn/ASTC backend; the Basis one is `"compressed_image_saver_universal"` | changed | 0.20 | BV-BUILD-03 |
+| `Interaction` | deprecated, with the prelude `Button`; `Hovered` plus `Pressed`, and `On<Activate>` | deprecated | 0.20 | BV-VIEW-06 |
+| `bevy::ui::widget::Button` | `bevy::ui_widgets::Button` | deprecated | 0.20 | BV-VIEW-06 |
+| `weak_handle!` | the `uuid_handle!("…")` macro | deprecated | 0.17 | BV-ASSET-03 |
+| `AssetId::invalid` | `Option<AssetId<_>>`; `AssetId::INVALID_UUID` likewise | deprecated | 0.20 | BV-MIG-02 |
+| `template_value` | the value itself, in `bsn!` | deprecated | 0.20 | BV-VIEW-09 |
 
-**Why:** 0.17 renamed the event system, the observer parameter and every system set, and most Bevy
-material online predates it. The cost is not a compile error but time spent adapting a pattern that
-no longer exists, and a mental model that keeps producing the old names.
+```sh
+rg -n -F -w \
+  -e 'SpriteBundle' \
+  -e 'SpriteSheetBundle' \
+  -e 'PbrBundle' \
+  -e 'MaterialMesh2dBundle' \
+  -e 'ImageBundle' \
+  -e 'PointLightBundle' \
+  -e 'DirectionalLightBundle' \
+  -e 'SpatialBundle' \
+  -e 'TransformBundle' \
+  -e 'VisibilityBundle' \
+  -e 'AudioBundle' \
+  -e 'NodeBundle' \
+  -e 'ButtonBundle' \
+  -e 'Camera2dBundle' \
+  -e 'Camera3dBundle' \
+  -e 'TextBundle' \
+  -e 'Text2dBundle' \
+  -e 'TextStyle' \
+  -e 'Text::from_section' \
+  -e 'JustifyText' \
+  -e 'BreakLineOn' \
+  -e 'TextLayout::new_with_justify' \
+  -e 'TextLayout::new_with_linebreak' \
+  -e 'TextLayout::new_with_no_wrap' \
+  -e 'resolve_font_source' \
+  -e 'FontSource::SansSerif' \
+  -e 'Style' \
+  -e 'UiImage' \
+  -e 'UiImageSize' \
+  -e 'ComputedNode::stack_index' \
+  -e 'ComputedNodeTarget' \
+  -e 'CoreScrollbarThumb' \
+  -e 'button_bundle' \
+  -e 'FeathersPlugin' \
+  -e 'EditableTextInputPlugin' \
+  -e 'TextScroll' \
+  -e 'scroll_editable_text' \
+  -e 'Pointer<Click>' \
+  -e 'pointer_location' \
+  -e 'Parent' \
+  -e 'set_parent' \
+  -e 'push_children' \
+  -e 'remove_children' \
+  -e 'remove_child' \
+  -e 'clear_children' \
+  -e 'clear_related' \
+  -e 'despawn_recursive' \
+  -e 'despawn_descendants' \
+  -e 'ChildBuilder' \
+  -e 'parent_entity' \
+  -e 'HierarchyQueryExt' \
+  -e 'get_single_mut' \
+  -e 'to_readonly' \
+  -e 'DefaultErrorHandler' \
+  -e 'init_non_send_resource' \
+  -e 'non_send_resource' \
+  -e 'non_send_resource_mut' \
+  -e 'ExclusiveSystemParam' \
+  -e 'EventReader' \
+  -e 'EventWriter' \
+  -e 'Events' \
+  -e 'ManualEventReader' \
+  -e 'send_event' \
+  -e 'trigger_targets' \
+  -e 'event_target_mut' \
+  -e 'OnAdd' \
+  -e 'OnInsert' \
+  -e 'OnReplace' \
+  -e 'OnRemove' \
+  -e 'OnDespawn' \
+  -e 'Replace' \
+  -e 'on_replace' \
+  -e 'TransformSystem' \
+  -e 'UiSystem' \
+  -e 'PickSet' \
+  -e 'InputSystem' \
+  -e 'InputFocusSet' \
+  -e 'TimeSystem' \
+  -e 'AccessibilitySystem' \
+  -e 'RemoteSet' \
+  -e 'StateTransitionSteps' \
+  -e 'bevy::animation::Animation' \
+  -e 'AssetEvents' \
+  -e 'TrackAssets' \
+  -e 'EventUpdates' \
+  -e 'CameraUpdateSystem' \
+  -e 'RunFixedMainLoopSystem' \
+  -e 'SpriteSystem' \
+  -e 'ExecutorKind' \
+  -e 'set_executor_kind' \
+  -e 'SimpleExecutor' \
+  -e 'StateScoped' \
+  -e 'PendingIfNeq' \
+  -e 'set_state_if_neq' \
+  -e 'set_next_state_if_neq' \
+  -e 'Timer::finished' \
+  -e 'compute_matrix' \
+  -e 'Handle::weak_from_u128' \
+  -e 'load_with_settings' \
+  -e 'load_override' \
+  -e 'load_acquire' \
+  -e 'SceneRoot' \
+  -e 'DynamicScene' \
+  -e 'DynamicSceneBuilder' \
+  -e 'DynamicSceneRoot' \
+  -e 'SceneInstanceReady' \
+  -e 'SceneSpawner' \
+  -e 'SceneLoader' \
+  -e 'SceneFilter' \
+  -e 'bevy::a11y::Focus' \
+  -e 'AnimationTarget' \
+  -e 'Atmosphere::earthlike' \
+  -e 'Font::try_from_bytes' \
+  -e 'bevy_math::curve' \
+  -e 'bevy_math::cubic_splines' \
+  -e 'bevy_math::primitives' \
+  -e '#import' \
+  -e '#ifdef' \
+  -e '#define_import_path' \
+  -e '#{MATERIAL_BIND_GROUP}' \
+  -e '"shader_format_glsl"' \
+  -e '"shader_format_wesl"' \
+  -e '"animation"' \
+  -e '"bevy_sprite_picking_backend"' \
+  -e '"bevy_ui_picking_backend"' \
+  -e '"bevy_mesh_picking_backend"' \
+  -e '"experimental_bevy_feathers"' \
+  -e '"experimental_bevy_ui_widgets"' \
+  -e '"bevy_math/curve"' \
+  -e 'On<Add>' \
+  -e 'App::add_event' \
+  -e 'App::observe' \
+  -e 'NextState::set_if_neq' \
+  -e 'Query::get_single' \
+  -e 'impl Command<Result>' \
+  -e 'Handle<AnimationGraph>' \
+  -e 'bevy_pbr::mesh_view_bindings' \
+  -e 'Condition' \
+  .
+```
 
-**Check:** `rg -n 'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
-Any hit dates it, and so does a system set whose name does not end in `Systems`.
+## Reading the table
+
+### BV-MIG-01 [M] Check unfamiliar Bevy code against this chapter before adapting it
+
+Code from a tutorial, a blog post, an answer or a language model was written against an older Bevy
+until something proves otherwise — often 0.15, and at best 0.19. Run the command after the table
+over it before adapting it, then read it for the `changed` rows, the shapes and the removed methods
+it calls on a value (`timer.finished()`), which no fixed string finds.
+
+**Why:** 0.17 renamed the event system, the observer parameter and every system set; 0.20 moved the
+observer's bundle and flattened the pointer events. Nearly all Bevy material online predates one or
+both, and adapting a pattern that no longer exists costs time and keeps the old names in mind.
+
+**Check:** a hit of the command after the table dates the sample, and so does a hit of the Check of
+a rule that owns a `changed` row or a shape, or the compiler rejecting a `gone` row's method; a
+sample with none of them is read against those rows by hand.
 
 ### BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
-When a migration guide gives a new name, check whether that name still exists.
+Write each old spelling as its row's 0.20 column says, not as the release that first renamed it did.
+A row with no topical rule is this rule's.
 
 **Why:** some APIs move twice: `Pointer<Pressed>` became `Pointer<Press>` in 0.17 and `PointerPress`
 in 0.20. Applying one release's guide and stopping leaves a name that was already renamed again.
 
-**Check:** after applying a rename, grep the vendored source of the version you depend on for the
-new name. If it is not there, the chain continued.
-
-## 0.15: bundles and text
-
-### BV-MIG-03 [M] Replace every `*Bundle` with the components it inserted
-
-The `*Bundle` types were deprecated in 0.15 and are gone: each is the tuple of components in the
-table below, with `#[require]` on the types that always travel together (BV-ECS-06). The `Bundle`
-**trait** remains, as what a spawn tuple implements.
-
-**Why:** it is the most visible break between old Bevy material and current Bevy, and the most
-mechanical: each `XBundle::default()` becomes one or two components.
-
-**Check:** `rg -n '[A-Za-z0-9]Bundle' src/`. Every hit is a removed type or a bundle of your own,
-which BV-ECS-06 rules out. The two the engine still spells that way, `SpawnRelatedBundle` and
-`ReflectBundle`, are machinery a game does not name.
-
-| Removed | Write instead |
-|---|---|
-| `SpriteBundle { texture, .. }` | `Sprite::from_image(handle)` plus `Transform` |
-| `SpriteSheetBundle` | `Sprite::from_atlas_image(handle, atlas)` |
-| `Camera2dBundle::default()` | `Camera2d` |
-| `Camera3dBundle::default()` | `Camera3d::default()` |
-| `PbrBundle { mesh, material, .. }` | `Mesh3d(mesh)` plus `MeshMaterial3d(material)` |
-| `MaterialMesh2dBundle { mesh, material, .. }` | `Mesh2d(mesh)` plus `MeshMaterial2d(material)` |
-| `NodeBundle::default()` | `Node::default()` |
-| `ButtonBundle::default()` | `bevy::ui_widgets::Button` plus `Node` — the prelude `Button` is deprecated |
-| `ImageBundle { image, .. }` | `ImageNode::new(handle)` |
-| `TextBundle::from_section(s, style)` | `Text::new(s)` plus `TextFont` and `TextColor` |
-| `Text2dBundle` | `Text2d::new(s)` plus `TextFont` and `TextColor` |
-| `PointLightBundle` | `PointLight::default()` plus `Transform` |
-| `DirectionalLightBundle` | `DirectionalLight::default()` plus `Transform` |
-| `SpatialBundle` | `Transform` — `Visibility` and the rest are required components |
-| `TransformBundle` | `Transform` |
-| `VisibilityBundle` | `Visibility` |
-| `AudioBundle { source, .. }` | `AudioPlayer(handle)` |
-| `Handle<AnimationGraph>` as a component | `AnimationGraphHandle(handle)` |
-
-### BV-MIG-04 [M] Replace the old text API with the text components
-
-Text is a root component plus per-run components, not a struct holding sections and a style.
-
-**Why:** the old `Text { sections: Vec<TextSection> }` could not be queried or styled per section
-without rebuilding the vector, and no child entity could contribute a run. The component form makes
-each of those an ordinary ECS operation.
-
-**Check:** `rg -n 'TextStyle|from_section|JustifyText|BreakLineOn|new_with_' src/` and
-`rg -n 'TextSection::(new|from_style)|TextSection \{|Vec<TextSection>' src/`. A bare `TextSection`
-is not evidence: since 0.19 `bevy::text::TextSection` is a live trait, so only the old struct's
-constructors, literal and vector are searched for.
-
-| Removed | Write instead |
-|---|---|
-| `TextStyle { font, font_size, color }` | `TextFont { font, font_size, .. }` plus `TextColor(color)` |
-| `Text::from_section(s, style)` | `Text::new(s)`, with `TextFont` and `TextColor` beside it |
-| `Text { sections: vec![…] }` | a `Text` root with `TextSpan` children |
-| `TextSection` (the struct) | `TextSpan` on a child entity |
-| `JustifyText` | `Justify` |
-| `BreakLineOn` | `LineBreak` |
-| `TextLayout::new_with_justify(j)` | `TextLayout::justify(j)` |
-| `TextLayout::new_with_linebreak(b)` | `TextLayout::linebreak(b)` |
-| `TextLayout::new_with_no_wrap()` | `TextLayout::no_wrap()` |
-| `TextFont { line_height, .. }` | the separate `LineHeight` component |
-| `TextFont { font: Handle<Font>, .. }` | `TextFont { font: FontSource, .. }` |
-| `TextFont { font_size: f32, .. }` | `TextFont { font_size: FontSize, .. }` |
-| `Font::try_from_bytes` | `Font::from_bytes(bytes)`, which no longer takes a family name |
-| `FontSource::SansSerif`, `Serif`, `Monospace` and the other generic families | `FontSource::sans_serif()` and so on, or a `GenericFontFamily` |
-
-### BV-MIG-05 [M] Replace the old UI node API
-
-`Style` is `Node`, and `Node` is what used to be `NodeBundle`.
-
-**Why:** the rename is a trap rather than a chore: `Node` changed meaning instead of disappearing,
-so the compiler accepts a read written for the 0.14 meaning and hands back the requested size
-(`references/view.md` BV-VIEW-03).
-
-**Check:** `rg -n 'UiImage|UiImageSize|stack_index' src/`, and read every use of `Node` that
-is asking for a computed size — that value is on `ComputedNode` and no grep can tell them apart.
-
-| Removed | Write instead |
-|---|---|
-| `Style { .. }` | `Node { .. }` |
-| `Node` used for computed layout | `ComputedNode` |
-| `UiImage` | `ImageNode` |
-| `UiImageSize` | `ImageNodeSize` |
-| `BackgroundColor` on the same entity as `UiImage` | `ImageNode` carries its own colour |
-| `ComputedNode::stack_index` | `ComputedStackIndex` |
-| `Core`-prefixed widget components | the same names without `Core` |
-
-## 0.16: hierarchy, queries, errors
-
-### BV-MIG-06 [M] Replace `Parent` and the hierarchy commands with relationships
-
-The hierarchy became an instance of the general relationship mechanism in 0.16, and the commands
-were renamed again in 0.18.
-
-**Why:** the parent link is now an ordinary component any relationship-aware code can see, which
-makes `despawn` recursive by default and lets a game define its own one-to-many links (BV-ECS-11).
-
-**Check:** `rg -n
-'despawn_(recursive|descendants)|push_children|set_parent|ChildBuilder|clear_(children|related)'
-src/`.
-
-| Removed | Write instead |
-|---|---|
-| `Parent` | `ChildOf` |
-| `parent.get()` or `*parent` | `child_of.parent()` |
-| `entity.set_parent(p)` | `entity.insert(ChildOf(p))` |
-| `push_children(&[..])` | `add_children(&[..])` |
-| `remove_children(&[..])` | `detach_children(&[..])` |
-| `remove_child(c)` | `detach_child(c)` |
-| `clear_children()` | `detach_all_children()` |
-| `clear_related::<R>()` | `detach_all_related::<R>()` |
-| `replace_children(&[..])` | remove `Children`, then `add_children(&[..])` |
-| `despawn_recursive()` | `despawn()` |
-| `despawn_descendants()` | `despawn_related::<Children>()` |
-| `ChildBuilder` | `ChildSpawnerCommands` |
-| `builder.parent_entity()` | `spawner.target_entity()` |
-| `HierarchyQueryExt::parent()` | `Query::related()` |
-| `HierarchyQueryExt::children()` | `Query::relationship_sources()` |
-
-### BV-MIG-07 [M] Replace the panicking and deprecated query methods
-
-0.16 reworked error handling: queries return `Result`, and systems may return one.
-
-**Why:** it is the change that made BV-ERR-01 possible, and it is the reason so much old code has
-`get_single().unwrap()` — the fallible method used to be the long-named one, so the short name was
-the panicking one and everybody reached for it.
-
-**Check:** `rg -n 'get_single|to_readonly|ManualEventReader|init_component|EntityFetchError' src/`
-and `rg -n 'weak_from_u128|weak_handle!' src/`.
-
-| Removed | Write instead |
-|---|---|
-| `Query::get_single()` | `Query::single()`, which now returns `Result` |
-| `Query::get_single_mut()` | `Query::single_mut()` |
-| `Query::many(ids)` | `Query::get_many(ids)` |
-| `Query::many_mut(ids)` | `Query::get_many_mut(ids)` |
-| `Query::to_readonly()` | `Query::as_readonly()` |
-| `App::observe` | `App::add_observer` |
-| `Commands::observe` | `Commands::add_observer` |
-| `ManualEventReader` | `MessageCursor` |
-| `Events::get_reader()` | `Messages::get_cursor()` |
-| `World::init_component` | `World::register_component` |
-| `EntityFetchError` | `EntityMutableFetchError` |
-| `bevy::a11y::Focus` | `bevy::input_focus::InputFocus` |
-| `Handle::weak_from_u128(..)`, and the `weak_handle!` macro that replaced it | the `uuid_handle!("…")` macro: `weak_handle!` is deprecated, and `Handle` has only `Strong` and `Uuid` |
-
-## 0.17: the big rename
-
-### BV-MIG-08 [M] Replace the buffered-event vocabulary with messages
-
-What 0.16 called an event, sent with `EventWriter` and read with `EventReader`, is now a message.
-"Event" means an observed event only.
-
-**Why:** this is the single largest source of stale Bevy code, because the old names are the obvious
-ones and every tutorial uses them. The split is described in `references/events.md` BV-EVENT-01;
-this table is the mechanical half.
-
-**Check:** `rg -n
-'EventReader|EventWriter|Events<|send_event|add_event|on_event|RemovedComponentEvents' src/`.
-
-| Removed | Write instead |
-|---|---|
-| `#[derive(Event)]` for a buffered event | `#[derive(Message)]` |
-| `EventReader<E>` | `MessageReader<M>` |
-| `EventWriter<E>` | `MessageWriter<M>` |
-| `Events<E>` | `Messages<M>` |
-| `EventWriter::send(e)` | `MessageWriter::write(m)` |
-| `EventWriter::send_batch` | `MessageWriter::write_batch` |
-| `EventWriter::send_default` | `MessageWriter::write_default` |
-| `App::add_event::<E>()` | `App::add_message::<M>()` |
-| `World::send_event` | `World::write_message` |
-| `Commands::send_event` | `Commands::write_message` |
-| `Events::send` | `Messages::write` |
-| `on_event::<E>()` as a run condition | `on_message::<M>()` |
-| `RemovedComponents::events` | `RemovedComponents::messages` |
-| `RemovedComponentEvents` | `RemovedComponentMessages` |
-| `SendBatchIds` | `WriteBatchIds` |
-
-### BV-MIG-09 [M] Rename every system set to end in `Systems`
-
-0.17 renamed all of Bevy's own sets to a `*Systems` suffix and asked the ecosystem to follow.
-
-**Why:** it is the convention BV-ARCH-10 states, and the engine's own sets are the ones a game
-orders against — so a `.after(TransformSystem::TransformPropagate)` in old code names a type that no
-longer exists. The rename is mechanical but there are a lot of them.
-
-**Check:** `rg -n
-'(Transform|Ui|Input|Sprite|Time)System\b|(Render|Pick|Remote)Set\b|StateTransitionSteps'
-src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` rather than
-`Systems`.
-
-| Removed | Write instead |
-|---|---|
-| `TransformSystem` | `TransformSystems` |
-| `RenderSet` | `RenderSystems` |
-| `UiSystem` | `UiSystems` |
-| `RenderUiSystem` | `RenderUiSystems` |
-| `PickSet` | `PickingSystems` |
-| `InputSystem` | `InputSystems` |
-| `InputFocusSet` | `InputFocusSystems` |
-| `SpriteSystem` | `bevy::sprite_render::SpriteSystems` — `bevy::sprite::SpriteSystems` is gone in 0.20 |
-| `TimeSystem` | `TimeSystems` |
-| `AccessibilitySystem` | `AccessibilitySystems` |
-| `GizmoRenderSystem` | `GizmoRenderSystems` |
-| `RemoteSet` | `RemoteSystems` |
-| `StateTransitionSteps` | `StateTransitionSystems` |
-| `Animation` | `AnimationSystems` |
-| `AssetEvents` | `AssetEventSystems` |
-| `TrackAssets` | `AssetTrackingSystems` |
-| `EventUpdates` | `MessageUpdateSystems` |
-| `CameraUpdateSystem` | `CameraUpdateSystems` |
-| `RunFixedMainLoopSystem` | `RunFixedMainLoopSystems` |
-
-### BV-MIG-10 [M] Replace the remaining 0.17 renames
-
-**Why:** these are the 0.17 changes outside the event and system-set families. They are individually
-small and collectively the reason a 0.16 project does not compile.
-
-**Check:** `rg -n
-'compute_matrix|StateScoped|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
-src/`, plus `Timer::paused` and `Timer::finished`. The `Condition` rename is not greppable — the new
-name contains the old one — so read the `SystemCondition` bound instead. `Pressed` is not greppable
-either, and for the opposite reason: `bevy::ui::Pressed` is live, outside the prelude, a marker for
-a widget being held down. Only `Pointer<Pressed>` is the removed one.
-
-| Removed | Write instead |
-|---|---|
-| `Condition` | `SystemCondition` |
-| `Pointer<Pressed>` / `Pointer<Released>` | `PointerPress` / `PointerRelease` — `Pointer<Press>` was the first hop, and is gone too |
-| `Timer::paused()` / `Timer::finished()` | `Timer::is_paused()` / `Timer::is_finished()` |
-| `StateScoped` | `DespawnOnExit` |
-| `commands.trigger_targets(E, entity)` | an `EntityEvent` carrying its target as a field: `commands.trigger(E { entity })` |
-| `Camera { hdr, .. }` | the separate `Hdr` component |
-| `Window` as one component | `Window` split across several components |
-| `Gizmos::cuboid` | `Gizmos::cube` |
-| `Transform::compute_matrix` | `Transform::to_matrix` |
-| `GlobalTransform::compute_matrix` | `GlobalTransform::to_matrix` |
-| `RenderGraphApp` / `RenderGraphExt` | gone: a render pass is a system in the `Core2d` / `Core3d` schedule |
-| `ComputedNodeTarget` | `ComputedUiTargetCamera` |
-| `LightVisibilityClass` | `ClusterVisibilityClass` |
-| `SimpleExecutor` | removed; use the single-threaded executor |
-
-## 0.18 and 0.19
-
-### BV-MIG-11 [M] Replace the 0.18 renames
-
-**Why:** 0.18 is the smallest of the four releases for game code, but it renamed four cargo features
-— which fail as "unknown feature" rather than as a type error, and are therefore easy to leave
-behind in a manifest that still builds.
-
-**Check:** `rg -n
-'bevy_(sprite|ui|mesh)_picking_backend|event_target_mut|FontAtlasSets|AnimationTarget'
-src/`, and the manifest for the renamed feature names.
-
-| Removed | Write instead |
-|---|---|
-| feature `animation` | feature `gltf_animation` |
-| feature `bevy_sprite_picking_backend` | feature `sprite_picking` |
-| feature `bevy_ui_picking_backend` | feature `ui_picking` |
-| feature `bevy_mesh_picking_backend` | feature `mesh_picking` |
-| the `Internal` component | nothing; these entities are no longer hidden |
-| `TextFont { line_height }` | the `LineHeight` component |
-| `AmbientLight` as a resource only | a camera component plus `GlobalAmbientLight` |
-| `RenderTarget` on the camera | `RenderTarget` as its own component |
-| `EntityEvent::event_target_mut` | `SetEntityEventTarget`, which game code should not need |
-| `ThinSlicePtr::get()` | `ThinSlicePtr::get_unchecked()` |
-| `AnimationTarget` | the separate components that replaced it |
-| `FontAtlasSets` | removed |
-
-### BV-MIG-12 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
-
-0.19 renamed the old scene crate to `bevy_world_serialization` and gave the name `bevy_scene` to the
-new `bsn!`-based scene system. The two are unrelated. Everything that was `Scene` is `WorldAsset`;
-`Scene` is now a trait in the new system, the `scene` collection enables both, and since 0.20 a
-scene reference inside `bsn!` takes `@` (`references/view.md` BV-VIEW-09).
-
-**Why:** a `use` naming `bevy_scene` still resolves, and the `bevy_scene` cargo feature still
-exists: in 0.18 it enabled the serialization crate and since 0.19 the new scene system, so a
-manifest nobody edited turns on a different thing.
-
-**Check:** `rg -n
-'SceneRoot|DynamicScene|SceneSpawner|SceneFilter|SceneInstanceReady|SceneLoader' src/`, and read
-every `bevy_scene` against this table rather than assuming — it is the one name that still resolves
-and now means something else.
-
-| 0.18 name | 0.19 name |
-|---|---|
-| crate `bevy_scene` | crate `bevy_world_serialization` |
-| `Scene` (the asset) | `WorldAsset` |
-| `SceneRoot` | `WorldAssetRoot` |
-| `DynamicScene` | `DynamicWorld` |
-| `DynamicSceneBuilder` | `DynamicWorldBuilder`, which now needs a `&TypeRegistry` |
-| `DynamicScene::from_scene` | `DynamicWorld::from_world_asset`, which now needs a `&TypeRegistry` |
-| `DynamicSceneRoot` | `DynamicWorldRoot` |
-| `SceneInstanceReady` | `WorldInstanceReady` |
-| `SceneSpawner` | `WorldInstanceSpawner` |
-| `SceneLoader` | `WorldAssetLoader` |
-| `ScenePlugin` | `WorldSerializationPlugin` — and `ScenePlugin` still exists, as the `bsn!` system's |
-| `SceneFilter` | `WorldFilter` |
-| `SceneLoaderError` | `WorldAssetLoaderError` |
-| `SceneSpawnError` | `WorldInstanceSpawnError` |
-| — | `bevy_scene` is now the `bsn!` scene system: `Scene`, `SceneList`, `ScenePatch` |
-
-### BV-MIG-13 [M] Replace the remaining 0.19 renames
-
-**Why:** these are the 0.19 changes a game touches. The non-send and executor entries are the ones
-most likely to appear in an existing project's own plugin code.
-
-**Check:** `rg -n
-'DefaultErrorHandler|ExecutorKind|non_send_resource|ShaderStorageBuffer|earthlike|experimental_'
-src/`.
-
-| Removed | Write instead |
-|---|---|
-| `DefaultErrorHandler` | `FallbackErrorHandler` |
-| the lifecycle event `Replace`, its hook `on_replace` | `Discard`, `on_discard` |
-| `impl Command<Result>` | `impl Command { type Out = Result; }` |
-| `fn f() -> impl Command<Result>` | `fn f() -> impl Command`, its closure returning `Result` |
-| `ExecutorKind` / `set_executor_kind` | `set_executor(SingleThreadedExecutor::new())` and friends |
-| `System::type_id` | `System::system_type` |
-| `App::init_non_send_resource` | `App::init_non_send` |
-| `World::non_send_resource(_mut)` | `World::non_send(_mut)` |
-| `#[reflect(Resource)]` giving `ReflectResource` | ask for `ReflectComponent` |
-| `ShaderStorageBuffer` | `ShaderBuffer`, which in 0.20 lost `new(Vec<T>)`, `set_data` and `resize_in_place` |
-| `PipelineCacheError` | `ShaderCacheError` |
-| `Atmosphere` on the camera | `Atmosphere` on its own entity |
-| `Atmosphere::earthlike` | `Atmosphere::earth` |
-| `WgpuSettingsPriority::Compatibility` | `WgpuSettingsPriority::WebGPU` |
-| `Skybox { image: Handle<Image> }` | `Skybox { image: Option<Handle<Image>> }` |
-| `Image::pixel_bytes` returning `Option` | it returns `Result` |
-| `AssetPath::get_full_extension` returning `Option<String>` | it returns `Option<&str>` |
-| `feathers` widget spawn functions, including 0.19's `button_bundle`, `checkbox_bundle`, `radio_bundle`, `slider_bundle`, `toggle_switch_bundle`, `color_*_bundle`, `virtual_keyboard_bundle` and `ButtonBundleProps` | the feathers `SceneComponent`s, used from `bsn!`: `FeathersButton` with `FeathersButtonProps`, and so on |
-| `FeathersPlugin` | `FeathersCorePlugin` |
-| feature `experimental_bevy_feathers` | feature `bevy_feathers` |
-| feature `experimental_ui_widgets` | feature `bevy_ui_widgets` |
-
-## 0.20: observers, pointers, deprecations
-
-### BV-MIG-14 [M] Move the bundle off `On` and onto the lifecycle event
-
-0.20 moved an observer's component filter off `On` and onto the lifecycle event: `On<Add, Enemy>`
-is `On<Add<Enemy>>`. `Add<B>` has no default, so an observer for dynamic components is
-`On<Add<()>>`.
-
-**Why:** the bundle sits in every lifecycle observer's signature, so every one in a 0.19 project
-changes, and a custom `On<E, B>` has no one-line replacement: it becomes a wrapper type implementing
-`EventPattern`.
-
-**Check:** `rg -n '\bOn<[A-Za-z0-9_:]+\s*,|\bOn<(Add|Insert|Discard|Remove|Despawn)>' src/`. It
-does not match `On<Add<Enemy>>`, because `<` follows `Add`.
-
-| Removed | Write instead |
-|---|---|
-| `On<Add, T>`, `On<Insert, T>`, `On<Discard, T>`, `On<Remove, T>`, `On<Despawn, T>` | `On<Add<T>>`, `On<Insert<T>>`, `On<Discard<T>>`, `On<Remove<T>>`, `On<Despawn<T>>` |
-| `On<Add>` (dynamic components with `.with_component(id)`) | `On<Add<()>>` |
-| a custom `On<E, B>` | a `PhantomData` wrapper implementing `EventPattern { type Event; type Components }` |
-| `IntoObserverSystem<E, B, M, Out>` | `IntoObserverSystem<E, M, Out>` |
-
-### BV-MIG-15 [M] Flatten the pointer events
-
-0.20 replaced the generic `Pointer<E>` with one event type per pointer event, and moved its fields
-up a level: there is no `.event` and no `Deref`.
-
-**Why:** every picking observer names its event type and reads its fields, so this touches every
-click handler in a UI. `Pointer` still exists, non-generic, so a stale import resolves and only the
-type argument fails.
-
-**Check:** `rg -n '\bPointer<|pointer_id|pointer_location' src/`. `Pointer` is non-generic in 0.20,
-so any `Pointer<` is stale.
-
-| Removed | Write instead |
-|---|---|
-| `Pointer<X>` for X in Over, Out, Enter, Leave, Press, Release, Click, Move, DragStart, Drag, DragEnd, DragEnter, DragOver, DragLeave, DragDrop, Scroll, Cancel | `PointerX`: `PointerClick`, `PointerPress`, … |
-| `ev.event.button` | `ev.button` |
-| `ev.pointer_id` | `ev.pointer.id` |
-| `ev.pointer_location.position` | `ev.pointer.position` (`Vec2`); `ev.pointer.location()` for the `Location` |
-| `fn f<E: …>(e: On<Pointer<E>>)` | `fn f<E: PointerEvent>(e: On<E>)` |
-
-### BV-MIG-16 [M] Replace what 0.20 deprecated
-
-0.20 deprecated these rather than removing them. They compile with a warning, which the shipped CI
-denies (the `deprecated` row in Decided by tools), so the searches are for code not yet built
-against 0.20.
-
-**Why:** a deprecated name still builds, so a port can look finished while it holds several, and two
-of them share a name with a live, correct API, so no search can find them.
-
-**Check:**
-`rg -n 'set_state_if_neq|PendingIfNeq|set_next_state_if_neq|\.as_mut\(\)\.set_if_neq' src/`,
-`rg -n '\bInteraction\b|template_value|FilteredResources|\bTypeIdMap\b' src/` and
-`rg -n 'AssetId::invalid|INVALID_UUID|try_reads_and_writes' src/`. Then read the two that a search
-cannot find. `NextState::set_if_neq` reached through `&mut NextState` looks exactly like
-`Mut::set_if_neq`, which keeps its name and is correct, so read every `set_if_neq` whose receiver
-is a `NextState`. The deprecated `Button` has the same name as `bevy::ui_widgets::Button`, so read
-the import.
-
-| Deprecated | Write instead |
-|---|---|
-| `NextState::set_if_neq` / `PendingIfNeq` / `set_state_if_neq` / `set_next_state_if_neq` | `set_if_different` / `PendingIfDifferent` / `set_state_if_different` / `set_next_state_if_different` |
-| `Interaction` | `Hovered` plus `Pressed` |
-| the prelude `Button` (`bevy::ui::widget::Button`) | `bevy::ui_widgets::Button` |
-| `template_value(x)` in `bsn!` | `x` |
-| `FilteredResources` (and its `Mut`, `*Builder` and `*ParamBuilder` forms) | `QueryParamBuilder` plus `Query<FilteredEntityRef>` plus `IsResource` |
-| `DeferredWorld::query(&mut state)` | `state.query_mut(world)` |
-| `TypeIdMap` / `TypeIdMapEntry` | `TypeIdHashMap` / `TypeIdIndexMap`, and their entry types |
-| `AssetId::invalid()` / `AssetId::INVALID_UUID` | `Option<AssetId<_>>` |
-| `DynamicEnum::from(_ref)` | `DynamicEnum::try_from(_ref)` |
-| `Access::try_reads_and_writes` | `Access::reads()` |
-| `,` and `()` between entities in `bsn!` | `--` |
-
-### BV-MIG-17 [M] Replace the remaining 0.20 renames and removals
-
-The rest of what 0.20 renamed or removed, across the Rust, the shaders and the manifest. Shaders are
-WESL now (`references/view.md` BV-VIEW-18), and a domain crate that names `glam` moves with Bevy
-(`references/architecture.md` BV-ARCH-05).
-
-**Why:** two of these keep their name and change meaning, which no build reports: the
-`compressed_image_saver` feature now selects a BCn/ASTC backend, and `SpriteMaterial` is a new
-public type unrelated to the old internal one.
-
-**Check:** seven searches over the Rust,
-`rg -n 'EditableTextInputPlugin|TextScroll|scroll_editable_text|resolve_font_source' src/`,
-`rg -n 'FontSource::(Ui)?(Serif|SansSerif|Monospace)\b' src/`,
-`rg -n 'FontSource::(Cursive|Fantasy|SystemUi|UiRounded|Emoji|Math|FangSong)\b' src/`,
-`rg -n 'MeshTag\(|compute_aabb|with_attribute|Exclusive(SystemParam|Marker|FunctionSystem)' src/`,
-`rg -n '\bFromType\b|meta_transform|UnpreparedBindGroup|ExtractedWindows' src/`,
-`rg -n 'resolve_single_corner|VariantDefaults|bevy_math::(curve|cubic_splines|primitives)' src/` and
-`rg -n '\.load_(override|acquire|with_settings)' src/`;
-one over the shaders, `rg -n -t wgsl '#import|#ifdef|#define_import_path|#\{'`; then read the
-manifest for `shader_format_(wesl|glsl)`, which is gone, every `compressed_image_saver`, which kept
-its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bevy 0.20.
-
-| Removed | Write instead |
-|---|---|
-| `EditableTextInputPlugin` | `TextInputPlugin` |
-| `EditableText` as the whole widget | `TextInput`, which requires `EditableText` |
-| `TextScroll`, `scroll_editable_text` | `EditableText::viewport` (`TextViewport`) |
-| `resolve_font_source(&font, fonts)` | `font.font.resolve_font_family(fonts)` |
-| `FontSource::SansSerif` and the other generic families | `FontSource::sans_serif()` and so on |
-| `MeshTag(x)`, `tag.0` | `MeshTag::new(x)`, `tag.value` |
-| `MeshAabb::compute_aabb` | `MeshAabb::get_aabb` |
-| `CustomAttributes::default().with_attribute(..)` | `CustomAttributesBuilder::new().attribute(..).build()` |
-| `BorderRadius { top_left: Val, .. }` | `CornerRadius` fields, such as `px(10.).into()` |
-| `BorderRadius::resolve_single_corner` | `CornerRadius::resolve` |
-| `Val::resolve(scale, base, target)` | the same call with `em_size` and `rem_size` added |
-| `FontSize::eval(vp, f32)` | `FontSize::eval(vp, RemSize(..))` |
-| `CalculatedClip` as a struct | an enum with `Rects` and `FullyClipped` variants |
-| `TextReader::text`, `font`, `color`, … | `TextReader::get`, which returns a `TextLayoutItem` |
-| `ExclusiveSystemParam`, `ExclusiveFunctionSystem`, `ExclusiveSystemParamFunction`, `ExclusiveMarker` | removed: `&mut World` is a `SystemParam` |
-| `System::is_exclusive()` | `SystemAccess::is_exclusive()` |
-| a `WorldId` parameter in an exclusive system | `Local<WorldId>` or `world.id()` |
-| `WorldQuery` default methods | an implementation of `init_nested_access` and `update_archetypes` |
-| `FromType<T>` / `from_type()` | `CreateTypeData<T>` / `create_type_data(())` |
-| `ReflectFromPtr::as_reflect(_mut)` | `ReflectFromPtr::ptr_as_reflect(_mut)` |
-| `from_ptr(_mut)` | `raw_pointer_cast` |
-| `PartialReflect::to_dynamic` returning a value | it returns `Result` |
-| `UntypedHandle::meta_transform` | removed |
-| `AssetServer::load_with_settings`, `load_override`, `load_acquire` and their combinations | `load_builder()` with `with_settings`, `override_unapproved` or `with_guard` (BV-ASSET-07) |
-| `AssetServer::load_untyped`, `load_erased` | the same call on `load_builder()` |
-| `Name::from(&str)` on a non-`'static` string | `Name::new(s.to_owned())` |
-| `Ptr::as_ptr` returning `*mut u8` | it returns `*const u8` |
-| `UiCameraMapper::current_camera()` returning `Entity::PLACEHOLDER` | it returns `Option<Entity>` |
-| `ComponentInfo::id()` | the `ComponentId` it was looked up by |
-| `define_label!(X, INTERNER)` | `define_label!(X,)` |
-| `SyncComponent` | `SyncComponent<RenderApp>` |
-| `#[derive(ExtractComponent)]` alone | plus `#[extract_app(RenderApp)]` |
-| `TemporaryRenderEntity` | `TemporaryRenderEntity::default()` |
-| `UnpreparedBindGroup` / `unprepared_bind_group` | `BindGroupBuilder` / `build_bind_group` |
-| `ExtractedWindows` | `Query<&ExtractedWindow>` |
-| `SortedCamera::hdr` | `ExtractedCamera::hdr` |
-| `WgpuWrapper` | removed |
-| the old internal `bevy_sprite_render::SpriteMaterial` and `SpriteMaterialPlugin` | `SpriteMeshMaterial` and `SpriteMeshMaterialPlugin`; the public `SpriteMaterial` of 0.20 is a different type, the same trap as `bevy_scene` (BV-MIG-12) |
-| `bevy_feathers::cursor` | `bevy_picking::cursor` |
-| the `UpdateNumberInput` trigger | inserting `NumberInputValue` |
-| `Tonemapping::None` meaning "no curve" | `Tonemapping::Linear` |
-| `bevy_math::{curve, cubic_splines, Curve}` | `bevy_curve` |
-| `bevy_math::primitives::*`, `Bounded2d`, … | `bevy_shape` |
-| the `VariantDefaults` derive | removed; the enum needs `Default` and `Clone` |
-| a `.wgsl` using `#import`, `#ifdef` or `#define_import_path` | a `.wesl` using `import …;` and `@if(…)` |
-| `#{MATERIAL_BIND_GROUP}` | `constants::MATERIAL_BIND_GROUP` |
-| `bevy_pbr::mesh_view_bindings` | `bevy_pbr::render::mesh_view_bindings` |
-| feature `shader_format_wesl`, `shader_format_glsl` | gone, and GLSL support with them |
-| feature `compressed_image_saver` (Basis) | `compressed_image_saver_universal`; the old name now selects a BCn/ASTC backend |
-| feature `bevy_math/curve` | feature `bevy/bevy_curve` |
-
-## Changes that do not show up as a compile error
-
-Each of these keeps compiling and changes what the code does, so no build flags it. SKILL.md §2.1 is
-the same list, to read before writing code; this is the one to grep with.
-
-| Changed | Find it with | Rule |
-|---|---|---|
-| 0.18: `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` when the state is already `S` | `rg -n 'next.*\.set\(' src/`, then ask whether each can run in that state | BV-STATE-16 |
-| 0.18: Bevy adds and updates the `Aabb` of meshes and sprites, so code that writes one fights the engine | `rg -n 'Aabb' src/` for a write | BV-VIEW-16 |
-| 0.19: `AssetEvent::Modified` fires only on an actual mutation, so a `get_mut` that only reads no longer raises it | `rg -n 'AssetEvent' src/`, then whether each reaction relied on a read through `get_mut` | BV-ASSET-09 |
-| 0.19: bloom computes its luminance in linear, so a tint tuned against sRGB luminance blooms more | `rg -n 'Bloom' src/`, then each tint against a linear judgement | BV-VIEW-11 |
-| 0.19: `#[derive(Resource)]` implements `Component`, so one type cannot be both | `rg -n 'derive\(.*Resource' src/` for a type also inserted on an entity | BV-STATE-01 |
-| 0.19: `Ref<T>` implements `Clone`, so `.clone()` on one is another `Ref` | `.clone()` on anything of type `Ref<` | BV-MIG-18 |
-| 0.20: `iter_many` and its variants yield `Result`, so `.count()` and `for _ in` take ids the query does not match | `rg -n 'iter_many' src/`, then whether each call counts or handles each `Result` | BV-ECS-20 |
-| 0.20: a panic in a system, observer or command reaches the fallback error handler | the handler given to `set_error_handler`, for a re-panic on a panic payload | BV-ERR-05 |
-| 0.20: `EditableText` without `TextInput` spawns and ignores the keyboard | `rg -n 'EditableText' src/` for a spawn with no `TextInput` | BV-VIEW-08 |
-| 0.20: inside `UiSystems` and the render sets, systems the ECS sees no conflict between are unordered | each system placed there, for state shared outside the ECS | BV-SCHED-13 |
-
-### BV-MIG-18 [M] Re-read every `Ref` that is cloned
+**Check:** look each new name a guide gives up in the pinned release's source, as the toolchain
+looks up each `gone` row's; a name that is not there means the chain continued.
+`rg -n '\bMeshTag\(|\bAnchor::[A-Z][a-z]|\bcursor_options:' src/` finds three of this rule's shapes
+written the old way.
+
+### BV-MIG-03 [M] Re-read every `Ref` that is cloned
 
 Since 0.19 `Ref<T>` implements `Clone` and `Copy` itself. `value.clone()` on a `Ref<T>` now produces
 a `Ref<T>`, where it used to produce a `T`.
@@ -585,8 +404,8 @@ a `Ref<T>`, where it used to produce a `T`.
 surrounding code was explicit. Downstream code then holds a borrow where it expected a value, which
 surfaces much later as a lifetime error in an unrelated function.
 
-**Check:** grep for `.clone()` on anything of type `Ref<`. The old meaning is `r.deref().clone()` or
-`r.as_ref().clone()`.
+**Check:** read each `.clone()` whose receiver is a `Ref<T>`, a type the line does not show; the old
+meaning is `r.deref().clone()` or `r.as_ref().clone()`.
 
 ## Decided by tools
 
@@ -594,225 +413,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| rustc | `deprecated` | warn | a deprecated Bevy API — CI denies warnings, so treat it as already removed |
-
-## Rule IDs before the Bevy 0.20 revision
-
-Before the revision the families ran `BV-ARC-01`–`BV-ARC-19`, `BV-ASS-01`–`BV-ASS-14`,
-`BV-CAR-01`–`BV-CAR-21`, `BV-ECS-01`–`BV-ECS-32`, `BV-ERR-01`–`BV-ERR-17`, `BV-EVT-01`–`BV-EVT-20`,
-`BV-MIG-01`–`BV-MIG-18`, `BV-SCH-01`–`BV-SCH-26`, `BV-STA-01`–`BV-STA-22`, `BV-TST-01`–`BV-TST-15`
-and `BV-UI-01`–`BV-UI-21`. The table lists every ID in those ranges that changed, and what it is
-now; an ID it does not list is unchanged.
-
-| Before | Now |
-|---|---|
-| `BV-ARC-01` | `BV-ARCH-01` |
-| `BV-ARC-02` | `BV-ARCH-02` |
-| `BV-ARC-03` | `BV-ARCH-03` |
-| `BV-ARC-04` | `BV-ARCH-04` |
-| `BV-ARC-05` | `BV-ARCH-05` |
-| `BV-ARC-06` | `BV-ARCH-06` |
-| `BV-ARC-07` | `BV-ARCH-07` |
-| `BV-ARC-08` | `BV-ARCH-08` |
-| `BV-ARC-09` | `BV-ARCH-09` |
-| `BV-ARC-10` | `BV-ARCH-10` |
-| `BV-ARC-11` | `BV-ARCH-11` |
-| `BV-ARC-12` | `BV-ARCH-12` |
-| `BV-ARC-13` | `BV-ARCH-13` |
-| `BV-ARC-14` | `BV-ARCH-11` |
-| `BV-ARC-15` | `BV-ARCH-14` |
-| `BV-ARC-16` | `BV-ARCH-15` |
-| `BV-ARC-17` | `BV-ARCH-16` |
-| `BV-ARC-18` | `BV-ARCH-17` |
-| `BV-ARC-19` | `BV-ARCH-15` |
-| `BV-ASS-01` | `BV-ASSET-01` |
-| `BV-ASS-02` | `BV-ASSET-02` |
-| `BV-ASS-03` | `BV-ASSET-02` |
-| `BV-ASS-04` | `BV-ECS-13` |
-| `BV-ASS-05` | `BV-ASSET-03` |
-| `BV-ASS-06` | `BV-ASSET-04` |
-| `BV-ASS-07` | `BV-ASSET-05` |
-| `BV-ASS-08` | `BV-ASSET-06` |
-| `BV-ASS-09` | `BV-ASSET-07` |
-| `BV-ASS-10` | `BV-ASSET-08` |
-| `BV-ASS-11` | `BV-ASSET-09` |
-| `BV-ASS-12` | `BV-ECS-15` |
-| `BV-ASS-13` | `BV-ASSET-10` |
-| `BV-ASS-14` | `BV-ASSET-11` |
-| `BV-CAR-01` | `BV-BUILD-01` |
-| `BV-CAR-02` | `BV-BUILD-02` |
-| `BV-CAR-03` | `BV-BUILD-03` |
-| `BV-CAR-04` | `BV-BUILD-04` |
-| `BV-CAR-05` | `BV-BUILD-05` |
-| `BV-CAR-06` | `BV-BUILD-06` |
-| `BV-CAR-07` | `BV-BUILD-07` |
-| `BV-CAR-08` | `BV-BUILD-08` |
-| `BV-CAR-09` | `BV-BUILD-09` |
-| `BV-CAR-10` | `BV-BUILD-10` |
-| `BV-CAR-11` | `BV-BUILD-11` |
-| `BV-CAR-12` | `BV-BUILD-12` |
-| `BV-CAR-13` | `BV-BUILD-13` |
-| `BV-CAR-14` | `BV-BUILD-14` |
-| `BV-CAR-15` | `BV-BUILD-14` |
-| `BV-CAR-16` | removed — RS-BUILD-23 states it, and assets/Cargo.toml does it |
-| `BV-CAR-17` | removed — `bevy_lint` is a community linter the Bevy project does not maintain, and it has stalled; every rule it backed keeps its own Check |
-| `BV-CAR-18` | `BV-BUILD-15` |
-| `BV-CAR-19` | `BV-BUILD-16` |
-| `BV-CAR-20` | removed — RS-BUILD-06 and RS-BUILD-34 state it |
-| `BV-CAR-21` | removed — RS-BUILD-40 states it |
-| `BV-ECS-08` | `BV-ECS-06` |
-| `BV-ECS-09` | `BV-ECS-08` |
-| `BV-ECS-10` | `BV-ECS-09` |
-| `BV-ECS-11` | `BV-ECS-10` |
-| `BV-ECS-12` | `BV-ECS-11` |
-| `BV-ECS-13` | `BV-ECS-12` |
-| `BV-ECS-14` | `BV-ECS-13` |
-| `BV-ECS-15` | `BV-ECS-14` |
-| `BV-ECS-16` | `BV-ECS-15` |
-| `BV-ECS-17` | `BV-ECS-16` |
-| `BV-ECS-18` | `BV-ECS-17` |
-| `BV-ECS-19` | lint `clippy:unwrap_used` |
-| `BV-ECS-20` | `BV-ECS-18` |
-| `BV-ECS-21` | `BV-ECS-19` |
-| `BV-ECS-22` | `BV-ECS-20` |
-| `BV-ECS-23` | `BV-ECS-21` |
-| `BV-ECS-24` | `BV-ECS-22` |
-| `BV-ECS-25` | `BV-ECS-23` |
-| `BV-ECS-26` | `BV-ECS-24` |
-| `BV-ECS-27` | `BV-ECS-25` |
-| `BV-ECS-28` | `BV-ECS-26` |
-| `BV-ECS-29` | `BV-ECS-27` |
-| `BV-ECS-30` | `BV-ECS-28` |
-| `BV-ECS-31` | `BV-ECS-29` |
-| `BV-ECS-32` | `BV-ECS-30` |
-| `BV-ERR-07` | lint `clippy:unwrap_used` |
-| `BV-ERR-08` | lint `clippy:indexing_slicing` |
-| `BV-ERR-09` | `BV-ERR-07` |
-| `BV-ERR-10` | `BV-ERR-08` |
-| `BV-ERR-11` | removed — RS-ERR-02 states it |
-| `BV-ERR-12` | `BV-MIG-13` |
-| `BV-ERR-13` | `BV-ERR-01` |
-| `BV-ERR-14` | `BV-ERR-09` |
-| `BV-ERR-15` | `BV-ERR-05` |
-| `BV-ERR-16` | `BV-ERR-10` |
-| `BV-ERR-17` | `BV-ERR-11` |
-| `BV-EVT-01` | `BV-EVENT-01` |
-| `BV-EVT-02` | `BV-EVENT-02` |
-| `BV-EVT-03` | `BV-EVENT-03` |
-| `BV-EVT-04` | `BV-EVENT-04` |
-| `BV-EVT-05` | `BV-EVENT-05` |
-| `BV-EVT-06` | `BV-EVENT-06` |
-| `BV-EVT-07` | `BV-EVENT-07` |
-| `BV-EVT-08` | `BV-EVENT-08` |
-| `BV-EVT-09` | `BV-EVENT-09` |
-| `BV-EVT-10` | `BV-EVENT-10` |
-| `BV-EVT-11` | `BV-EVENT-11` |
-| `BV-EVT-12` | `BV-EVENT-12` |
-| `BV-EVT-13` | `BV-EVENT-13` |
-| `BV-EVT-14` | `BV-EVENT-14` |
-| `BV-EVT-15` | `BV-EVENT-15` |
-| `BV-EVT-16` | `BV-EVENT-16` |
-| `BV-EVT-17` | `BV-SCHED-15` |
-| `BV-EVT-18` | `BV-EVENT-17` |
-| `BV-EVT-19` | `BV-EVENT-18` |
-| `BV-EVT-20` | `BV-EVENT-19` |
-| `BV-MIG-02` | lint `rustc:deprecated` |
-| `BV-MIG-03` | `BV-MIG-02` |
-| `BV-MIG-04` | `BV-MIG-03` |
-| `BV-MIG-05` | `BV-MIG-04` |
-| `BV-MIG-06` | `BV-MIG-05` |
-| `BV-MIG-07` | `BV-MIG-06` |
-| `BV-MIG-08` | `BV-MIG-07` |
-| `BV-MIG-09` | `BV-ECS-13` |
-| `BV-MIG-10` | `BV-MIG-08` |
-| `BV-MIG-11` | `BV-EVENT-14` |
-| `BV-MIG-12` | `BV-MIG-09` |
-| `BV-MIG-13` | `BV-MIG-10` |
-| `BV-MIG-14` | `BV-MIG-11` |
-| `BV-MIG-15` | `BV-STATE-01` |
-| `BV-MIG-16` | `BV-MIG-12` |
-| `BV-MIG-17` | `BV-MIG-13` |
-| `BV-SCH-01` | `BV-SCHED-01` |
-| `BV-SCH-02` | `BV-SCHED-02` |
-| `BV-SCH-03` | `BV-SCHED-03` |
-| `BV-SCH-04` | `BV-SCHED-01` |
-| `BV-SCH-05` | `BV-SCHED-04` |
-| `BV-SCH-06` | `BV-SCHED-05` |
-| `BV-SCH-07` | `BV-SCHED-06` |
-| `BV-SCH-08` | `BV-SCHED-07` |
-| `BV-SCH-09` | `BV-SCHED-08` |
-| `BV-SCH-10` | `BV-SCHED-09` |
-| `BV-SCH-11` | `BV-SCHED-10` |
-| `BV-SCH-12` | `BV-SCHED-11` |
-| `BV-SCH-13` | `BV-SCHED-12` |
-| `BV-SCH-14` | `BV-SCHED-11` |
-| `BV-SCH-15` | `BV-SCHED-13` |
-| `BV-SCH-16` | `BV-SCHED-14` |
-| `BV-SCH-17` | `BV-SCHED-15` |
-| `BV-SCH-18` | `BV-SCHED-16` |
-| `BV-SCH-19` | `BV-SCHED-17` |
-| `BV-SCH-20` | `BV-SCHED-18` |
-| `BV-SCH-21` | `BV-SCHED-15` |
-| `BV-SCH-22` | `BV-SCHED-19` |
-| `BV-SCH-23` | `BV-SCHED-20` |
-| `BV-SCH-24` | `BV-SCHED-21` |
-| `BV-SCH-25` | `BV-SCHED-22` |
-| `BV-SCH-26` | `BV-SCHED-23` |
-| `BV-STA-01` | `BV-STATE-01` |
-| `BV-STA-02` | `BV-STATE-02` |
-| `BV-STA-03` | `BV-ARCH-11` |
-| `BV-STA-04` | `BV-STATE-03` |
-| `BV-STA-05` | `BV-STATE-04` |
-| `BV-STA-06` | `BV-STATE-05` |
-| `BV-STA-07` | `BV-ECS-15` |
-| `BV-STA-08` | `BV-STATE-06` |
-| `BV-STA-09` | `BV-STATE-07` |
-| `BV-STA-10` | `BV-STATE-08` |
-| `BV-STA-11` | `BV-STATE-09` |
-| `BV-STA-12` | `BV-STATE-10` |
-| `BV-STA-13` | `BV-STATE-09` |
-| `BV-STA-14` | `BV-STATE-11` |
-| `BV-STA-15` | `BV-STATE-12` |
-| `BV-STA-16` | `BV-SCHED-15` |
-| `BV-STA-17` | `BV-STATE-13` |
-| `BV-STA-18` | `BV-STATE-14` |
-| `BV-STA-19` | `BV-STATE-15` |
-| `BV-STA-20` | `BV-STATE-16` |
-| `BV-STA-21` | `BV-STATE-17` |
-| `BV-STA-22` | `BV-STATE-18` |
-| `BV-TST-01` | `BV-ARCH-01` |
-| `BV-TST-02` | `BV-TEST-02` |
-| `BV-TST-03` | `BV-TEST-01` |
-| `BV-TST-04` | `BV-TEST-02` |
-| `BV-TST-05` | `BV-TEST-03` |
-| `BV-TST-06` | `BV-TEST-04` |
-| `BV-TST-07` | `BV-TEST-05` |
-| `BV-TST-08` | `BV-ECS-29` |
-| `BV-TST-09` | `BV-TEST-05` |
-| `BV-TST-10` | `BV-TEST-06` |
-| `BV-TST-11` | `BV-TEST-07` |
-| `BV-TST-12` | `BV-TEST-08` |
-| `BV-TST-13` | `BV-TEST-09` |
-| `BV-TST-14` | `BV-TEST-10` |
-| `BV-TST-15` | `BV-SCHED-20` |
-| `BV-UI-01` | `BV-VIEW-01` |
-| `BV-UI-02` | `BV-VIEW-02` |
-| `BV-UI-03` | `BV-VIEW-03` |
-| `BV-UI-04` | `BV-VIEW-04` |
-| `BV-UI-05` | `BV-VIEW-05` |
-| `BV-UI-06` | `BV-VIEW-06` |
-| `BV-UI-07` | `BV-VIEW-07` |
-| `BV-UI-08` | `BV-VIEW-08` |
-| `BV-UI-09` | `BV-VIEW-09` |
-| `BV-UI-10` | `BV-VIEW-10` |
-| `BV-UI-11` | `BV-VIEW-11` |
-| `BV-UI-12` | `BV-VIEW-12` |
-| `BV-UI-13` | `BV-VIEW-13` |
-| `BV-UI-14` | `BV-VIEW-14` |
-| `BV-UI-15` | `BV-VIEW-15` |
-| `BV-UI-16` | `BV-VIEW-16` |
-| `BV-UI-17` | `BV-VIEW-17` |
-| `BV-UI-18` | `BV-VIEW-18` |
-| `BV-UI-19` | `BV-VIEW-19` |
-| `BV-UI-20` | `BV-VIEW-20` |
-| `BV-UI-21` | `BV-VIEW-21` |
+| rustc | `deprecated` | warn | a deprecated Bevy API — listed because the shipped CI denies warnings, so a deprecated row fails its build (RS-MIG-04) |

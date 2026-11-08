@@ -4,16 +4,20 @@ lazy from collections.abc import Callable
 
 import pytest
 
-from agent_skill.checks.citations import _compile_zig, phrase, zig_rows
-from agent_skill.model import LintRow
+from agent_skill.doc.chapter import LintRow
+from agent_skill.ids import Location
+from agent_skill.lang.zig import compile_errors, phrase, zig_rows
 from agent_skill.proc import have
+lazy from agent_skill.checks.citations import Row
 
 UNUSED = "unused local constant"
 SHADOW = "local constant … shadows local constant from outer scope"
 
 
-def row(lint: str) -> LintRow:
-    return LintRow("zig", lint, "error", "x", "naming.md", 1)
+def row(lint: str) -> Row:
+    return Location("zig-style", "references/naming.md", 1), LintRow(
+        "zig", lint, "error", "x"
+    )
 
 
 type Said = dict[str, list[str] | None]
@@ -24,8 +28,8 @@ def compiler(said: Said) -> Callable[[str], list[str] | None]:
     return said.__getitem__
 
 
-def messages(rows: list[LintRow], probes: dict[str, str], said: Said) -> list[str]:
-    return [m for _, m in zig_rows(rows, probes, compiler(said))]
+def messages(rows: list[Row], probes: dict[str, str], said: Said) -> list[str]:
+    return [f.message for f in zig_rows(rows, probes, compiler(said), Location())]
 
 
 def test_a_phrase_stands_in_for_the_identifiers() -> None:
@@ -82,7 +86,7 @@ def test_a_probe_with_no_row() -> None:
 @pytest.mark.toolchain
 @pytest.mark.skipif(not have("zig"), reason="needs zig")
 def test_a_real_probe_reports_its_error() -> None:
-    errors = _compile_zig("fn f() void {\n    const x = 1;\n}\n")
+    errors = compile_errors("fn f() void {\n    const x = 1;\n}\n")
 
     assert errors is not None
     assert any(phrase(UNUSED).search(line) for line in errors)

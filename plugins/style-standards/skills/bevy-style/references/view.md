@@ -5,8 +5,8 @@ cameras, visibility, materials and gizmos. The engine's rendering internals are 
 render graph is a set of systems, pipeline specialisation moves with it, and neither is something a
 game should be reaching into.
 
-This is the area that changes most between releases, so `references/migration.md` is the companion
-chapter: most of the types it removes and renames are ones this chapter spawns.
+This is the area that changes most between releases, so the migration chapter is its companion: most
+of the types it removes and renames are ones this chapter spawns.
 
 ## Contents
 
@@ -35,9 +35,8 @@ chapter: most of the types it removes and renames are ones this chapter spawns.
 - **Materials and debugging**
   - BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
   - BV-VIEW-18 [M] Keep shader paths and material types together
-  - BV-VIEW-19 [S] Debug in world space with gizmos
+  - BV-VIEW-19 [S] Draw lines and debug text with a gizmo, not with entities you despawn
   - BV-VIEW-20 [S] Reach for a post-process component before a full-screen pass
-  - BV-VIEW-21 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 ---
 
@@ -133,7 +132,7 @@ fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
 
 /// The plugin's published ordering surface. Anything that needs to run after the
 /// bar has been restacked — another plugin, or the test below — names this, never
-/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCHED-11).
+/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCHED-12).
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HudSystems {
     /// Rewrites the bar's `flex_direction` from `Hud::compact`.
@@ -210,10 +209,10 @@ mod tests {
 ### BV-VIEW-02 [S] Choose the `Val` unit for what the value means
 
 `px` for something that should stay the same size, `percent` for something that should scale with
-its parent, `vw`/`vh` for something that should scale with the window, `em`/`rem` for something
-that should scale with the text size, `auto()` for something the content decides. Each helper
-builds the `Val` of its name and takes an integer or a float. `Val::Em` resolves against the
-node's `EmSize`, which `Node` requires, and `Val::Rem` against the `RemSize` resource.
+its parent, `vw`/`vh` for something that should scale with the window, `em`/`rem` for something that
+should scale with the text size, `auto()` for something the content decides. Each helper builds the
+`Val` of its name and takes an integer or a float. `Val::Em` resolves against the node's `EmSize`,
+which `Node` requires, and `Val::Rem` against the `RemSize` resource.
 
 **Why:** the unit is the only place the intent is recorded. A `Px` where a `Percent` was meant looks
 right until the window changes, then looks broken with nothing to say why.
@@ -229,7 +228,7 @@ changed and did not, the unit is wrong.
 laid-out one are different numbers, and a read of a size from `Node` compiles and returns the
 request.
 
-**Check:** grep for reads of `Node` that are looking for a size or a position. Those fields are on
+**Check:** read each read of `Node` that is looking for a size or a position. Those fields are on
 `ComputedNode`.
 
 ### BV-VIEW-04 [M] Give text its components together
@@ -243,7 +242,10 @@ until `RemSize` changes, so a size that must stay fixed is
 size that follows `RemSize`. One tuple also keeps the lines that describe one piece of text
 together.
 
-**Check:** grep for `Text::new` and check the same tuple carries a font and a colour.
+**Check:** read each `Text::new` spawn: the same tuple carries a `TextFont` and a `TextColor`.
+`rg -n 'FontSource::(Ui)?(Serif|SansSerif|Monospace)\b' src/` and
+`rg -n 'FontSource::(Cursive|Fantasy|SystemUi|UiRounded|Emoji|Math|FangSong)\b' src/` find a generic
+family spelled as the variant 0.20 removed.
 
 ```rust
 // verified
@@ -291,9 +293,9 @@ button too and never from the keyboard. `Hovered` and `Pressed` carry the state 
 handler lives in another file. An entity-scoped observer sits beside the spawn, dies with the
 button, and runs only when it is used.
 
-**Check:** grep for `Query<&Interaction`, and for `On<PointerClick>` on a widget `Button`. The first
-is a set of buttons whose handlers were gathered into one system; the second skips the widget's
-contract.
+**Check:** `rg -n '\bInteraction\b' src/` finds a button polled through the deprecated component — a
+set of buttons whose handlers were gathered into one system. Then read each `On<PointerClick>`
+observer on a widget `Button`: it skips the widget's contract.
 
 ```rust
 // verified
@@ -358,9 +360,10 @@ mod tests {
         let mut buttons = app
             .world_mut()
             .query_filtered::<Entity, With<StartButton>>();
-        let Some(button) = buttons.iter(app.world()).next() else {
-            unreachable!()
-        };
+        let button = buttons
+            .iter(app.world())
+            .next()
+            .expect("Startup spawned the button");
         app.world_mut().trigger(Activate { entity: button });
         assert_eq!(app.world().resource::<Starts>().0, 1);
     }
@@ -482,10 +485,10 @@ entity is attached where that entity is written: `on(handler)` inside `bsn!`, or
 `bevy::ui_widgets::observe(handler)` in a `children![]` tuple, never found again after the spawn.
 
 **Why:** the alternative nests a `with_children` closure per level, so the indentation is the
-structure. It is `[S]` because the grammar is the newest surface in Bevy, and it still moves
-between releases.
+structure. It is `[S]` because the grammar is the newest surface in Bevy, and it still moves between
+releases.
 
-**Check:** count the closing braces at the end of the spawn. Past three levels, the tuple form has
+**Check:** count the closing braces at the end of the spawn. Past two levels, the tuple form has
 stopped being readable.
 
 ```rust
@@ -565,9 +568,8 @@ mod tests {
                 .find(|(_, text)| text == label)
                 .map(|(entity, _)| *entity)
         };
-        let (Some(play_choice), Some(quit_choice)) = (find("Play"), find("Quit")) else {
-            unreachable!()
-        };
+        let play_choice = find("Play").expect("the menu offers Play");
+        let quit_choice = find("Quit").expect("the menu offers Quit");
 
         app.world_mut().trigger(Activate {
             entity: quit_choice,
@@ -585,15 +587,15 @@ mod tests {
 
 ### BV-VIEW-10 [M] Construct a colour by naming its space
 
-`Color::srgb(r, g, b)` for a colour picked in a design tool. `Color::linear_rgb` and
-`LinearRgba` for a value that is being computed.
+`Color::srgb(r, g, b)` for a colour picked in a design tool. `Color::linear_rgb` and `LinearRgba`
+for a value that is being computed.
 
 **Why:** the two spaces give different numbers for one colour, and neither constructor warns: a
 palette value passed to the linear one is visibly wrong, most of all in the mid-tones. Naming the
 space is the only defence.
 
-**Check:** grep for colour construction and check each against where the value came from. Design
-tool and hex codes are sRGB; anything a shader or a lerp produced is linear.
+**Check:** read each colour construction against where the value came from. Design tool and hex
+codes are sRGB; anything a shader or a lerp produced is linear.
 
 ### BV-VIEW-11 [S] Keep the whole game in one colour space until the boundary
 
@@ -619,8 +621,8 @@ are in. If the answer varies, the conversions are not at a boundary.
 the one most often reproduced from memory. The component form also overrides one required component
 in the spawn tuple without restating the rest.
 
-**Check:** read each camera spawn: `Camera2d` or `Camera3d`, plus only the components it
-overrides. A `Camera2dBundle` or `Camera3dBundle` is BV-MIG-03's table.
+**Check:** read each camera spawn: `Camera2d` or `Camera3d`, plus only the components it overrides.
+A `Camera2dBundle` or `Camera3dBundle` is BV-ECS-06's table.
 
 ### BV-VIEW-13 [M] Give every camera an explicit `order` once there are two
 
@@ -630,7 +632,7 @@ overrides. A `Camera2dBundle` or `Camera3dBundle` is BV-MIG-03's table.
 controls. The result looks like a rendering bug, and the one warning that names it scrolls past in
 the log.
 
-**Check:** grep the startup log for "Camera order ambiguities". Failing that, count the camera
+**Check:** read the startup log for "Camera order ambiguities". Failing that, count the camera
 entities: more than one sharing an order and a render target is the condition.
 
 ```rust
@@ -692,9 +694,10 @@ mod tests {
         app.update();
 
         let mut world_views = app.world_mut().query_filtered::<Entity, With<WorldView>>();
-        let Some(view) = world_views.iter(app.world()).next() else {
-            unreachable!()
-        };
+        let view = world_views
+            .iter(app.world())
+            .next()
+            .expect("the plugin spawned a world view");
         let view = app.world().entity(view);
         assert!(view.contains::<Camera>());
         assert!(view.contains::<Projection>());
@@ -726,7 +729,7 @@ insert, and a filter finds every off-screen camera. Code that copies a `Camera` 
 target to travel with it still compiles, and loses it.
 
 **Check:** read every `Camera` struct literal in the diff. A `target` field in one is the removed
-spelling (BV-MIG-11); too many identifiers are called `target` for a grep to answer this.
+spelling (BV-MIG-02); too many identifiers are called `target` for a pattern to answer this.
 
 ### BV-VIEW-15 [M] Set `Visibility`, and read `ViewVisibility`
 
@@ -736,8 +739,8 @@ spelling (BV-MIG-11); too many identifiers are called `target` for a grep to ans
 overwrites a write to either of the last two in the same frame. Reading `Visibility` to learn
 whether something is on screen is the mirror mistake: it says what was asked for.
 
-**Check:** grep for writes to `InheritedVisibility` and `ViewVisibility`, and for reads of
-`Visibility` that are asking about culling.
+**Check:** `rg -n '&mut (InheritedVisibility|ViewVisibility)\b' src/` finds a system that writes an
+output the propagation overwrites. Then read each read of `Visibility` that is asking about culling.
 
 ```rust
 // verified
@@ -832,10 +835,9 @@ mod tests {
 
     fn a_pin(app: &mut App) -> Entity {
         let mut pins = app.world_mut().query_filtered::<Entity, With<MapPin>>();
-        let Some(pin) = pins.iter(app.world()).next() else {
-            unreachable!()
-        };
-        pin
+        pins.iter(app.world())
+            .next()
+            .expect("the plugin spawned two pins")
     }
 
     /// The child was never written to, so its `Visibility` still says
@@ -911,16 +913,17 @@ Bevy adds and updates an `Aabb` for meshes and sprites, including when the mesh 
 engine's own updates, costing a duplicate computation every frame or culling an entity that should
 be drawn.
 
-**Check:** grep for `Aabb`. In game code there should be reads and no writes.
+**Check:** `rg -n '&mut Aabb\b|remove::<Aabb>' src/` finds a write the engine's own update fights;
+in game code there should be reads and no writes.
 
 ## Materials and debugging
 
 ### BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
 
 A `Material` (or `Material2d`) with a fragment shader covers most of what a game wants: a shield
-effect, a dissolve, a palette swap. A sprite takes a custom shader too, through
-`SpriteMaterial` and `MaterialExtension2d`, rather than a `Mesh2d` quad built to shade it, and
-`ExtendedMaterial2d` extends a 2D material.
+effect, a dissolve, a palette swap. A sprite takes a custom shader too, through `SpriteMaterial` and
+`MaterialExtension2d`, rather than a `Mesh2d` quad built to shade it, and `ExtendedMaterial2d`
+extends a 2D material.
 
 **Why:** the material API survives releases the render graph does not: a render-graph rewrite
 reaches every custom render node in the ecosystem and leaves materials alone. A node built for a
@@ -934,7 +937,7 @@ The `Material` impl naming a shader path lives beside the struct, and the shader
 struct's module name predicts. That shader is WESL, a `.wesl` with `import …;`, `@if(…)` and
 `constants::MATERIAL_BIND_GROUP`, where a `.wgsl` used `#import` and `#ifdef`. GLSL is gone, with
 the `shader_format_glsl` and `shader_format_wesl` features, and the module paths that moved are in
-`references/migration.md` BV-MIG-17.
+BV-MIG-02.
 
 **Why:** nothing checks a struct's fields against the shader's bindings at compile time: a mismatch
 fails at pipeline compilation, at run time, naming a binding index. Side by side, a field added on
@@ -942,18 +945,22 @@ one side is visibly missing on the other.
 
 **Check:** for each `impl Material`, is the shader path within sight of the struct definition, and
 does the struct's field order match the shader's?
+`rg -n '--glob=*.wgsl' '#import|#ifdef|#define_import_path|#\{'` finds a shader in the syntax WESL
+replaced.
 
-### BV-VIEW-19 [S] Debug in world space with gizmos
+### BV-VIEW-19 [S] Draw lines and debug text with a gizmo, not with entities you despawn
 
-`Gizmos::line`, `circle`, `cube`, `text` and `text_2d`. Not a spawned `Text2d` that has to be
-despawned.
+For one frame, `Gizmos::line`, `circle`, `cube`, `text` and `text_2d` from the system that wants
+them — not a spawned `Text2d` that has to be despawned. For a drawing that outlives the frame — a
+map, an orbit, a selection ring, a persistent debug overlay — a retained `Gizmo` with a
+`GizmoAsset`, edited when its subject changes, rather than untextured sprites respawned every frame.
 
-**Why:** gizmos are immediate-mode: drawn for one frame from the system that wants them, with no
-entity to create, position, update or clean up. The spawned alternative outlives its usefulness by
-default, which is why debug text has a habit of shipping.
+**Why:** an immediate gizmo has no entity to create, position or clean up, and a retained one is
+built once; the spawned alternative outlives its usefulness by default, which is why debug text
+ships, and a respawn loop allocates and defeats change detection every frame.
 
-**Check:** grep for spawned entities whose only purpose is debugging. Anything that has to be
-despawned to stop showing is a gizmo written the long way.
+**Check:** find every system that spawns entities only to show a debug value, and every one that
+begins by despawning what it is about to respawn. Each is a gizmo written the long way.
 
 ### BV-VIEW-20 [S] Reach for a post-process component before a full-screen pass
 
@@ -970,16 +977,3 @@ components fill that gap with no dependency the game does not already have.
 
 **Check:** for each custom full-screen pass, name the shipped component it reimplements. If there is
 none, that is the case BV-VIEW-17 was talking about.
-
-### BV-VIEW-21 [S] Draw with a retained gizmo before a sprite you have to despawn
-
-`Gizmo` plus a `GizmoAsset` is a line drawing that persists as an entity. Reach for it before
-spawning untextured sprites you redraw every frame — for a map, an orbit, a selection ring, or a
-debug overlay that has to survive the frame.
-
-**Why:** the default for a drawing that outlives the frame is a despawn loop and a fresh sprite per
-element per frame, which allocates, defeats change detection, and leaves nothing to pick or query. A
-retained gizmo is built once and edited when its subject changes.
-
-**Check:** find every system that begins by despawning what it is about to respawn. Each is either a
-retained gizmo or a set of entities that should have persisted.

@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from agent_skill.lang.python import PythonSnippet, _shipped
 from agent_skill.layout import SKILLS
+from agent_skill.model import Skill
 
 REPO = Path(__file__).resolve().parents[1]
 RUFF_TOML = REPO / SKILLS / "python-style" / "assets" / "ruff.toml"
@@ -138,3 +140,29 @@ def test_e501_is_enabled_as_the_line_length_backstop(tmp_path: Path) -> None:
     """The formatter makes only a best-effort attempt at the limit."""
     (tmp_path / "m.py").write_text("x = 1\n")
     assert "E501" in enabled(RUFF_TOML, tmp_path)
+
+
+def test_a_standards_examples_are_linted_as_it_ships(
+    skills: list[Skill], tmp_path: Path
+) -> None:
+    """The shipped `ruff.toml`, less the allowlist, and nothing else.
+
+    normalize-the-standards, decision 12: a narrower selection than the
+    one shipped lets an example teach what the reader's build rejects.
+    A standard that ships no `ruff.toml` is linted with the selection
+    its snippet declares.
+    """
+    python = next(s for s in skills if s.name == "python-style")
+    snippet = python.profile.toolchain
+    assert isinstance(snippet, PythonSnippet)
+    assert _shipped(Skill(tmp_path, python.profile)) is None
+    assert _shipped(python) == RUFF_TOML.resolve()
+    assert snippet.ruff_args(_shipped(python)) == [
+        "--no-cache",
+        "--config",
+        str(RUFF_TOML.resolve()),
+        f"--ignore={','.join(snippet.allowlist)}",
+        "--output-format=concise",
+    ]
+    assert "--isolated" in snippet.ruff_args()
+    assert all(reason.strip() for reason in snippet.allowlist.values())

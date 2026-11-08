@@ -1,34 +1,39 @@
-# RS-DOC — Documentation
+# Documentation: Rustdoc, Sections, Examples, and the README
 
-Rustdoc is not a courtesy; it is the contract in prose plus a test suite that
-proves the prose is true. The bar: a competent Rust programmer who has never
-seen the crate can accomplish the primary use case from `docs.rs` alone,
-without reading the source.
+Scope: what the documentation says and how — crate and module docs, the section order, `# Errors`,
+`# Panics` and `# Safety`, prose style and comments, examples as doc tests, intra-doc links and
+docs.rs, and the README. What an error or a panic means is the errors chapter's; the doc tests'
+place in the suite is the testing chapter's; the docs.rs manifest keys are the build chapter's.
+
+Rustdoc is not a courtesy; it is the contract in prose plus a test suite that proves the prose is
+true. The bar: a competent Rust programmer who has never seen the crate can accomplish the primary
+use case from `docs.rs` alone, without reading the source.
+
 ## Contents
 
 - **Crate and module documentation**
   - RS-DOC-01 [M] Answer four questions, in order, in the crate root
   - RS-DOC-02 [M] Document every feature flag with what it enables and its cost
-  - RS-DOC-03 [S] Document crate-wide invariants once and link to them
+  - RS-DOC-03 [S] Document a crate-wide fact once and link to it
   - RS-DOC-04 [S] Position the crate against its obvious alternatives
   - RS-DOC-05 [S] Keep the crate root example runnable and one screen long
 
 - **Item documentation**
-  - RS-DOC-06 [M] Give every public item a summary, and every non-trivial one an example
-  - RS-DOC-07 [M] Make the first line one third-person sentence
-  - RS-DOC-08 [M] Leave a blank line after the summary
-  - RS-DOC-09 [M] Use the standard section order
-  - RS-DOC-10 [M] Give every `Result`-returning function an `# Errors` section
-  - RS-DOC-11 [M] Give every panicking function a `# Panics` section
-  - RS-DOC-12 [S] Document complexity and allocation where users would guess
-  - RS-DOC-13 [M] Put trait contracts on the trait, impl behaviour on the impl
-  - RS-DOC-14 [M] Document what a type guarantees, not only what it stores
-  - RS-DOC-15 [S] Document surprising lifetime and borrowing implications
-  - RS-DOC-16 [S] Comment private items where the *why* is non-obvious
+  - RS-DOC-06 [M] Give every non-trivial public item an example that runs as a test
+  - RS-DOC-07 [M] Make the first line one third-person sentence, then leave a blank line
+  - RS-DOC-08 [M] Use the standard section order
+  - RS-DOC-09 [M] Give every `Result`-returning function an `# Errors` section
+  - RS-DOC-10 [M] Give every panicking function a `# Panics` section
+  - RS-DOC-11 [M] Put trait contracts on the trait, impl behaviour on the impl
+  - RS-DOC-12 [M] Document what a type guarantees, not only what it stores
+  - RS-DOC-13 [S] Document surprising lifetime and borrowing implications
+  - RS-DOC-14 [S] Comment private items where the *why* is non-obvious
+  - RS-DOC-15 [M] Keep an implementation's reasons out of its doc comment
 
 - **Prose and style**
-  - RS-DOC-17 [S] Write for someone competent but unfamiliar
-  - RS-DOC-18 [M] Explain *why*, not *what*
+  - RS-DOC-16 [S] Write for someone competent but unfamiliar
+  - RS-DOC-17 [M] Explain *why*, not *what*
+  - RS-DOC-18 [S] Write a comment as a sentence
   - RS-DOC-19 [M] Delete commented-out code
   - RS-DOC-20 [M] Update comments in the same edit as the code they describe
   - RS-DOC-21 [S] Prefer active voice and present tense
@@ -36,7 +41,7 @@ without reading the source.
   - RS-DOC-23 [M] Keep examples idiomatic — they will be copied
   - RS-DOC-24 [S] Hide setup noise, never the part that makes the example correct
   - RS-DOC-25 [S] Give a surviving TODO an owner and an issue link
-  - RS-DOC-26 [S] Write changelog entries from the user's perspective
+  - RS-DOC-26 [S] Keep a changelog with a line per user-visible change, written for the user
 
 - **Linking, rendering, README**
   - RS-DOC-27 [M] Use intra-doc links everywhere
@@ -47,6 +52,7 @@ without reading the source.
   - RS-DOC-32 [S] Add a diagram or walkthrough for non-obvious data flow
   - RS-DOC-33 [M] Document supported platforms, MSRV, and semver policy
   - RS-DOC-34 [M!] Write the documentation before finalizing the API
+
 - Decided by tools
 
 ---
@@ -56,7 +62,7 @@ without reading the source.
 ### RS-DOC-01 [M] Answer four questions, in order, in the crate root
 
 The crate root `//!` block answers, in order: what this crate is for, the smallest complete working
-example (`RS-DOC-05`), the two or three types to read first, and any crate-wide concepts (feature
+example (RS-DOC-05), the two or three types to read first, and any crate-wide concepts (feature
 flags, error type, threading model). This is the single most-read page you will write.
 
 **Why:** it is the page every user lands on from crates.io and docs.rs, and the only one most of
@@ -76,19 +82,36 @@ dependencies or building for a constrained target is making a decision with real
 the manifest alone tells them the names but never the trade.
 
 **Check:** for each entry in `[features]`, find the sentence in the crate docs that says what
-turning it on adds and what it costs. A missing sentence is a violation (`RS-BUILD-13`).
+turning it on adds and what it costs. A missing sentence is a violation (RS-BUILD-12).
 
-### RS-DOC-03 [S] Document crate-wide invariants once and link to them
+### RS-DOC-03 [S] Document a crate-wide fact once and link to it
 
-Document crate-wide invariants once, in the root, and link to them from the items they constrain:
-thread-safety guarantees, allocation behaviour, Unicode handling, platform differences.
+State each fact once, where it belongs — thread-safety guarantees, allocation behaviour, Unicode
+handling and platform differences in the crate root, the error taxonomy on the error type — and link
+to it with an intra-doc link from every item it constrains, each `# Errors` section included.
 
-**Why:** restating an invariant at every item guarantees the copies drift. One authoritative
-statement plus intra-doc links keeps them in sync by construction, and gives the reader one place to
-learn the model rather than twelve partial views of it.
+**Why:** restating a fact at every item guarantees the copies drift, and drifted documentation is
+worse than none because readers trust it. One statement plus links keeps them in sync by
+construction and gives the reader one place to learn the model.
 
-**Check:** grep the docs for a repeated invariant sentence. More than one copy means it wants to be
-a root section with links.
+**Check:** do two items, or two `# Errors` sections, describe the same guarantee or variant in
+different words? That is the drift already happening: one becomes the statement and the rest link to
+it.
+
+```rust
+// verified
+/// One error type per crate boundary, documented once and linked to from each `# Errors`.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum Error {
+    /// The pattern could not be compiled.
+    #[error("invalid pattern at byte {offset}")]
+    Pattern { offset: usize },
+    /// The search was cancelled before completion.
+    #[error("cancelled")]
+    Cancelled,
+}
+```
 
 ### RS-DOC-04 [S] Position the crate against its obvious alternatives
 
@@ -115,11 +138,11 @@ the API could have absorbed.
 
 ## Item documentation
 
-### RS-DOC-06 [M] Give every public item a summary, and every non-trivial one an example
+### RS-DOC-06 [M] Give every non-trivial public item an example that runs as a test
 
-Every public item gets a summary line, and every non-trivial one gets an example. Examples are doc
-tests, and each must compile and pass, so they are verified on every CI run — this is the mechanism
-that keeps documentation honest.
+A non-trivial public item gets an example in its doc comment. Examples are doc tests: each must
+compile and pass, so every CI run verifies it. One that must not execute (a network call, a long
+computation) is marked `no_run` and still type-checks (RS-TEST-30).
 
 **Why:** an example is the only documentation that cannot silently rot, because the compiler checks
 it. Prose describing an API that changed last release is worse than no prose, since the reader
@@ -128,18 +151,35 @@ trusts it.
 **Check:** `cargo test --doc` runs a test for every example. Compare its count against the number of
 public items; a large gap is the list of items with no example.
 
-### RS-DOC-07 [M] Make the first line one third-person sentence
+```rust
+// verified
+/// Returns the number of lines that contain `needle`.
+///
+/// # Examples
+/// ```
+/// # use mycrate::count_lines_with;
+/// let lines = vec!["alpha".to_owned(), "beta".to_owned(), "gamma".to_owned()];
+/// assert_eq!(count_lines_with(&lines, "mm"), 1);
+/// ```
+#[must_use]
+pub fn count_lines_with(lines: &[String], needle: &str) -> usize {
+    lines.iter().filter(|line| line.contains(needle)).count()
+}
+```
+
+### RS-DOC-07 [M] Make the first line one third-person sentence, then leave a blank line
 
 The first line is a single sentence in the third person, describing what the item does: "Returns the
-number of matching lines." Not "This function will return…", not a fragment. It becomes the summary
-in every index page, so it must stand alone.
+number of matching lines." Not "This function will return…", not a fragment. A blank line follows
+it. It becomes the summary in every index page, so it must stand alone.
 
-**Why:** rustdoc lifts that line into module listings, search results, and the sidebar, stripped of
-all surrounding context. A fragment, or a sentence that starts with "This", reads as noise once it
-is sitting in a list of eighty siblings.
+**Why:** rustdoc lifts everything up to the first blank line into every listing, stripped of its
+context. A fragment, or a "This…", reads as noise among eighty siblings, and without the blank line
+a whole paragraph lands in every index table.
 
-**Check:** read the module's rendered index page. Every summary should be a complete sentence that
-still makes sense with the item name removed from the front.
+**Check:** read the module's rendered index page, not the source. Every summary should be a complete
+sentence that still makes sense with the item name removed from the front; a summary column holding
+three sentences is a missing blank line.
 
 ```rust
 // verified
@@ -153,41 +193,18 @@ pub fn count_matches(lines: &[String], needle: &str) -> usize {
 }
 ```
 
-### RS-DOC-08 [M] Leave a blank line after the summary
+### RS-DOC-08 [M] Use the standard section order
 
-Leave a blank line after the summary. Rustdoc uses everything up to the first blank line as the
-short description; a wall of text without one renders badly in every listing.
-
-**Why:** this is a mechanical rustdoc rule, not a stylistic preference — the blank line is the
-delimiter. Omitting it dumps an entire paragraph into every index table.
-
-**Check:** look at the rendered listing, not the source. A summary column containing three sentences
-is a missing blank line.
-
-```rust
-// verified
-/// Returns the trimmed input.
-///
-/// The blank line above separates the summary from the body, which is what
-/// rustdoc uses to build every index listing.
-#[must_use]
-pub fn trimmed(input: &str) -> &str {
-    input.trim()
-}
-```
-
-### RS-DOC-09 [M] Use the standard section order
-
-Use the standard section order, omitting what does not apply: summary, extended description,
-`# Examples`, `# Errors`, `# Panics`, `# Safety`, `# Performance`,
-`# Platform-specific behavior`. Consistency lets readers jump straight to what they need.
+Summary, extended description, `# Examples`, `# Errors`, `# Panics`, `# Safety`, `# Performance`,
+`# Platform-specific behavior`, each left out where it does not apply. Consistency lets readers jump
+straight to what they need.
 
 **Why:** readers scan documentation, they do not read it. A predictable order means "can this
 panic?" is answered by looking at a known position rather than reading the whole page — and `std`
 has trained every Rust programmer on exactly this order.
 
-**Check:** grep for `# ` headings inside doc comments and confirm the relative order. Any item with
-a different order is a finding.
+**Check:** do the `# ` headings in each doc comment follow the order above? Any item with a
+different order is a finding.
 
 ```rust
 // verified
@@ -209,7 +226,7 @@ pub fn parse_seconds(input: &str) -> Result<std::time::Duration, std::num::Parse
 }
 ```
 
-### RS-DOC-10 [M] Give every `Result`-returning function an `# Errors` section
+### RS-DOC-09 [M] Give every `Result`-returning function an `# Errors` section
 
 Every function returning `Result` has an `# Errors` section stating the conditions under which each
 error variant is produced. "Returns an error if the operation fails" is not documentation.
@@ -219,7 +236,7 @@ error variant is produced. "Returns an error if the operation fails" is not docu
 cannot tell which variants are reachable handles all of them badly.
 
 **Check:** for each `Result`-returning public function, list its reachable variants and find each
-one named in the `# Errors` section. The `missing_errors_doc` row checks only that the section
+one named in the `# Errors` section. clippy's `missing_errors_doc` checks only that the section
 exists.
 
 ```rust
@@ -254,19 +271,19 @@ pub enum Error {
 }
 ```
 
-### RS-DOC-11 [M] Give every panicking function a `# Panics` section
+### RS-DOC-10 [M] Give every panicking function a `# Panics` section
 
 Every function that can panic has a `# Panics` section naming the exact condition — index out of
 bounds, capacity overflow, a violated precondition. An undocumented panic is an undocumented API
-contract. Mark a function that panics on caller error `#[track_caller]` (`RS-API-35`).
+contract. Mark a function that panics on caller error `#[track_caller]` (RS-API-35).
 
 **Why:** a panic is part of the signature that the type system does not express. A caller in a
 server or a plugin needs to know which calls can take the process down, and the docs are the only
 place that can be written.
 
-**Check:** grep the body for `panic!`, `unwrap`, `expect`, `assert`, indexing, slicing, integer
+**Check:** read the body for `panic!`, `unwrap`, `expect`, `assert`, indexing, slicing, integer
 division and `Duration` arithmetic. Each reachable one must correspond to a documented condition.
-The `missing_panics_doc` row catches only a missing section.
+clippy's `missing_panics_doc` catches only a missing section.
 
 ```rust
 // verified
@@ -290,37 +307,7 @@ pub fn get(values: &[u32], index: usize) -> Option<u32> {
 }
 ```
 
-### RS-DOC-12 [S] Document complexity and allocation where users would guess
-
-Document complexity and allocation behaviour where users would otherwise guess: "runs in O(n log n)
-and allocates once", "does not allocate if the input is already normalized". This is what makes a
-library usable in a hot loop with confidence.
-
-**Why:** without it, the careful user benchmarks your function to learn what one sentence could have
-told them, and the careless user calls it in a loop. Documenting it also pins the behaviour as
-something you intend to preserve.
-
-**Check:** for each function on a plausible hot path, does the reader know whether it allocates? If
-answering requires reading the body, document it.
-
-```rust
-// verified
-/// Returns the unique values, in first-seen order.
-///
-/// Runs in O(n log n) and allocates once for the result and once for the
-/// seen-set; the input is left untouched.
-#[must_use]
-pub fn unique(values: &[u32]) -> Vec<u32> {
-    let mut seen = std::collections::BTreeSet::new();
-    values
-        .iter()
-        .filter(|&&value| seen.insert(value))
-        .copied()
-        .collect()
-}
-```
-
-### RS-DOC-13 [M] Put trait contracts on the trait, impl behaviour on the impl
+### RS-DOC-11 [M] Put trait contracts on the trait, impl behaviour on the impl
 
 Document trait contracts on the trait, and implementation-specific behaviour on the impl. An
 implementor reads the trait; a caller of a concrete type reads the impl.
@@ -332,14 +319,13 @@ implementations that violate the contract get written.
 **Check:** for each trait method, is the obligation an implementor must uphold stated on the trait
 itself? If it only appears on one impl, it is in the wrong place.
 
-### RS-DOC-14 [M] Document what a type guarantees, not only what it stores
+### RS-DOC-12 [M] Document what a type guarantees, not only what it stores
 
-Document what a type *guarantees*, not only what it stores: a `SortedVec` documents that it is
-sorted; a `Utf8Path` documents that it is valid UTF-8. Those guarantees are the reason the type
-exists.
+A `SortedVec` documents that it is sorted; a `Utf8Path` documents that it is valid UTF-8. Those
+guarantees are the reason the type exists.
 
 **Why:** the guarantee is the entire value of the newtype — it is what lets callers skip a check
-(`RS-API-18`). Documenting only the field tells the reader what you could have written as `Vec<T>`
+(RS-DATA-02). Documenting only the field tells the reader what you could have written as `Vec<T>`
 and omits the part that matters.
 
 **Check:** for each newtype and each type with a private constructor, state the invariant in one
@@ -372,7 +358,7 @@ impl SortedNames {
 }
 ```
 
-### RS-DOC-15 [S] Document surprising lifetime and borrowing implications
+### RS-DOC-13 [S] Document surprising lifetime and borrowing implications
 
 Document lifetime and borrowing implications when they are surprising: "the returned iterator
 borrows `self`; drop it before calling `insert`".
@@ -407,9 +393,9 @@ impl Index {
 }
 ```
 
-### RS-DOC-16 [S] Comment private items where the *why* is non-obvious
+### RS-DOC-14 [S] Comment private items where the *why* is non-obvious
 
-Private items deserve comments when the *why* is non-obvious (`RS-DOC-18`). Rustdoc will not publish
+Private items deserve comments when the *why* is non-obvious (RS-DOC-17). Rustdoc will not publish
 them, but the next maintainer will read them — and the next maintainer is usually you.
 
 **Why:** the reasoning behind a non-obvious private implementation is the thing that gets lost
@@ -418,12 +404,37 @@ first, and it is exactly what a future change needs in order to be safe.
 **Check:** for each private function longer than a screen, or containing a non-obvious constant, is
 the reason recorded? A magic number with no comment is always a finding.
 
+### RS-DOC-15 [M] Keep an implementation's reasons out of its doc comment
+
+A doc comment states the contract a caller can rely on: what the item does, what it requires and
+what it returns. Why the implementation is the way it is goes in an ordinary `//` comment beside the
+code, which rustdoc does not publish.
+
+**Why:** the published page is the caller's. A reason in it tells them about something they may not
+rely on, and a contract left in a `//` comment is invisible to the person who needs it.
+
+**Check:** read each doc comment for a sentence about how or why the body works (an algorithm, a
+workaround, a rejected design). Each belongs in a `//` comment; and each `//` comment that states
+what a caller may rely on belongs in the doc comment.
+
+```rust
+// verified
+/// Returns the index of `needle` in the sorted `values`, or where it would be inserted.
+///
+/// `values` must be sorted in ascending order.
+#[must_use]
+pub fn position(values: &[u32], needle: u32) -> usize {
+    // Binary search: the caller's `values` can be large, and the contract above is what
+    // lets us skip a linear scan.
+    values.partition_point(|value| *value < needle)
+}
+```
+
 ## Prose and style
 
-### RS-DOC-17 [S] Write for someone competent but unfamiliar
+### RS-DOC-16 [S] Write for someone competent but unfamiliar
 
-Write for someone competent but unfamiliar. Do not explain what a `Result` is; do explain why this
-function returns one.
+Do not explain what a `Result` is; do explain why this function returns one.
 
 **Why:** documentation aimed too low wastes the reader's attention and buries the specific
 information in generic material; aimed too high it is unusable. "Competent but unfamiliar" is the
@@ -432,10 +443,10 @@ audience that actually reads library docs.
 **Check:** does any sentence explain a language feature rather than this crate? That sentence
 belongs in the Rust book, not here.
 
-### RS-DOC-18 [M] Explain *why*, not *what*
+### RS-DOC-17 [M] Explain *why*, not *what*
 
-Explain *why*, not *what*. `// increment i` is noise; `// skip the BOM, which some Windows editors
-prepend` is the reason the line exists. Code says what; comments say why.
+`// increment i` is noise; `// skip the BOM, which some Windows editors prepend` is the reason the
+line exists. Code says what; comments say why.
 
 **Why:** the code already states what it does, and states it more reliably than a comment can, since
 it cannot drift. The reasoning is the part that is not recoverable from reading the code, so it is
@@ -455,9 +466,21 @@ pub fn strip_bom(input: &str) -> &str {
 }
 ```
 
+### RS-DOC-18 [S] Write a comment as a sentence
+
+A space after the slashes, a capital letter, a full stop. A comment at the end of a line may be a
+bare phrase.
+
+**Why:** comments are read at reading speed, not parsing speed, and sentence shape forces the author
+to state a complete thought where a fragment lets a half-formed one through. `rustfmt` does not
+touch comment text on stable, so this is left to discipline.
+
+**Check:** a review matter. Scan the comments that start their own line for a lower-case first word
+or a missing terminator.
+
 ### RS-DOC-19 [M] Delete commented-out code
 
-Delete commented-out code. Version control remembers it; the file should not.
+Version control remembers it; the file should not.
 
 **Why:** commented-out code is ambiguous in a way that costs every future reader: it might be a
 work-in-progress, a rollback, or dead weight, and nobody can tell which without archaeology. It also
@@ -478,13 +501,12 @@ diff that changes behaviour without touching a nearby comment deserves a second 
 
 ### RS-DOC-21 [S] Prefer active voice and present tense
 
-Prefer active voice and present tense: "Returns the parsed value", not "The parsed value will be
-returned".
+"Returns the parsed value", not "The parsed value will be returned".
 
 **Why:** it is shorter, it matches `std`, and it keeps the subject of the sentence the thing being
 documented rather than an abstract process.
 
-**Check:** grep doc comments for "will be", "is returned", "can be used to". Each is usually a
+**Check:** does a doc comment say "will be", "is returned", or "can be used to"? Each is usually a
 passive construction with a shorter active form.
 
 ### RS-DOC-22 [M] Backtick every identifier, type, and literal
@@ -514,17 +536,16 @@ pub fn split_setting(line: &str) -> Option<(&str, &str)> {
 
 ### RS-DOC-23 [M] Keep examples idiomatic — they will be copied
 
-Keep examples idiomatic — they will be copied. An example using `unwrap()` teaches `unwrap()`; an
-example that ignores an error teaches ignoring errors. Use `?` inside a hidden
-`# fn main() -> Result<(), Box<dyn std::error::Error>> {`, so the example models the error handling
-you want copied.
+An example using `unwrap()` teaches `unwrap()`; an example that ignores an error teaches ignoring
+errors. Use `?` inside a hidden `# fn main() -> Result<(), Box<dyn std::error::Error>> {`, so the
+example models the error handling you want copied.
 
 **Why:** documentation examples are the most-copied code you will ever write, and they are copied
 without the surrounding context that made the shortcut acceptable. Whatever the example does becomes
 the house style of every crate that depends on you.
 
-**Check:** grep doc comments for `unwrap()`, `expect(`, and `let _ =`. Each needs either a rewrite
-or the hidden `main` and a `?` (`RS-DOC-24`).
+**Check:** does a doc example use `unwrap()`, `expect(`, or `let _ =`? Each needs a rewrite, or the
+hidden `main` and a `?` (RS-DOC-24).
 
 ### RS-DOC-24 [S] Hide setup noise, never the part that makes the example correct
 
@@ -546,27 +567,29 @@ Avoid TODO comments in published code. If one must stay, give it an owner and an
 **Why:** a TODO with no owner and no ticket is invisible to every process that would ever act on it,
 so it accumulates forever. With an issue number it is tracked work; without one it is decoration.
 
-**Check:** grep for `TODO`, `FIXME`, `XXX`, `HACK`. Each hit must carry an issue reference.
+**Check:** `rg -n '//.*\b(TODO|FIXME|XXX|HACK)\b[^(#]*$' -g '*.rs'` finds a marker with no issue
+reference after it; each hit is the finding.
 
-### RS-DOC-26 [S] Write changelog entries from the user's perspective
+### RS-DOC-26 [S] Keep a changelog with a line per user-visible change, written for the user
 
-Keep a changelog entry per user-visible change, written from the user's perspective ("`Searcher` now
-handles CRLF line endings"), not the implementation's ("refactor line-terminator handling")
-(`RS-BUILD-11`).
+Keep a `CHANGELOG.md` in Keep-a-Changelog form: a section per version, and a line per user-visible
+change, written from the user's perspective ("`Searcher` now handles CRLF line endings"), not the
+implementation's ("refactor line-terminator handling"). "See git log" is not a changelog.
 
-**Why:** the changelog is read by people deciding whether to upgrade. An entry describing an
-internal refactor answers a question nobody asked, while hiding the behaviour change that actually
-affects them.
+**Why:** the changelog is read by people deciding whether to upgrade, in the two minutes they spend
+on it. A git log records implementation steps, and an entry describing an internal refactor answers
+a question nobody asked while hiding the behaviour change that actually affects them.
 
-**Check:** for each entry, ask "what does this change for someone using the crate?" If the answer is
-"nothing", it does not belong; if it differs from the entry, rewrite it.
+**Check:** can a user determine from the changelog alone whether an upgrade affects them? For each
+entry, ask "what does this change for someone using the crate?" If the answer is "nothing", it does
+not belong; if it differs from the entry, rewrite it.
 
 ## Linking, rendering, README
 
 ### RS-DOC-27 [M] Use intra-doc links everywhere
 
-Use intra-doc links everywhere: ``[`Searcher`]``, ``[`Searcher::search`]``, ``[`std::io::Read`]``.
-They are checked at build time, so they never rot, unlike manual URLs.
+``[`Searcher`]``, ``[`Searcher::search`]``, ``[`std::io::Read`]``. They are checked at build time,
+so they never rot, unlike manual URLs.
 
 **Why:** a hand-written docs.rs URL encodes a version and a path that will both change, and nothing
 tells you when it breaks. An intra-doc link is verified by the same command that builds the docs.
@@ -652,7 +675,7 @@ is checking.
 ### RS-DOC-31 [S] Cover seven things in the README, above the fold
 
 The README covers: what and why in two sentences, installation, a working example, a link to the
-docs, feature flags, MSRV (`RS-DOC-33`), and license. In that order, above the fold.
+docs, feature flags, MSRV (RS-DOC-33), and license. In that order, above the fold.
 
 **Why:** the README is evaluated in about fifteen seconds. The order is the order the questions
 arrive in, and anything below the fold is not part of the decision.
@@ -683,17 +706,16 @@ Leaving them implicit means the answer is discovered during integration instead 
 evaluation.
 
 **Check:** all three appear in the README or crate docs, and the MSRV matches `rust-version` in the
-manifest (`RS-BUILD-31`).
+manifest (RS-BUILD-30).
 
 ### RS-DOC-34 [M!] Write the documentation before finalizing the API
 
-Write the documentation before finalizing the API. If a function is hard to describe in one
-sentence, it is doing two things — and you have just found that out for the price of a sentence
-rather than a release.
+If a function is hard to describe in one sentence, it is doing two things — and you have just found
+that out for the price of a sentence rather than a release.
 
-*Relaxed form:* for an internal binary or a prototype, write the summary line before the body and
-let the rest follow the implementation. The signal you are buying — "this is hard to describe, so it
-does too much" — arrives with the summary line alone.
+*Relaxed form:* write the summary line before the body and let the rest follow the implementation.
+The signal you are buying — "this is hard to describe, so it does too much" — arrives with the
+summary line alone.
 
 **Why:** the summary line is the cheapest design review available. A signature that resists a
 one-sentence description is telling you about a cohesion problem while it is still free to fix,
@@ -726,6 +748,3 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | rustdoc | `broken_intra_doc_links` | deny | an intra-doc link that no longer resolves |
 | rustc | `missing_docs` | deny | a public item with no documentation |
-| clippy | `doc_markdown` | warn | an identifier in doc prose without backticks |
-| clippy | `missing_errors_doc` | warn | a public function returning `Result` with no `# Errors` section |
-| clippy | `missing_panics_doc` | warn | a public function that can panic with no `# Panics` section |

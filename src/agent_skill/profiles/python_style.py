@@ -1,94 +1,192 @@
 """python-style: its own `[M]` rules, applied to examples and prose."""
 
-import re
-from dataclasses import dataclass, field
-from typing import override
-lazy from collections.abc import Iterable
+from agent_skill.lang.python import PYTHON_STYLE
+from agent_skill.profiles.record import (
+    Evals,
+    LineRule,
+    Near,
+    NotDecisive,
+    Profile,
+    Unless,
+    keyed,
+    listed,
+    rules,
+)
+from agent_skill.report import Level, declare
 
-from agent_skill.profiles import NotDecisive, Profile, register
-from agent_skill.report import Finding, fail
-from agent_skill.text import group, strip_comment, syntax_for
-lazy from agent_skill.lang.python import INTERPRETER
-lazy from agent_skill.model import Skill, prose_lines
+# The branches of `conventions` and of `prose` this standard's own rules
+# fire through.
+FUTURE = declare("conventions", "ps_future", Level.FAIL)
+AUGMENTED = declare("conventions", "ps_augmented", Level.FAIL)
+META_DOC = declare("conventions", "ps_meta_doc", Level.FAIL)
+FUTURE_PROSE = declare("prose", "ps_future", Level.FAIL)
 
-#: PS-TYPE — PEP 563 is Superseded, and the future import does not
-#: merely fail to help on 3.14+: it silently degrades `annotationlib`
-#: `VALUE` and `FORWARDREF` to bare strings, so a library reading
-#: annotations gets text it must `eval`.
-FUTURE_ANNOTATIONS = re.compile(r"^\s*from\s+__future__\s+import\s+.*\bannotations\b")
-
-#: PS-CONC — the GIL made a read-modify-write on shared state *unlikely*
-#: to interleave rather than atomic. Free-threading removes the luck,
-#: not a guarantee: eight threads lose roughly three quarters of the
-#: updates.
-AUGMENTED_ON_SHARED = re.compile(
-    r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)="
+CONVENTIONS = (
+    # PS-TYPE — PEP 563 is Superseded, and the future import does not
+    # merely fail to help on 3.14+: it silently degrades `annotationlib`
+    # `VALUE` and `FORWARDREF` to bare strings, so a library reading
+    # annotations gets text it must `eval`.
+    LineRule(
+        FUTURE,
+        r"^\s*from\s+__future__\s+import\s+.*\bannotations\b",
+        "`from __future__ import annotations` degrades `annotationlib` "
+        "VALUE and FORWARDREF to bare strings; PEP 563 is Superseded",
+    ),
+    # PS-CONC — the GIL made a read-modify-write on shared state
+    # *unlikely* to interleave rather than atomic. Free-threading
+    # removes the luck, not a guarantee: eight threads lose roughly
+    # three quarters of the updates.
+    LineRule(
+        AUGMENTED,
+        r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)=",
+        "augmented assignment on instance state is a read-modify-write; under "
+        "free threading it loses updates (PS-CONC)",
+    ),
+    # A docstring inside an example documents the API, not the standard.
+    LineRule(
+        META_DOC,
+        r'(?i)^\s*""".*\b(this example|this rule|the snippet|as shipped|'
+        r"the block|for the purposes of)\b",
+        "docstring discusses the example rather than the API",
+        comments=True,
+    ),
 )
 
-#: A docstring inside an example documents the API, not the standard.
-META = re.compile(
-    r"\b(this example|this rule|the snippet|as shipped|the block|"
-    r"for the purposes of)\b",
-    re.IGNORECASE,
+PROSE = (
+    # The standard must not recommend a spelling it forbids. `from
+    # __future__ import annotations` is banned outright, so prose naming
+    # it is either hunting it (inside a `**Check:**`) or is the rule
+    # that bans it — which is how three passages survived the same rule
+    # being tightened in `zig-style`. A table row is the standard's own
+    # dead-API listing, and a line already calling the spelling stale,
+    # superseded or forbidden is the rule doing its job. What is left is
+    # prose that names it without condemning it.
+    LineRule(
+        FUTURE_PROSE,
+        r"__future__",
+        "prose names `__future__` outside a **Check:** without saying it is forbidden",
+        unless=Unless(
+            near=(
+                Near(r"^\s*\|"),
+                Near(
+                    r"(?i)\b(stale|superseded|forbidden|deprecat|never|no longer|"
+                    r"degrade|wrong|dead|remove)"
+                ),
+            )
+        ),
+    ),
 )
 
 
-def _inside_tests(body: str) -> set[int]:
-    """Body-line indices inside a `def test_*` function, by indentation.
-
-    Python has no block delimiter to count, so the end of a test is the
-    next line at or below the `def`'s own indentation that is not blank.
-    """
-    inside: set[int] = set()
-    lines = body.split("\n")
-    depth: int | None = None
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        indent = len(line) - len(line.lstrip())
-        if depth is not None:
-            if stripped and indent <= depth:
-                depth = None
-            else:
-                inside.add(i)
-                continue
-        if re.match(r"^\s*(?:async\s+)?def\s+test_", line):
-            depth, _ = indent, inside.add(i)
-    return inside
-
-
-@dataclass
-class PythonStyle(Profile):
-    """What python-style's checks need to know about it."""
-
-    name: str = "python-style"
-    prefix: str = "PS"
-    languages: tuple[str, ...] = ("python",)
-    #: `pyproject.toml`, `ruff.toml`, `ty.toml` and `pytest.toml`
-    #: examples carry markers too, and were invisible to every tool
-    #: while the marked set was derived from the fence tag alone.
-    marked_languages: tuple[str, ...] = ("toml",)
-    tools: tuple[str, ...] = ("python", "ty", "ruff")
-    language: str = "Python"
-    verified_as: str = "runs as written on free-threaded CPython {pin}"
-    strict_scope: str = "library and high-reliability"
-    toolchain: str = "python"
-    #: Each snippet is the defect its rule forbids, written the way it
-    #: appears in real code rather than tailored to the pattern — a
-    #: fixture shaped to match proves the fixture, not the pattern.
-    fires: dict[str, tuple[str, ...]] = field(
-        default_factory=lambda: {
-            "PS-API-05": ("from acmewidget._internal import helper",),
-            "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
-            "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
-            "PS-ASYNC-03": ("task = asyncio.create_task(worker())",),
+PROFILE = Profile(
+    name="python-style",
+    prefix="PS",
+    languages=("python",),
+    # `pyproject.toml`, `ruff.toml`, `ty.toml` and `pytest.toml`
+    # examples carry markers too, and were invisible to every tool
+    # while the marked set was derived from the fence tag alone.
+    marked_languages=("toml",),
+    tools=("python", "ty", "ruff"),
+    language="Python",
+    verified_as="runs as written on free-threaded CPython {pin}",
+    strict_scope="library and high-reliability",
+    toolchain=PYTHON_STYLE,
+    # The harness is Python, linted and type-checked under these assets,
+    # and its CI is this standard's workflow plus what the harness runs.
+    harness=True,
+    # Compared with rust-style for tier, as every standard is.
+    # Each snippet is the defect its rule forbids, written the way it
+    # appears in real code rather than tailored to the pattern — a
+    # fixture shaped to match proves the fixture, not the pattern.
+    fires=keyed(
+        {
+            "PS-BUILD-20": (
+                "- uses: actions/checkout@v7",
+                "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            ),
+            "PS-API-06": ("from acmewidget._internal import helper",),
+            "PS-CONC-23": ("loop = asyncio.new_event_loop()",),
+            "PS-ASYNC-01": ("loop = asyncio.get_event_loop()",),
+            "PS-CONC-24": ("task = asyncio.create_task(worker())",),
             # The pattern carried a stray space for as long as it
             # shipped, and matched nothing; this is the line it was
             # written to find.
             "PS-MIG-06": ("if json.__version__ < (2, 0):",),
+            "PS-OUT-15": ("        sys.exit(2)",),
+            "PS-OUT-17": ('RED = "\\x1b[31m"',),
+            "PS-TYPE-17": ("    @functools.singledispatchmethod",),
         }
-    )
-    not_decisive: dict[str, NotDecisive] = field(
-        default_factory=lambda: {
+    ),
+    # Each of these ships an `rg` pattern that no fixture in `fires`
+    # proves yet. Giving one a fixture means deleting it here, which
+    # `sensitivity` insists on, so the list only shrinks.
+    unproven=rules(
+        "PS-MOD-09",
+        "PS-ASYNC-02",
+        "PS-CONC-25",
+        "PS-ASYNC-04",
+        "PS-ASYNC-05",
+        "PS-ASYNC-06",
+        "PS-ASYNC-08",
+        "PS-BUILD-03",
+        "PS-BUILD-04",
+        "PS-BUILD-09",
+        "PS-BUILD-13",
+        "PS-MOD-06",
+        "PS-BUILD-23",
+        "PS-CONC-02",
+        "PS-CONC-03",
+        "PS-CONC-05",
+        "PS-CONC-07",
+        "PS-CONC-08",
+        "PS-CONC-10",
+        "PS-CONC-13",
+        "PS-CONC-14",
+        "PS-CONC-17",
+        "PS-CONC-18",
+        "PS-OUT-14",
+        "PS-CONC-19",
+        "PS-CONC-20",
+        "PS-DATA-01",
+        "PS-DATA-02",
+        "PS-DATA-03",
+        "PS-DATA-08",
+        "PS-DATA-11",
+        "PS-DATA-12",
+        "PS-DATA-16",
+        "PS-DOC-04",
+        "PS-DOC-08",
+        "PS-DOC-12",
+        "PS-ERR-14",
+        "PS-MIG-05",
+        "PS-NAME-02",
+        "PS-NAME-03",
+        "PS-MOD-08",
+        "PS-OUT-02",
+        "PS-OUT-03",
+        "PS-OUT-06",
+        "PS-OUT-09",
+        "PS-OUT-11",
+        "PS-OUT-13",
+        "PS-OUT-22",
+        "PS-PERF-02",
+        "PS-PERF-06",
+        "PS-PERF-07",
+        "PS-TEST-01",
+        "PS-TEST-08",
+        "PS-TEST-18",
+        "PS-TEST-19",
+        "PS-TEST-21",
+        "PS-TEST-22",
+        "PS-TYPE-04",
+        "PS-TYPE-05",
+        "PS-TYPE-10",
+        "PS-TYPE-11",
+        "PS-TYPE-13",
+        "PS-TYPE-20",
+    ),
+    not_decisive=keyed(
+        {
             # Each anchor is a literal fragment of that rule's own
             # **Check:**, so rewriting the rule cannot leave a stale
             # entry quietly suppressing its pattern. Every one of these
@@ -105,17 +203,17 @@ class PythonStyle(Profile):
                 "the pattern finds the test; whether a lock spans the test and the "
                 "write decides",
             ),
-            "PS-CONC-18": NotDecisive(
+            "PS-CONC-17": NotDecisive(
                 "any hit whose preceding lines are inside",
                 "the pattern finds every ContextVar; the scope it is created in "
                 "decides, which a line-oriented pattern cannot see",
             ),
-            "PS-CONC-19": NotDecisive(
+            "PS-CONC-18": NotDecisive(
                 "whose value was set outside it",
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
             ),
-            "PS-TEST-18": NotDecisive(
+            "PS-TEST-21": NotDecisive(
                 "sleep\\(' tests/",
                 "scoped to the test suite: `await asyncio.sleep(...)` in ordinary "
                 "code is correct, and the pattern cannot see which tree it is in",
@@ -125,7 +223,22 @@ class PythonStyle(Profile):
                 "the pattern finds any indented name followed by a parenthesis, which "
                 "matches ordinary prose as readily as a docstring type",
             ),
-            "PS-ASYNC-03": NotDecisive(
+            "PS-OUT-13": NotDecisive(
+                "is each write part of the result",
+                "the pattern finds every write to standard output; whether the text "
+                "is the result rather than a diagnostic decides",
+            ),
+            "PS-OUT-15": NotDecisive(
+                "outside the entry point",
+                "the pattern finds every exit call; whether the file is the entry "
+                "point decides, and `main` ends the process by design",
+            ),
+            "PS-OUT-17": NotDecisive(
+                "outside the one function that decides colour",
+                "the pattern finds every escape sequence; whether it sits behind the "
+                "one function that decides colour is what the rule asks",
+            ),
+            "PS-CONC-24": NotDecisive(
                 "every hit outside a `TaskGroup`",
                 "the pattern finds every task start; being inside a `TaskGroup` is "
                 "what makes it compliant, and the pattern cannot see the block",
@@ -136,7 +249,7 @@ class PythonStyle(Profile):
                 "is how a context manager is implemented, not a call site that "
                 "should have used one",
             ),
-            "PS-DATA-09": NotDecisive(
+            "PS-DATA-08": NotDecisive(
                 "inside class bodies",
                 "the pattern finds every call on the right of an assignment; being "
                 "inside a class body is what makes it a default, which the pattern "
@@ -145,12 +258,12 @@ class PythonStyle(Profile):
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "PS-DATA-12": NotDecisive(
+            "PS-DATA-11": NotDecisive(
                 "should be roughly as common as",
                 "a presence assertion: the finding is an absence, which no hit can "
                 "show",
             ),
-            "PS-DATA-13": NotDecisive(
+            "PS-DATA-12": NotDecisive(
                 "every hit is a place a `frozendict` would fail",
                 "the rule's own example demonstrates the failing test deliberately, "
                 "and a hit in application code is a candidate until the value's "
@@ -165,102 +278,37 @@ class PythonStyle(Profile):
                 "read for `slots=`",
                 "the pattern finds every dataclass; the `slots=` argument decides",
             ),
-            "PS-NAME-11": NotDecisive(
+            "PS-MOD-08": NotDecisive(
                 "read each hit for what",
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",
             ),
-            "PS-CONC-12": NotDecisive(
+            "PS-CONC-13": NotDecisive(
                 "read what the target closes over",
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-CONC-20": NotDecisive(
+            "PS-OUT-14": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
-            "PS-CONC-22": NotDecisive(
+            "PS-CONC-20": NotDecisive(
                 "applied to a `def` containing `yield`",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",
             ),
         }
-    )
-
-    @override
-    def pin(self) -> str:
-        """The interpreter's version.
-
-        Read from the uv key the harness installs.
-        """
-        return group(re.match(r"cpython-([0-9][^+]*)", INTERPRETER))
-
-    @override
-    def conventions(self, skill: Skill) -> Iterable[Finding]:
-        """python-style's own rules, applied to its own examples."""
-        comment, quotes = syntax_for("python")
-        for b in skill.advice("python"):
-            for j, raw in enumerate(b.lines):
-                where = f"{b.file}:{b.at(j)} [{b.rule}]"
-                code = strip_comment(raw, comment, quotes)
-
-                if FUTURE_ANNOTATIONS.match(code):
-                    yield fail(
-                        "`from __future__ import annotations` degrades `annotationlib` "
-                        "VALUE and FORWARDREF to bare strings; PEP 563 is Superseded",
-                        where,
-                    )
-
-                if AUGMENTED_ON_SHARED.match(code):
-                    yield fail(
-                        "augmented assignment on instance state is a "
-                        "read-modify-write; under free threading it loses updates "
-                        "(PS-CONC)",
-                        where,
-                    )
-
-                if raw.lstrip().startswith('"""') and META.search(raw):
-                    yield fail(
-                        "docstring discusses the example rather than the API", where
-                    )
-
-    @override
-    def inside_tests(self, body: str) -> set[int]:
-        """Body-line indices inside a `def test_*`, by indentation."""
-        return _inside_tests(body)
-
-    @override
-    def prose(self, skill: Skill) -> Iterable[Finding]:
-        """The standard must not recommend a spelling it forbids.
-
-        `from __future__ import annotations` is banned outright, so
-        prose naming it is either hunting it (inside a `**Check:**`) or
-        is the rule that bans it. Anything else is the standard teaching
-        the thing it exists to stop — which is how three passages
-        survived the same rule being tightened in `zig-style`. Scoped
-        per rule and per Check block, because both wrap.
-        """
-        span = re.compile(r"__future__")
-        # A table row is the standard's own dead-API listing, and a line
-        # already calling the spelling stale, superseded or forbidden is
-        # the rule doing its job. What is left is prose that names it
-        # without condemning it.
-        condemned = re.compile(
-            r"\b(stale|superseded|forbidden|deprecat|never|no longer|degrade|"
-            r"wrong|dead|remove)",
-            re.IGNORECASE,
-        )
-        for chapter in skill.chapters:
-            for i, line, rid, in_check in prose_lines(chapter.text, skill.prefix):
-                if in_check or line.lstrip().startswith("|") or condemned.search(line):
-                    continue
-                if span.search(line):
-                    yield fail(
-                        "prose names `__future__` outside a **Check:** without saying "
-                        "it is forbidden",
-                        f"{chapter.name}:{i} [{rid}]",
-                    )
-
-
-register(PythonStyle())
+    ),
+    domain={
+        "async": "asyncio",
+    },
+    # The eval suite's cases: two BAD examples to review, two spellings
+    # the target rejects (one-abstract-standard, decision 8).
+    evals=Evals(
+        review=listed("PS-OUT-15", "PS-ERR-21"),
+        migrate=("__cached__", "types.CodeType.co_lnotab"),
+    ),
+    conventions=CONVENTIONS,
+    prose=PROSE,
+)

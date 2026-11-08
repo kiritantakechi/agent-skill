@@ -1,12 +1,12 @@
 """Every authored pattern, shown to catch its target in both directions.
 
 The module was titled "every" and its code asserted `any`: one pattern
-matching stood as evidence for the rest of a rule's Check. Measured on
-the shipped standard, `ZS-MIG-12` ships four patterns over four disjoint
-families of dead API, its one fixture matched the first, and the other
-three were counted as proven by a fixture none of them touched. Any of
-the three could have been narrowed until it matched nothing at all
-without this check noticing.
+matching stood as evidence for the rest of a rule's Check. On the
+shipped standard a migration rule shipped four patterns over four
+disjoint families of dead API, its one fixture matched the first, and
+the other three were counted as proven by a fixture none of them
+touched. Any of the three could have been narrowed until it matched
+nothing at all without this check noticing.
 
 The second direction — every fixture matched by some pattern — is what
 keeps the first honest. With only the first, an uncovered pattern is
@@ -18,6 +18,10 @@ from types import SimpleNamespace
 import pytest
 
 from agent_skill.checks.sensitivity import sensitivity
+from agent_skill.doc import Doc
+from agent_skill.doc.chapter import Rule
+from agent_skill.ids import Location, RuleId, Tier
+from agent_skill.profiles.record import keyed, rules
 lazy from agent_skill.model import Skill
 
 #: Two patterns over disjoint constructs, the shape that made `any`
@@ -26,19 +30,30 @@ TWO_PATTERNS = "**Check:** `rg -n 'alpha_call' src/` and `rg -n 'beta_call' src/
 
 
 def fake(
-    fires: dict[str, tuple[str, ...]], check: str = TWO_PATTERNS
+    fires: dict[str, tuple[str, ...]],
+    check: str = TWO_PATTERNS,
+    unproven: frozenset[str] = frozenset(),
 ) -> SimpleNamespace:
-    """A stand-in skill with one rule, its Check, and its fixtures."""
-    rule = SimpleNamespace(id="XX-Y-01", check=check, title="a rule with two patterns")
+    """A stand-in skill with one rule, its Check, and its fixtures.
+
+    Its profile's maps are read as a profile's are, by `keyed` and
+    `rules`, so a test spells a rule as the profiles do.
+    """
+    rid, body = RuleId.parse("XX-Y-01"), Doc.parse(check).blocks
+    rule = Rule(rid, Tier.M, "a rule with two patterns", body)
+    profile = SimpleNamespace(
+        fires=keyed(fires), languages=("rust",), unproven=rules(*unproven)
+    )
     return SimpleNamespace(
         name="fake-style",
-        rules=[rule],
-        profile=SimpleNamespace(fires=fires, languages=("rust",)),
+        chapter_rules=(rule,),
+        profile=profile,
+        at=lambda: Location("fake-style"),
     )
 
 
 def messages(skill: SimpleNamespace) -> list[str]:
-    return [f.message for f in sensitivity(skill)]  # ty: ignore[invalid-argument-type] — a stand-in with only what the check reads
+    return [f.message for f in sensitivity.each(skill)]  # ty: ignore[invalid-argument-type] — a stand-in with only what the check reads
 
 
 def test_a_full_cover_passes() -> None:
@@ -83,10 +98,11 @@ def test_one_pattern_and_one_fixture_still_works() -> None:
     )
 
 
-def test_a_rule_listed_with_no_fixture_is_reported() -> None:
+def test_a_rule_listed_with_no_fixture_proves_none_of_its_patterns() -> None:
+    """A shipped profile may not list one; the cover still says so."""
     found = messages(fake({"XX-Y-01": ()}))
-    assert found
-    assert "listed with no fixture" in found[0]
+    assert len(found) == 2, found
+    assert all("matches none of this rule's fixtures" in m for m in found)
 
 
 @pytest.mark.parametrize(
@@ -105,16 +121,48 @@ def test_a_fixture_with_nothing_to_run_against_is_reported(
 
 
 def test_a_fixture_naming_an_unknown_rule_is_reported() -> None:
-    skill = fake({"XX-Y-99": ("anything",)})
+    skill = fake({"XX-Y-99": ("anything",)}, unproven=frozenset({"XX-Y-01"}))
     found = messages(skill)
     assert found
     assert "a fixture names a rule this skill does not define" in found[0]
 
 
+def test_a_pattern_neither_proven_nor_listed_fails() -> None:
+    """The gap that used to be skipped without a word."""
+    [found] = messages(fake({}))
+    assert found.startswith("XX-Y-01: ships an `rg` pattern that no fixture proves")
+
+
+def test_a_pattern_listed_as_unproven_is_accounted_for() -> None:
+    assert messages(fake({}, unproven=frozenset({"XX-Y-01"}))) == []
+
+
+@pytest.mark.parametrize(
+    ("fires", "check", "listed", "stale"),
+    [
+        ({}, TWO_PATTERNS, "XX-Y-99", "names a rule this skill does not define"),
+        (
+            {"XX-Y-01": ("x = alpha_call()", "y = beta_call()")},
+            TWO_PATTERNS,
+            "XX-Y-01",
+            "has a fixture in `fires` now",
+        ),
+        ({}, "**Check:** read it and judge.", "XX-Y-01", "ships no `rg` pattern"),
+    ],
+)
+def test_an_entry_that_stopped_being_true_fails(
+    fires: dict[str, tuple[str, ...]], check: str, listed: str, stale: str
+) -> None:
+    """An entry outliving its reason fails, so the list only shrinks."""
+    found = messages(fake(fires, check, frozenset({listed}) | {"XX-Y-01"}))
+    assert any(
+        m.startswith(f"{listed}: listed as unproven") and stale in m for m in found
+    ), found
+
+
 def test_the_shipped_standards_are_covered(skills: list[Skill]) -> None:
     """The rule this change enforces, asserted on the real profiles."""
     for skill in skills:
-        if skill.profile.fires:
-            assert list(sensitivity(skill)) == [], (
-                f"{skill.name} has an unproven pattern"
-            )
+        assert list(sensitivity.each(skill)) == [], (
+            f"{skill.name} has an unproven pattern"
+        )

@@ -6,10 +6,12 @@ lazy from pathlib import Path
 import pytest
 
 from agent_skill.checks import plugin as mod
+from agent_skill.ids import Location
 from agent_skill.layout import PLUGIN, SKILLS
+from agent_skill.model import Skill, Tree
 from agent_skill.report import Level
 from structure_fixture import build
-lazy from agent_skill.model import Skill
+lazy from agent_skill.report import Finding
 
 MANIFEST = {"name": PLUGIN.name, "version": "1.0.0", "license": "MIT"}
 ENTRY = {"name": PLUGIN.name, "source": f"./{PLUGIN.as_posix()}"}
@@ -31,14 +33,18 @@ def write(path: Path, data: object) -> None:
     path.write_text(json.dumps(data))
 
 
-def failures(repo: Path) -> list[str]:
+def failed(repo: Path) -> list[Finding]:
     skill = Skill(repo / SKILLS / "demo-style")
-    return [f.message for f in mod.plugin([skill]) if f.level is Level.FAIL]
+    return [f for f in mod.plugin(Tree.of([skill])) if f.level is Level.FAIL]
+
+
+def failures(repo: Path) -> list[str]:
+    return [f.message for f in failed(repo)]
 
 
 def test_a_conforming_plugin_only_waits_for_the_validator(repo: Path) -> None:
     skill = Skill(repo / SKILLS / "demo-style")
-    assert [f.level for f in mod.plugin([skill])] == [Level.UNRUN]
+    assert [f.level for f in mod.plugin(Tree.of([skill]))] == [Level.UNRUN]
 
 
 def test_a_manifest_naming_another_plugin(repo: Path) -> None:
@@ -64,3 +70,22 @@ def test_a_skill_the_checks_do_not_read(repo: Path) -> None:
     assert any(
         "the plugin ships ['demo-style', 'stray-style']" in m for m in failures(repo)
     )
+
+
+@pytest.mark.parametrize("where", [PLUGIN / mod.MANIFEST, mod.MARKETPLACE])
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [('{"name": ,}', "is not JSON"), ("[]", "is JSON, but not an object")],
+)
+def test_a_manifest_that_reads_as_nothing_fails(
+    repo: Path, where: Path, text: str, said: str
+) -> None:
+    """A file that is there and holds no object is a finding.
+
+    Only a missing one used to be: the rest returned before anything
+    read them, and the check passed having compared nothing.
+    """
+    (repo / where).write_text(text)
+    [found] = failed(repo)
+    assert found.message.startswith(said), found
+    assert found.where == Location(file=where.as_posix())

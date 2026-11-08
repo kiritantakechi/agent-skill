@@ -9,42 +9,40 @@ So the expiry is a check.
 It fails rather than notes, because moving a pin is a reviewed event by
 Decision 0 of the design, and a red build is what causes a review to
 happen.
+
+The harness's own tool pins are compared here. A skill's pins are its
+toolchain's to compare (`Toolchain.pins`): what a release of Rust, of
+CPython or of Zig is, and where to ask for the newest, differs for each.
+So is every action a workflow names, shipped or run here: by the commit
+it runs, with the release that commit is beside it.
 """
 
-import json
 import re
-lazy import urllib.request
+from functools import partial
 lazy from collections.abc import Callable, Iterator
 
-from agent_skill.checks import check
-from agent_skill.proc import (
-    PACKAGE,
-    have,
-    pinned_version,
-    run,
-    tool_path,
-    version_mismatch,
-)
-from agent_skill.report import fail, unrun
-from agent_skill.text import group
-lazy from agent_skill.lang.python import INTERPRETER
-lazy from agent_skill.lang.rust import Crate
-lazy from agent_skill.model import Skill
-lazy from agent_skill.profiles import Profile
+from agent_skill import workflow
+from agent_skill.checks import check, per_skill
+from agent_skill.harness import HARNESS, pinned, version_mismatch
+from agent_skill.ids import Location, Version
+from agent_skill.lang import needs, toolchain_for
+from agent_skill.layout import in_repository, root_of
+from agent_skill.proc import have, run, tool_path
+from agent_skill.report import Level, declare, fail, unrun
+lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.report import Finding
 
-#: Every tool whose version decides whether a check passes. The binary
-#: and the distribution are spelled differently for `rg`, and
-#: `version_mismatch` already knows that mapping — this list is only who
-#: to ask.
-TOOLS = ("ruff", "ty", "pytest", "rg")
-
-#: `(level, message)`: the function a finding is made with, and the
-#: text it is made from. `pins` supplies where it was found.
-type Verdict = tuple[Callable[[str, str], Finding], str]
-
-#: A release's position in the order `_sort_key` defines.
-type SortKey = tuple[int, int, int, int, int]
+# The branches a finding of this check comes from. Each toolchain
+# declares those its pins report through.
+TOOL_ABSENT = declare("pins", "tool_absent", Level.UNRUN)
+TOOL_SILENT = declare("pins", "tool_silent", Level.UNRUN)
+TOOL_MISMATCH = declare("pins", "tool_mismatch", Level.FAIL)
+INDEX_SILENT = declare("pins", "index_silent", Level.UNRUN)
+INDEX_UNREAD = declare("pins", "index_unread", Level.UNRUN)
+INDEX_UNORDERED = declare("pins", "index_unordered", Level.UNRUN)
+TOOL_STALE = declare("pins", "tool_stale", Level.FAIL)
+MOVABLE_ACTION = declare("pins", "movable_action", Level.FAIL)
+UNVERSIONED_ACTION = declare("pins", "unversioned_action", Level.FAIL)
 
 
 def _tool_pins() -> Iterator[Finding]:
@@ -56,22 +54,26 @@ def _tool_pins() -> Iterator[Finding]:
     true and going stale, and moving it is a reviewed event rather than
     a note nobody reads.
     """
-    for tool in TOOLS:
+    where = HARNESS.where
+    for pinned_tool in HARNESS.tools:
+        tool, package = pinned_tool.binary, pinned_tool.package
         if not have(tool) or (located := tool_path(tool)) is None:
             yield unrun(
-                f"`{tool}` is not available, so its pin was not verified", "harness"
+                f"`{tool}` is not available, so its pin was not verified",
+                where,
+                TOOL_ABSENT,
             )
             continue
         answered = run([located, "--version"], timeout=30)
         if not answered.ok:
-            yield unrun(f"`{tool}` did not answer `--version`", "harness")
+            yield unrun(f"`{tool}` did not answer `--version`", where, TOOL_SILENT)
             continue
         if complaint := version_mismatch(tool, answered.out):
-            yield fail(complaint, "harness")
+            yield fail(complaint, where, TOOL_MISMATCH)
             continue
 
-        pinned = pinned_version(tool)
-        package = PACKAGE.get(tool, tool)
+        pin = pinned(tool)
+        pinned_at = str(pin.version) if pin else ""
         # No environment involved: resolving a bare requirement asks the
         # index what the newest release is without installing anything.
         resolved = run(
@@ -83,7 +85,8 @@ def _tool_pins() -> Iterator[Finding]:
             yield unrun(
                 f"the index did not answer for `{package}`, "
                 "so its pin was not compared",
-                "harness",
+                where,
+                INDEX_SILENT,
             )
             continue
         found = re.search(
@@ -91,356 +94,113 @@ def _tool_pins() -> Iterator[Finding]:
         )
         if not found:
             yield unrun(
-                f"could not read a version for `{package}` from the index", "harness"
+                f"could not read a version for `{package}` from the index",
+                where,
+                INDEX_UNREAD,
             )
             continue
         newest = found.group(1)
-        here, there = _sort_key(pinned), _sort_key(newest)
+        here, there = Version.released(pinned_at), Version.released(newest)
         if here is None or there is None:
             yield unrun(
                 f"`{package}` was not compared: "
-                f"{(newest if there is None else pinned)!r} is not a version "
+                f"{(newest if there is None else pinned_at)!r} is not a version "
                 "this can order, and a release it cannot order is not one it "
                 "has ruled out",
-                "harness",
+                where,
+                INDEX_UNORDERED,
             )
             continue
         if there > here:
             yield fail(
-                f"`{tool}` is pinned to {pinned} and {newest} is available — "
-                "move the pin in `pyproject.toml`, re-run the suite, and read "
+                f"`{tool}` is pinned to {pinned_at} and {newest} is available — "
+                f"move the pin in `{HARNESS.declared_in}`, re-run the suite, and read "
                 "what moved before trusting it",
-                "harness",
+                where,
+                TOOL_STALE,
             )
-
-
-#: `cpython-3.15.0rc1+freethreaded-macos-aarch64-none` -> ("3.15.0rc1",
-#: True)
-RELEASE = re.compile(
-    r"^cpython-(?P<version>\d+\.\d+\.\d+[a-z0-9]*)(?P<ft>\+freethreaded)?-"
-)
-
-
-def _sort_key(version: str) -> SortKey | None:
-    """Order releases so a final release follows its candidates.
-
-    `3.15.0rc2` follows `3.15.0rc1` and precedes `3.15.0`. A final
-    release has no suffix and must sort *after* every candidate, which a
-    plain string comparison gets backwards.
-
-    `None` for a version this does not understand, because the
-    alternative was `(0, 0, 0, 0, 0)` — which sorts below every real
-    release, so `1.2.3.post1` from the index compared as older than the
-    pin and the staleness check reported the pin current. That is the
-    same shape `version_mismatch` was already fixed for: a value that
-    could not be read must not be resolved into one that happens to
-    compare as agreement.
-    """
-    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+))?$", version)
-    if not m:
-        return None
-    major, minor, micro = (int(group(m, i)) for i in (1, 2, 3))
-    rank = {"a": 0, "b": 1, "rc": 2}.get(group(m, 4), 3)
-    return (major, minor, micro, rank, int(group(m, 5) or 0))
-
-
-def local_pin(profile: Profile) -> Iterator[Verdict]:
-    """(level, message) for a pin that follows the local toolchain.
-
-    Compared with the running version only. Upstream releasing something
-    newer is not a finding — the standard is verified against what runs
-    here, and that has not changed. The local toolchain moving past the
-    pin is: the claim that the examples were verified on this version
-    has just stopped being true.
-    """
-    reason = profile.follows_local
-    if reason is None:
-        return
-    if not reason.strip():
-        yield (
-            fail,
-            f"{profile.name} follows the local toolchain and gives no reason why",
-        )
-        return
-    pinned, running = profile.pin(), profile.running_version()
-    if not running:
-        yield (
-            unrun,
-            (
-                "could not ask the local toolchain which version runs, "
-                f"so `{pinned}` was not compared"
-            ),
-        )
-    elif running != pinned:
-        moved = f"follows this machine's toolchain, which is now {running}"
-        yield (
-            fail,
-            f"{profile.name} is pinned to {pinned} and {moved} — the cue to bump it",
-        )
-
-
-#: Where the Rust project publishes what the current stable release is.
-STABLE = "https://static.rust-lang.org/dist/channel-rust-stable.toml"
-
-
-def rust_pin(pinned: str, running: str, newest: str) -> Iterator[Verdict]:
-    """(level, message) for a `rust-version` pin.
-
-    Compared at the pin's own precision. `running` is what `rustc -V`
-    reports and `newest` what the stable channel names; either is ""
-    when it could not be asked.
-    """
-    want = _minor(pinned)
-    if want is None:
-        yield fail, f"the Rust pin `{pinned}` is not a version this can compare"
-        return
-    if not running:
-        yield (
-            unrun,
-            (
-                "could not ask `rustc` its version, "
-                f"so the Rust pin {pinned} was not compared"
-            ),
-        )
-    elif _minor(running) != want:
-        yield (
-            fail,
-            f"the examples are pinned to Rust {pinned} and `rustc` here is {running}",
-        )
-    if not newest:
-        yield (
-            unrun,
-            (
-                "the stable channel did not answer, "
-                "so the Rust pin was not compared with it"
-            ),
-        )
-    elif (there := _minor(newest)) is not None and there > want:
-        yield (
-            fail,
-            (
-                f"the Rust pin is {pinned} and {newest} is stable — move "
-                "`rust_version` in `lang/rust.py` and the assets, re-read the "
-                "release notes, and re-run the suite"
-            ),
-        )
-
-
-def _minor(version: str) -> tuple[int, int] | None:
-    m = re.match(r"^(\d+)\.(\d+)", version)
-    return (int(m.group(1)), int(m.group(2))) if m else None
-
-
-def _rustc() -> str:
-    if not have("rustc"):
-        return ""
-    answered = run(["rustc", "-V"], timeout=30)
-    return group(re.match(r"^rustc (\S+)", answered.out)) if answered.ok else ""
-
-
-def _stable() -> str:
-    try:
-        with urllib.request.urlopen(STABLE, timeout=30) as response:
-            text = response.read().decode()
-    except OSError:
-        return ""
-    return group(re.search(r'^\[pkg\.rust\]\nversion = "(\S+)', text, re.MULTILINE))
-
-
-def library_pin(name: str, requirement: str, newest: str) -> Iterator[Verdict]:
-    """(level, message) for a library a standard is verified against.
-
-    The requirement must be exact (`=0.20.0`): a caret requirement lets
-    the resolver pick a release the examples were never compiled
-    against, so the running version would no longer be the pinned one.
-    """
-    if not requirement.startswith("="):
-        stated = f"is `{requirement}`" if requirement else "names no version"
-        yield fail, f"`{name}` must be pinned exactly (`=x.y.z`), and {stated}"
-        return
-    pinned = requirement.removeprefix("=")
-    if not newest:
-        yield (
-            unrun,
-            f"crates.io did not answer, so the `{name}` pin {pinned} was not compared",
-        )
-        return
-    here, there = _sort_key(pinned), _sort_key(newest)
-    if here is None or there is None:
-        yield (
-            unrun,
-            (
-                f"`{name}` was not compared: {pinned} or {newest} is not a "
-                "version this orders"
-            ),
-        )
-    elif there > here:
-        yield (
-            fail,
-            (
-                f"`{name}` is pinned to {pinned} and {newest} is released — move "
-                "the pin in `lang/rust.py` and the assets, read the migration "
-                "guide, and re-run the suite"
-            ),
-        )
-
-
-def _requirement(crate: Crate | None, name: str) -> str:
-    for dep in crate.dependencies if crate else ():
-        if m := re.match(rf'{re.escape(name)} = \{{ version = "([^"]+)"', dep):
-            return group(m)
-    return ""
-
-
-def _crates_io(name: str) -> str:
-    try:
-        with urllib.request.urlopen(
-            urllib.request.Request(
-                f"https://crates.io/api/v1/crates/{name}",
-                headers={"User-Agent": "agent-skill pins check"},
-            ),
-            timeout=30,
-        ) as response:
-            newest = json.load(response)["crate"]["max_stable_version"]
-    except OSError, KeyError, ValueError:
-        return ""
-    # An answer that is not a version string is no answer, the same as
-    # one that never arrived.
-    return newest if isinstance(newest, str) else ""
 
 
 @check(
     "pins",
     "a superseded pin is a finding, not a diary entry",
-    needs=("uv", "ruff", "ty", "pytest", "rg", "zig", "rustc"),
+    needs=tuple(
+        dict.fromkeys(("uv", *HARNESS.binaries, *needs(lambda tc: tc.pins_with)))
+    ),
 )
-def pins(skill: Skill) -> Iterator[Finding]:
-    """The skill's pins, against what runs and what exists."""
-    for level, message in _subject_pins(skill):
-        yield level(message, skill.name)
-    if skill.profile.toolchain != "python":
+def pins(tree: Tree) -> Iterator[Finding]:
+    """Each skill's pins and the harness's, against what runs and ships.
+
+    The harness's tool pins are asked once, when a skill verified with
+    those tools is read; they pin the repository rather than a skill,
+    so their findings lie in no skill, as a finding in the repository's
+    own workflow does.
+    """
+    yield from per_skill(_skill_pins)(tree)
+    yield from _actions(tree)
+    if any(set(_verifies_with(skill)) & set(HARNESS.binaries) for skill in tree):
+        yield from _tool_pins()
+
+
+def _actions(tree: Tree) -> Iterator[Finding]:
+    """Every action each workflow names, shipped or run, by its commit.
+
+    The workflows a skill ships in `assets/`, and the repository's own.
+    A tag or a branch can be moved after review, and the commit it
+    names moves with it; a commit with no release beside it leaves a
+    reader unable to tell what a bump moves from. A `uses:` kept as a
+    comment counts, since enabling it copies it as it stands.
+
+    A local action (`./…`) and a `docker://` image are out of scope:
+    the first is the repository's own code, at the commit being run,
+    and the second names an image rather than a repository's release.
+    """
+    for skill in tree:
+        for path in workflow.shipped(skill.assets):
+            yield from _actions_in(path.read_text(), partial(skill.at, path))
+    if not tree.skills or not in_repository(skills := tree.skills[0].root.parent):
         return
-    yield from _tool_pins()
-
-    m = RELEASE.match(f"{INTERPRETER}-")
-    if not m:
-        yield fail(f"the pin `{INTERPRETER}` is not a release identifier", skill.name)
-        return
-    pinned, want_ft = m["version"], bool(m["ft"])
-    yield from _asset_pins(skill)
-    yield from _interpreter_pin(skill, pinned, want_ft=want_ft)
+    root = root_of(skills)
+    for path in workflow.run_by(root):
+        rel = path.relative_to(root).as_posix()
+        yield from _actions_in(
+            path.read_text(), lambda line, rel=rel: Location(file=rel, line=line)
+        )
 
 
-def _subject_pins(skill: Skill) -> Iterator[Verdict]:
-    """Pins on the standard's subject: its toolchain and its library."""
-    yield from local_pin(skill.profile)
-    if skill.profile.crate is not None:
-        yield from rust_pin(skill.profile.crate.rust_version, _rustc(), _stable())
-    if name := skill.profile.library:
-        requirement = _requirement(skill.profile.crate, name)
-        yield from library_pin(name, requirement, _crates_io(name))
+def _actions_in(text: str, at: Callable[..., Location]) -> Iterator[Finding]:
+    """Each `uses:` of a workflow not named by commit and release.
 
-
-def _asset_pins(skill: Skill) -> Iterator[Finding]:
-    """What the assets install, against what the harness verifies."""
-    # Two declarations, compared — the harness verifies against one and
-    # the reader copies the other, so an asset that installs a different
-    # build than the one these examples were verified on is the defect
-    # this half exists to catch.
-    workflow = skill.root / "assets" / "ci.yml"
-    if workflow.exists():
-        stated = set(re.findall(r"uv python install (\S+)", workflow.read_text()))
-        for named in sorted(stated - {INTERPRETER}):
+    `at` locates a line of the workflow.
+    """
+    for uses in workflow.uses(text):
+        if not uses.third_party:
+            continue
+        if not uses.commit:
             yield fail(
-                f"assets/ci.yml installs `{named}` where the harness verifies "
-                f"against `{INTERPRETER}` — a reader would not be running what "
-                "this was checked on",
-                skill.name,
+                f"`uses: {uses.named}` names the action by a ref that can be moved "
+                "after review; name the commit, all 40 hexadecimal digits, with its "
+                "release in a comment",
+                at(line=uses.line),
+                MOVABLE_ACTION,
+            )
+        elif not uses.comment:
+            yield fail(
+                f"`uses: {uses.named}` names a commit and not the release it is; "
+                "give the release in a comment after it (`# v7.0.1`), or the branch "
+                "it was taken from for an action that publishes none",
+                at(line=uses.line),
+                UNVERSIONED_ACTION,
             )
 
-    # Two declarations, compared — the same reason the interpreter half
-    # exists. The harness verifies against one pin and the reader
-    # installs the other, so an asset naming a different version hands
-    # them a build these examples were never checked on.
-    shipped = skill.root / "assets" / "pyproject.toml"
-    if shipped.exists():
-        text = shipped.read_text()
-        for tool in TOOLS:
-            package = PACKAGE.get(tool, tool)
-            named = re.search(rf'"{re.escape(package)}==(\S+?)"', text)
-            harness = pinned_version(tool)
-            if named and harness and named.group(1) != harness:
-                yield fail(
-                    f"assets/pyproject.toml pins `{package}=={named.group(1)}` "
-                    f"where the harness verifies against {harness} — a reader "
-                    "would not be running what this was checked on",
-                    skill.name,
-                )
+
+def _skill_pins(skill: Skill) -> Iterator[Finding]:
+    """One skill's pins, as its toolchain compares them."""
+    if (toolchain := toolchain_for(skill.profile.toolchain)) is not None:
+        yield from toolchain.pins(skill)
 
 
-def _interpreter_pin(skill: Skill, pinned: str, *, want_ft: bool) -> Iterator[Finding]:
-    """The interpreter pin against what `uv` offers in its series."""
-    if not have("uv"):
-        yield unrun("`uv` is not on PATH, so no release list was consulted", skill.name)
-        return
-    r = run(["uv", "python", "list", "--all-versions"], timeout=120)
-    if not r.out:
-        yield unrun("`uv python list` returned nothing to compare against", skill.name)
-        return
-
-    # Scoped to the pinned minor series on purpose: a newer patch or
-    # candidate is a pin refresh, and a newer *minor* is a deliberate
-    # change of target that this check has no business demanding.
-    series = ".".join(pinned.split(".")[:2])  # 3.15.0rc1 -> 3.15
-    here = _sort_key(pinned)
-    if here is None:
-        yield fail(
-            f"the pin `{INTERPRETER}` carries a version this cannot order", skill.name
-        )
-        return
-
-    newer, unreadable = _releases(r.out, series, here, want_ft=want_ft)
-    if unreadable:
-        yield unrun(
-            f"`uv python list` offers {', '.join(sorted(unreadable))} in the {series} "
-            f"series, which this cannot order against `{pinned}` — a release it cannot "
-            f"compare is not a release it has ruled out",
-            skill.name,
-        )
-
-    if newer:
-        best = max(newer, key=newer.__getitem__)
-        yield fail(
-            f"the interpreter pin is `{pinned}` and `{best}` is available — move it in "
-            "`lang/python.py` and `assets/ci.yml`, re-verify the PS-MIG table "
-            "against the released What's New, and re-run the suite",
-            skill.name,
-        )
-
-
-def _releases(
-    listing: str, series: str, here: SortKey, *, want_ft: bool
-) -> tuple[dict[str, SortKey], set[str]]:
-    """Releases in `series` newer than `here`, and any it cannot order.
-
-    Newer ones map to their order, so the best is picked without
-    ordering by a key function that is allowed to answer `None`.
-    """
-    newer: dict[str, SortKey] = {}
-    unreadable: set[str] = set()
-    for line in listing.split("\n"):
-        found = RELEASE.match(line.strip())
-        if not found or bool(found["ft"]) != want_ft:
-            continue
-        version = found["version"]
-        if not version.startswith(f"{series}."):
-            continue
-        # Scoped to the pinned series, so this reports what it could not
-        # rule out rather than every oddity in a list of every CPython
-        # ever built.
-        order = _sort_key(version)
-        if order is None:
-            unreadable.add(version)
-        elif order > here:
-            newer[version] = order
-    return newer, unreadable
+def _verifies_with(skill: Skill) -> tuple[str, ...]:
+    """The tools `skill`'s examples are verified with, if any."""
+    toolchain = toolchain_for(skill.profile.toolchain)
+    return toolchain.needs if toolchain is not None else ()

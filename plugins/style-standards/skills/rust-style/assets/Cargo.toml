@@ -1,5 +1,5 @@
 # Canonical workspace manifest. Copy, then delete what does not apply.
-# Referenced by RS-BUILD-07, RS-BUILD-23, RS-BUILD-41.
+# Referenced by RS-BUILD-07, RS-BUILD-22, RS-BUILD-40.
 
 [workspace]
 resolver = "3"                       # implied by edition 2024; explicit is fine
@@ -67,6 +67,7 @@ float_cmp = "warn"
 # Restriction lints that decide a rule of this standard on their own.
 redundant_test_prefix = "warn"       # a `test_` prefix on a function `#[test]` already marks
 mod_module_files = "warn"            # `foo.rs` beside `foo/`, never `foo/mod.rs`
+wildcard_enum_match_arm = "warn"     # no `_` arm over an enum of this crate: a new variant breaks the match
 
 [workspace.lints.rustdoc]
 broken_intra_doc_links = "deny"      # a link that stopped resolving fails `cargo doc`

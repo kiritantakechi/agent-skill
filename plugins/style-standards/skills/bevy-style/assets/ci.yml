@@ -1,6 +1,6 @@
-# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-15,
-# BV-BUILD-16 and RS-BUILD-40, by BV-ARCH-07 for the boundary job, and by
-# RS-BUILD-28 for the audit job.
+# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-13,
+# BV-BUILD-14 and RS-BUILD-39, by BV-ARCH-07 for the boundary job, and by
+# RS-BUILD-27 for the audit job.
 name: ci
 
 on:
@@ -14,16 +14,24 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny
 
+# Least privilege: the token can read the repository and nothing more. The one
+# job that needs to write says so itself.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          components: rustfmt, clippy
+          persist-credentials: false   # nothing here pushes, so no token on disk
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with:
+          toolchain: 1.99.1  # matches rust-toolchain.toml
+          components: clippy
       # Bevy is most of the build and changes only when the pin changes.
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       # Bevy needs these to build on Linux; without them the job fails in the
       # dependency build with a linker error that names nothing useful.
       - name: Install Linux dependencies
@@ -31,7 +39,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-      - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       # Two Bevy versions in the tree are two engines, and the type errors name
@@ -56,12 +63,15 @@ jobs:
 
   shipped-features:
     # Building only the default feature set proves nothing about the artefact.
-    # This list is the one in the release manifest. See BV-BUILD-15.
+    # This list is the one in the release manifest. See BV-BUILD-13.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1 }  # matches rust-toolchain.toml
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -69,13 +79,26 @@ jobs:
             libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - run: cargo build --release --no-default-features --features shipping
 
+  # rustfmt.toml is rust-style's, and its import options are nightly-only.
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { persist-credentials: false }
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: nightly, components: rustfmt }  # rustfmt.toml's import options are nightly-only
+      - run: cargo +nightly fmt --all --check   # `+`: rust-toolchain.toml outranks the install
+
   docs:
     # `CARGO_BUILD_WARNINGS` above denies rustdoc's lints too, but only if something runs rustdoc.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1 }  # matches rust-toolchain.toml
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -84,20 +107,29 @@ jobs:
       - run: cargo doc --no-deps --workspace
 
   audit:
-    # A dependency's advisory does not wait for a pull request. See RS-BUILD-28.
+    # A dependency's advisory does not wait for a pull request. See RS-BUILD-27.
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write   # the advisories as a check run, on a push or a pull request
+      issues: write   # an issue per advisory, on the weekly schedule
     steps:
-      - uses: actions/checkout@v7
-      - uses: rustsec/audit-check@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998  # v2.0.0
         with: { token: "${{ secrets.GITHUB_TOKEN }}" }
 
   msrv:
     # The manifest's `rust-version` is a claim; this is what makes it true.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.99        # must match `rust-version`
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99 }  # must match `rust-version`
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -106,12 +138,15 @@ jobs:
       - run: cargo +1.99 check --workspace   # `+`: rust-toolchain.toml outranks the install
 
   wasm:
-    # Only if the game ships to the web. See BV-BUILD-16.
+    # Only if the game ships to the web. See BV-BUILD-14.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with:
+          toolchain: 1.99.1  # matches rust-toolchain.toml
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - run: cargo build --target wasm32-unknown-unknown --no-default-features --features web

@@ -1,14 +1,15 @@
 """The skeleton check, on a conforming standard.
 
-The standard is built to conform and then broken one way at a time.
+The standard is the demo (`checks.demo`), built to conform and then
+broken one way at a time.
 """
 
 lazy from pathlib import Path
 
 import pytest
 
-from agent_skill.checks.anatomy import structural
-from agent_skill.checks.skeleton import shape, skeleton
+from agent_skill.checks.anatomy import anatomy, structural
+from agent_skill.checks.skeleton import skeleton
 from structure_fixture import build, edit, reparse
 lazy from agent_skill.model import Skill
 
@@ -19,13 +20,12 @@ def demo(tmp_path: Path) -> Skill:
 
 
 def messages(skill: Skill) -> list[str]:
-    return [message for message, _ in shape(skill)]
+    return [f.message for f in skeleton.each(skill)]
 
 
 def test_the_demo_conforms(demo: Skill) -> None:
     assert messages(demo) == []
     assert list(structural(demo)) == []
-    assert list(skeleton(demo)) == []
 
 
 def test_a_title_naming_another_version(demo: Skill) -> None:
@@ -54,6 +54,23 @@ def test_a_chapter_named_outside_the_vocabulary(demo: Skill) -> None:
 def test_a_rule_carrying_another_chapters_code(demo: Skill) -> None:
     broken = edit(demo, "references/errors.md", "### DS-ERR-02", "### DS-TEST-02")
     assert any("whose family is `ERR`" in m for m in messages(broken))
+
+
+def test_a_chapter_that_does_not_read_as_one(demo: Skill) -> None:
+    broken = edit(
+        demo,
+        "references/errors.md",
+        "---\n\n## Failing",
+        "---\n\nStray.\n\n## Failing",
+    )
+    (errors,) = (c for c in broken.chapters if c.name == "errors.md")
+    assert errors.refused is not None
+    assert errors.typed.rules == ()
+    refused = "line 16: a block before the first `##` section"
+    assert [m for m in messages(broken) if "does not read" in m] == [
+        f"`errors.md` does not read as a chapter: {refused}"
+    ]
+    assert list(anatomy.each(broken))
 
 
 def test_a_missing_migration_chapter(demo: Skill) -> None:

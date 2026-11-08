@@ -1,220 +1,255 @@
-"""Format a skill's rust examples the way the toolchain check demands.
+"""Format a skill the way its checks demand.
 
-`cargo fmt --check` decides whether a block is formatted, and it judges
-the block as the extractor wrote it — indented inside a `pub mod`, where
-rustfmt's `chain_width` and `struct_lit_width` bite earlier than they do
-at column zero. That made the check report diffs a reader of the
-markdown could not have predicted. This runs the same extraction,
-formats it, and writes the result back, so the check is actionable
-rather than merely correct.
+Each shared passage is rewritten from its template and every markdown
+file printed canonically; then every verified block is rewritten as its
+toolchain's formatter would: `restore ∘ format ∘ extract`, the same
+composition for every toolchain, so each gets write-back with no code
+of its own. Zig had none, and `zig fmt --check` named a block a reader
+then had to fix by hand.
+
+The formatter judges the file the extractor wrote, so what `toolchain`
+calls unformatted is exactly what this rewrites: the check is
+actionable rather than merely correct.
 """
 
-import re
 import tempfile
-from itertools import groupby
 from pathlib import Path
-lazy from collections.abc import Callable, Iterable, Iterator
+lazy from collections.abc import Iterable, Mapping
 
 from agent_skill import shared
-from agent_skill.lang.rust import RUST, Crate, module_name
-from agent_skill.proc import run
-from agent_skill.text import reflow
-lazy from agent_skill.lang import Unit
-lazy from agent_skill.lang.python import PYTHON_TOOLCHAIN
-lazy from agent_skill.model import Block, Skill
+from agent_skill.abstract import with_tiers
+from agent_skill.doc import Doc, Fence, Item, ListBlock, Quote, walk
+from agent_skill.doc.chapter import Section, SkillMd, migration_header
+from agent_skill.doc.normal import listed, normal, projection, with_command
+from agent_skill.lang import execute, judged, toolchain_for
+from agent_skill.model import Block, Skill
+from agent_skill.report import Finding, Level, declare, fail, note
+lazy from agent_skill import doc
+lazy from agent_skill.abstract import Abstract
+lazy from agent_skill.checks.skeleton import (
+    MIGRATION_STEM,
+    chapters_mapped,
+    reality_rendered,
+    subsections,
+    target,
+)
 
-#: The line the extractor injects into every block module.
-INJECTED = "#![allow(dead_code, unused_imports)]"
+# The branches `fmt` reports through. It is a command rather than a
+# check, so no control is owed them.
+REPRINTED = declare("fmt", "reprinted", Level.NOTE)
+FORMATTER = declare("fmt", "formatter", Level.FAIL)
+FORMATTER_TIMEOUT = declare("fmt", "formatter_timeout", Level.FAIL)
+UNLOCATABLE = declare("fmt", "unlocatable", Level.FAIL)
+REFORMATTED = declare("fmt", "reformatted", Level.NOTE)
+CORE_UNRENDERED = declare("fmt", "core_unrendered", Level.FAIL)
 
-_MODULE = re.compile(r"^pub mod (\w+) \{$", re.MULTILINE)
 
+def format_skill(skill: Skill) -> list[Finding]:
+    """Rewrite a skill's shared passages, markdown and verified blocks.
 
-def _bodies(path: Path, crate: Crate) -> list[str]:
-    """Each `pub mod`'s dedented body, the extractor's rebasing undone.
-
-    `lang.rust._module` rewrites `crate::` and `mycrate::` to point
-    inside the wrapper module, so the block compiles where it is put.
-    Writing that back would store the harness's own path in the skill —
-    the leak the extractor's comment warns about, arriving by the other
-    door — so it is inverted here. Round-tripping a block through `fmt`
-    has to be the identity on everything except whitespace.
+    Returns a note per passage or file changed, and a failure for each
+    thing that could not be rewritten — a formatter that failed, a block
+    that was skipped — so the command can say it did not finish. The
+    text comes first, shared passages and then every file's canonical
+    form: it needs no toolchain to rewrite.
     """
-    text = path.read_text()
-    starts = list(_MODULE.finditer(text))
-    out: list[str] = []
-    for i, m in enumerate(starts):
-        end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
-        lines = text[m.end() : end].split("\n")[1:]
-        while lines and not lines[-1].strip():
-            lines.pop()
-        if lines and lines[-1] == "}":
-            lines.pop()
-        body = [ln.removeprefix("    ") for ln in lines if ln.strip() != INJECTED]
-        while body and not body[0].strip():
-            body.pop(0)
-        rebased = f"{path.stem}::{m.group(1)}::"
-        out.append(
-            ("\n".join(body) + "\n")
-            .replace(f"{crate.ident}::{rebased}", "mycrate::")
-            .replace(f"crate::{rebased}", "crate::")
-        )
-    return out
+    changed = shared.rewrite(skill) + _reprint(skill)
+    # Read again: the text just written moved the blocks' lines.
+    return changed + _examples(Skill(skill.root, skill.profile))
 
 
-#: Toolchain name -> the function that rewrites that language's blocks.
-#: A formatter is a fact about a language, so the dispatch is by
-#: toolchain rather than by whether the profile happens to carry a
-#: `Crate` — that gate returned early for every non-Rust skill before
-#: the branch was even reached.
-FORMATTERS: dict[str, Callable[[Skill], list[str]]] = {}
+def _reprint(skill: Skill) -> list[Finding]:
+    """Print every markdown file in its canonical form.
 
+    An edit lengthens a line and a renaming lengthens a code inside a
+    sentence; either way the paragraph is filled for words it no longer
+    has. The canonical form is the one fill of the words it has now, and
+    it is what `layout` holds every file to. The file is read with its
+    newlines untranslated, as `layout` reads it, so a CR inside an
+    example is left for a person rather than turned into a line break.
 
-def format_skill(skill: Skill) -> list[str]:
-    """Rewrite a skill's verified blocks and shared passages.
-
-    Each verified block the way that language's formatter would, and
-    each shared passage the way its template says.
-
-    Returns one line per passage or chapter changed. The shared passages
-    come first: they are text, and need no toolchain to rewrite.
+    It is printed in its normal form as well: every citation bare,
+    every rule's elements in order; `SKILL.md`'s sections 4, 2.1 and
+    2.2 rendered as the projections they are, and the command after the
+    migration table generated from its rows.
     """
-    changed = shared.rewrite(skill) + _reflow(skill)
-    formatter = FORMATTERS.get(skill.profile.toolchain)
-    return changed + (formatter(skill) if formatter else [])
-
-
-def _reflow(skill: Skill) -> list[str]:
-    """Bring every prose line back under the `layout` limit.
-
-    A renaming lengthens a code inside a sentence, and an edit lengthens
-    a line; either way the finding is a formatting one, and `fmt` is
-    where formatting findings are fixed.
-    """
-    changed: list[str] = []
+    changed: list[Finding] = []
+    chapters = {c.path for c in skill.chapters}
     for path in skill.markdown:
-        text = path.read_text()
-        if (reflowed := reflow(text)) != text:
-            path.write_text(reflowed)
-            changed.append(f"{path.name}: prose reflowed to the line limit")
+        text = path.read_text(newline="")
+        tree = normal(Doc.parse(text), chapter=path in chapters)
+        if path == skill.skill_md:
+            tree, unrendered = _projected(skill, tree)
+            changed += unrendered
+            tree = _reality_rendered(skill, tree)
+        if path.stem == MIGRATION_STEM:
+            tree = with_command(tree, migration_header(target(skill)))
+        if (printed := str(tree)) != text:
+            path.write_text(printed)
+            changed.append(
+                note("re-printed in its canonical form", skill.at(path), REPRINTED)
+            )
     return changed
 
 
-def _format_rust(skill: Skill) -> list[str]:
-    """Rewrite each `// verified` rust block as rustfmt would."""
-    # `RUST.extract` builds from this crate, so this is
-    # `extraction.crate`, with the type that field does not carry.
-    crate = skill.profile.crate
-    if crate is None:
+def format_abstract(abstract: Abstract, skills: Iterable[Skill]) -> list[Finding]:
+    """Print every file of the abstract standard in its normal form.
+
+    As a standard's chapters are printed: canonically, citations bare
+    and each entry's parts in order; `principles.md` canonically. Each
+    realisation row's Tier cell is rendered from the rule it names, one
+    of `skills`', so a tier changed in a standard reaches its rows. A
+    note per file changed, each where the repository keeps it.
+    """
+    tiers = {r.id: r.tier for skill in skills for r in skill.chapter_rules}
+    changed: list[Finding] = []
+    chapters = {c.path for c in abstract.chapters}
+    for path in abstract.markdown:
+        text = path.read_text(newline="")
+        tree = normal(Doc.parse(text), chapter=path in chapters)
+        printed = str(with_tiers(tree, tiers) if path in chapters else tree)
+        if printed != text:
+            path.write_text(printed)
+            changed.append(
+                note("re-printed in its canonical form", abstract.at(path), REPRINTED)
+            )
+    return changed
+
+
+def _projected(skill: Skill, tree: Doc) -> tuple[Doc, list[Finding]]:
+    """`SKILL.md` with section 4 rendered from the rules it lists.
+
+    Each listed rule's line is its chapter's ID, tier and title, grouped
+    by chapter in section 6's order (decision 7). A section 4 that
+    holds what the rendering would drop — a rule of its own, prose, a
+    rule no chapter in section 6 holds — is left as it is and reported:
+    which rule it meant is a person's to say, through `revise`.
+    """
+    md = SkillMd.read(tree)
+    title = shared.skill_sections(skill)[4]
+    at = next((i for i, s in enumerate(md.sections) if s.title == title), None)
+    if at is None:
+        return tree, []
+    section = md.sections[at]
+    chapters = chapters_mapped(skill)
+    ids = listed(section.blocks()[1:])
+    known = {e.id for _, entries in chapters for e in entries}
+    if ids is None or any(rid not in known for rid in ids):
+        return tree, [
+            fail(
+                "section 4 holds what its projection would drop — a rule of its own, "
+                "prose, or a rule no chapter section 6 maps holds; not rendered",
+                skill.at(skill.skill_md, section.line),
+                CORE_UNRENDERED,
+            )
+        ]
+    rendered = Section(section.title, projection(ids, chapters), (), section.line)
+    sections = (*md.sections[:at], rendered, *md.sections[at + 1 :])
+    return SkillMd(md.frontmatter, md.title, md.preamble, sections).doc(), []
+
+
+def _reality_rendered(skill: Skill, tree: Doc) -> Doc:
+    """`SKILL.md`, sections 2.1 and 2.2 rendered from migration rows.
+
+    Each its status's rows whose Since is the target's, and the line
+    saying where the rest are (decision 9): whatever stood under the
+    subsection's heading is replaced. A section 2 with no such
+    subsection, or a migration chapter with no one table to render
+    from, is left as it is; `skeleton` reports either.
+    """
+    rendered = reality_rendered(skill)
+    md = SkillMd.read(tree)
+    title = shared.skill_sections(skill)[2]
+    at = next((i for i, s in enumerate(md.sections) if s.title == title), None)
+    if rendered is None or at is None:
+        return tree
+    section = md.sections[at]
+    before, parts = subsections(section.lead)
+    lead = (
+        *before,
+        *(
+            b
+            for heading, blocks in parts
+            for b in (heading, *rendered.get(heading.text, blocks))
+        ),
+    )
+    sections = list(md.sections)
+    sections[at] = Section(section.title, lead, section.rules, section.line)
+    return SkillMd(md.frontmatter, md.title, md.preamble, tuple(sections)).doc()
+
+
+def _examples(skill: Skill) -> list[Finding]:
+    """Each verified block, as its toolchain's formatter prints it."""
+    tc = toolchain_for(skill.profile.toolchain)
+    if tc is None:
         return []
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
-        extraction = RUST.extract(skill, Path(work) / "out")
-        if not extraction:
+        ex = tc.extract(skill, Path(work) / "out")
+        if not ex:
             return []
-        r = run(["cargo", "fmt"], cwd=extraction.root, timeout=300, env=crate.env)
-        if not r.ok:
-            return [f"cargo fmt failed: {(r.err or r.out).strip()[:160]}"]
+        step = tc.formatter(ex)
+        failed = judged(
+            step, execute(step), ex, failed=FORMATTER, timeout=FORMATTER_TIMEOUT
+        )
+        if failed:
+            return failed
+        restored = tc.restore(ex)
+    return put_back(skill, {b: body for b, body in restored.items() if body != b.body})
 
-        changed: list[str] = []
-        for chapter, blocks in groupby(skill.blocks("rust"), key=lambda b: b.file):
-            wanted = [b for b in blocks if b.marker.verified and b.rule != "?"]
-            src = extraction.root / "src" / f"{module_name(chapter)}.rs"
-            if not wanted or not src.exists():
-                continue
-            bodies = _bodies(src, crate)
-            if len(bodies) != len(wanted):
+
+def put_back(skill: Skill, bodies: Mapping[Block, str]) -> list[Finding]:
+    """Write each new body into its block's fence, last block first.
+
+    A block is found in the file's tree by its fence's line, as the
+    skill was read, so two blocks with one body are told apart. One
+    whose fence is not on that line, or no longer holds its body in its
+    language, is skipped rather than guessed at. The file is printed
+    from its tree, as `fmt` has just printed it.
+
+    Returns a failure per block skipped, then a note per file changed.
+    """
+    changed: list[Finding] = []
+    by_file: dict[str, list[Block]] = {}
+    for block in bodies:
+        by_file.setdefault(block.file, []).append(block)
+    for document, blocks in by_file.items():
+        path = skill.path_of(document)
+        tree = Doc.parse(path.read_text())
+        fences = {f.line: f for f in walk(tree.blocks) if isinstance(f, Fence)}
+        swaps: dict[int, str] = {}
+        for block in sorted(blocks, key=lambda b: b.line, reverse=True):
+            fence = fences.get(block.line - 1)
+            if fence is None or (fence.info, fence.body) != (block.lang, block.body):
                 changed.append(
-                    f"{chapter}: {len(wanted)} blocks, {len(bodies)} modules; skipped"
+                    fail("not where it was read; skipped", block.where, UNLOCATABLE)
                 )
                 continue
-            path = skill.path_of(chapter)
-            # Last first, so an earlier replacement cannot move a later
-            # block.
-            edits = reversed(list(zip(wanted, bodies, strict=True)))
-            changed += _put_back(path, chapter, "rust", edits)
-        return changed
-
-
-def _put_back(
-    path: Path, chapter: str, fence: str, edits: Iterable[tuple[Block, str]]
-) -> list[str]:
-    """Write each new body over its block in `path`, in the order given.
-
-    Returns one line per block skipped, then one for the chapter if it
-    changed. A block whose fenced text is not found exactly once is
-    skipped rather than guessed at.
-    """
-    text = path.read_text()
-    changed: list[str] = []
-    hits = 0
-    for block, body in edits:
-        if block.body == body:
-            continue
-        old = f"```{fence}\n{block.body}```"
-        if text.count(old) != 1:
-            changed.append(f"{chapter}:{block.line} is not uniquely locatable; skipped")
-            continue
-        text = text.replace(old, f"```{fence}\n{body}```")
-        hits += 1
-    if hits:
-        path.write_text(text)
-        changed.append(f"{chapter}: {hits} block(s) reformatted")
+            swaps[fence.line] = bodies[block].removesuffix("\n") + "\n"
+        if swaps:
+            new = (_swapped(b, swaps) for b in tree.blocks)
+            path.write_text(str(Doc(tree.frontmatter, tuple(new))))
+            changed.append(
+                note(
+                    f"{len(swaps)} block(s) reformatted",
+                    skill.at(document),
+                    REFORMATTED,
+                )
+            )
     return changed
 
 
-def _format_python(skill: Skill) -> list[str]:
-    """Rewrite each `# verified` python block as `ruff format` would.
-
-    Simpler than the Rust path because each block is already its own
-    file: there is no crate to reassemble, so a block that fails to
-    format is reported alone rather than taking its chapter's siblings
-    with it.
-    """
-    config = skill.root / "assets" / "ruff.toml"
-    if not config.exists():
-        return []
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
-        extraction = PYTHON_TOOLCHAIN.extract(skill, Path(work) / "out")
-        if not extraction:
-            return []
-        r = run(
-            [
-                "ruff",
-                "format",
-                "--no-cache",
-                "--config",
-                str(config),
-                str(extraction.root),
-            ],
-            timeout=300,
-        )
-        if not r.ok:
-            return [f"ruff format failed: {(r.err or r.out).strip()[:160]}"]
-
-        changed: list[str] = []
-        by_chapter: dict[str, list[Unit]] = {}
-        for unit in extraction.units:
-            by_chapter.setdefault(unit.chapter, []).append(unit)
-        for chapter, units in by_chapter.items():
-            path = skill.path_of(chapter)
-            # Last first, so an earlier replacement cannot move a later
-            # block.
-            ordered = sorted(units, key=lambda u: u.line, reverse=True)
-            edits = _python_edits(skill, chapter, ordered)
-            changed += _put_back(path, chapter, "python", edits)
-        return changed
-
-
-def _python_edits(
-    skill: Skill, chapter: str, units: Iterable[Unit]
-) -> Iterator[tuple[Block, str]]:
-    """Each unit's formatted body, with the block it was cut from."""
-    for unit in units:
-        body = unit.path.read_text()
-        same = (b for b in skill.blocks("python") if b.file == chapter)
-        block = next((b for b in same if b.line == unit.line), None)
-        if block is not None:
-            yield block, body
-
-
-FORMATTERS["rust"] = _format_rust
-FORMATTERS["python"] = _format_python
+def _swapped(block: doc.Block, bodies: Mapping[int, str]) -> doc.Block:
+    """`block`, each fence it is or holds given its line's new body."""
+    match block:
+        case Fence(info, _, line, closed) if line in bodies:
+            return Fence(info, bodies[line], line, closed)
+        case ListBlock(items, start, loose, line):
+            held = tuple(
+                Item(tuple(_swapped(b, bodies) for b in i.blocks), i.line)
+                for i in items
+            )
+            return ListBlock(held, start, loose, line)
+        case Quote(inner, alert, line, lazy):
+            return Quote(tuple(_swapped(b, bodies) for b in inner), alert, line, lazy)
+        case _:
+            return block

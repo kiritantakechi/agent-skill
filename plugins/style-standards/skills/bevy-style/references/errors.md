@@ -1,14 +1,19 @@
 # Errors: Fallible Systems, the Error Handler, Panicking APIs
 
-Scope: what a Bevy system does when something goes wrong, where that failure ends up, and which
-half of Bevy's paired APIs to call. The general rules about error *types* — one enum per failure
-mode, carry the source, `thiserror` in libraries and not in public APIs — are unchanged and live in
-the other standard; this chapter is about the paths Bevy adds.
+Scope: what a Bevy system does when something goes wrong, where that failure ends up, and which half
+of Bevy's paired APIs to call. The general rules about error *types* — one enum per failure mode,
+carry the source, `thiserror` in libraries and not in public APIs — are unchanged and live in the
+other standard; this chapter is about the paths Bevy adds.
 
 A system may return `Result`, which removes the last reason for `unwrap` in game code. What it
 returns goes to the fallback error handler that `App::set_error_handler` installs. Its default
 dispatches on a `Severity` carried by the error (`Severity::Panic` unless annotated), and a panic in
 a system, observer or command reaches it too, as an error carrying the panic's payload.
+
+Diagnostics go through `tracing`, as RS-OUT-06 says of any program: here `LogPlugin` is the
+subscriber, and on wasm `println!` never reaches the browser console. The lints that fail a build on
+`unwrap`, `expect`, `panic!`, `todo!`, `unimplemented!`, indexing and `dbg!` are `rust-style`'s
+rows, which `assets/Cargo.toml` sets as that standard does.
 
 ## Contents
 
@@ -21,14 +26,12 @@ a system, observer or command reaches it too, as an error carrying the panic's p
   - BV-ERR-06 [S] Override the handler per schedule only where the phase differs
 
 - **The panicking half**
-  - BV-ERR-07 [M] Prefer the non-panicking half of every pair
+  - BV-ERR-07 [M] Call the non-panicking half of every pair outside a test
   - BV-ERR-08 [M] Never panic to report bad content
 
 - **Elsewhere**
-  - BV-ERR-09 [M] Report through `tracing`, never through `println!`
-  - BV-ERR-10 [M] Exit with `AppExit::error` when startup cannot continue
-  - BV-ERR-11 [M!] Decide the render error policy, because the default quits
-- Decided by tools
+  - BV-ERR-09 [M] Exit with `AppExit::error` when startup cannot continue
+  - BV-ERR-10 [M!] Decide the render error policy, because the default quits
 
 ---
 
@@ -36,22 +39,21 @@ a system, observer or command reaches it too, as an error carrying the panic's p
 
 ### BV-ERR-01 [M!] Return `Result` from a system that can fail
 
-`fn follow(…) -> Result` and `?` on everything fallible, in a system, an observer or a command. No
-`unwrap`, no `expect`, no `panic!` on a path the game reaches. An absence the game expects is not a
-failure: a system that needs one entity takes `Single`, which skips it while none matches, and keeps
-`?` for what nobody expected. A custom command returns its failure as `type Out = Result`, and a
+`fn follow(…) -> Result` and `?` on everything fallible, in a system, an observer or a command: the
+form RS-ERR-03 takes where the schedule is the caller. An absence the game expects is not a failure:
+a system that needs one entity takes `Single`, which skips it while none matches, and keeps `?` for
+what nobody expected. A custom command returns its failure as `type Out = Result`, and a
 function-style one is `-> impl Command` with a closure returning `Result`.
 
-*Relaxed form:* a debug tool, an example, or a `#[cfg(test)]` system may `expect` where the
-condition is a genuine invariant of the test, and the message states the invariant.
+*Relaxed form:* RS-ERR-03's, for a system as for any function.
 
 **Why:** the conditions that fail are ordinary — a stale entity id, a missing asset, a malformed
 file. A returned error reaches a handler that can log it and carry on; a panic stays fatal under
 BV-ERR-05 and takes the player's unsaved progress with it.
 
-**Check:** the `unwrap_used` row (`references/ecs.md`) and this chapter's `expect_used`, `panic`,
-`todo` and `unimplemented` rows fail the build on the spellings. Read for what they cannot see: a
-system that can fail returning `()`, with the failure dropped in a `let … else { return }`.
+**Check:** RS-ERR-03's `unwrap_used`, `expect_used`, `panic`, `todo` and `unimplemented` rows fail
+the build on the spellings. Read for what they cannot see: a system that can fail returning `()`,
+with the failure dropped in a `let … else { return }`.
 
 ```rust
 // verified
@@ -71,10 +73,7 @@ struct Hud {
 /// No HUD yet is an absence the game expects, so `Single` skips the system
 /// until there is one. A HUD following a player who is gone is not, so that
 /// is the `?`.
-fn update_hud(
-    hud: Single<(&Hud, &mut Node)>,
-    players: Query<&Transform, With<Player>>,
-) -> Result {
+fn update_hud(hud: Single<(&Hud, &mut Node)>, players: Query<&Transform, With<Player>>) -> Result {
     let (hud, mut node) = hud.into_inner();
     let player = players.get(hud.follows)?;
     node.left = px(player.translation.x);
@@ -203,9 +202,9 @@ mod tests {
         let mut world = World::new();
         let payer = world.spawn_empty().id();
 
-        let Err(error) = (Charge { payer, amount: 10 }).apply(&mut world) else {
-            unreachable!()
-        };
+        let error = (Charge { payer, amount: 10 })
+            .apply(&mut world)
+            .expect_err("an entity without Gold cannot be charged");
 
         assert_eq!(error.downcast_ref::<NoPurse>(), Some(&NoPurse(payer)));
         assert!(
@@ -219,27 +218,29 @@ mod tests {
 
 ### BV-ERR-02 [M] Use Bevy's `Result` alias in a system signature
 
-`-> Result` — which is `Result<(), BevyError>`. Not `-> Result<(), MyError>` and not
-`-> anyhow::Result<()>`.
+Departs from RS-ERR-13. `-> Result` — which is `Result<(), BevyError>`. Not `-> Result<(), MyError>`
+and not `-> anyhow::Result<()>`.
 
 **Why:** the schedule accepts `Result<(), BevyError>` and no other error type, so any other type is
 converted at the boundary anyway. `BevyError` converts from anything implementing `Error`, so the
 alias costs nothing and every fallible system looks the same.
 
-**Check:** grep for `-> Result<` in system signatures. Anything with explicit parameters is either
-not a system or is fighting the schedule.
+**Check:** read each `-> Result<` that names its parameters. On a system it is fighting the
+schedule; anything else is not a system.
 
 ### BV-ERR-03 [M] Keep `BevyError` at the boundary and a real type underneath
 
-Domain code returns its own error enum. The system that calls it converts with `?`, and adds what
-it knows with `.context("…")` or `.with_context(|| …)` — `ContextExt`, in the prelude.
-On an `Option` the same call builds the error, where `ok_or(…)` needed an error type of its own.
+Domain code returns its own error type, as RS-ERR-10 asks. The system that calls it converts with
+`?`, and adds what it knows with `.context("…")` or `.with_context(|| …)` — `ContextExt`, in the
+prelude. On an `Option` the same call builds the error, where `ok_or(…)` needed an error type of its
+own.
 
 **Why:** `BevyError` is boxed and type-erased: the right shape when the only reader is a log line,
 the wrong one for a caller that branches. Domain code returning it cannot be matched on or tested
 for one failure, and drags a Bevy type across the boundary BV-ARCH-01 keeps clean.
 
-**Check:** grep the domain crates for `BevyError`. There should be none.
+**Check:** a `BevyError` in a domain crate is the finding. The domain's manifest names no `bevy`
+(BV-ARCH-06), so the compiler rejects most of them; read the rest.
 
 ```rust
 // verified
@@ -355,9 +356,7 @@ mod tests {
 
     #[test]
     fn the_message_names_the_offending_value() {
-        let Err(error) = resolve_hit(7, 0) else {
-            unreachable!()
-        };
+        let error = resolve_hit(7, 0).expect_err("tier 7 has no attack row");
         assert_eq!(error.to_string(), "no attack row for weapon tier 7");
     }
 
@@ -409,7 +408,7 @@ mod tests {
 `result.with_severity(Severity::Warning)?` when a failure is expected and recoverable. Never
 annotate `Severity::Panic`: an un-annotated error already carries it, and BV-ERR-05's shipped
 handler logs it like any returned error. A failure that must stop even a shipped build writes
-`AppExit::error()`, as BV-ERR-10 does.
+`AppExit::error()`, as BV-ERR-09 does.
 
 **Why:** `match_severity` and BV-ERR-05's shipped handler log an error at its own severity, so the
 annotation gives one failure its own level without replacing the handler for all of them. It also
@@ -420,18 +419,18 @@ expected failure logged at error level is a severity that needs stating.
 
 ### BV-ERR-05 [M] Choose the fallback error handler deliberately
 
-Install it with `App::set_error_handler`, once, in `main`: `panic` in development, and in a
-shipped build a handler that logs a returned error and resumes a panic. A panic in a system,
-observer or command reaches the handler as an error carrying its payload, so the shipped handler
-resumes unwinding whenever `BevyError::take_payload` returns one. It cannot test `Severity::Panic`
-instead: that is also what every un-annotated returned error carries. The handler is where an error
-is logged, so the system that returns it does not log it too (`rust-style`'s RS-ERR-09).
+Install it with `App::set_error_handler`, once, in `main`: `panic` in development, and in a shipped
+build a handler that logs a returned error and resumes a panic. A panic in a system, observer or
+command reaches the handler as an error carrying its payload, so the shipped handler resumes
+unwinding whenever `BevyError::take_payload` returns one. It cannot test `Severity::Panic` instead:
+that is also what every un-annotated returned error carries. The handler is where an error is
+logged, so the system that returns it does not log it too (`rust-style`'s RS-ERR-09).
 
 **Why:** a development build wants a failure to stop the world where it happened, a shipped build
 the log line and the next frame. The default, `match_severity`, panics on every un-annotated error
 in both, and a handler that only logs, such as `error`, logs each panic and keeps running.
 
-**Check:** grep for `set_error_handler`: one call, in `main`, distinguishing the two builds — a
+**Check:** read each `set_error_handler`: one call, in `main`, distinguishing the two builds — a
 second call panics. An inserted `FallbackErrorHandler` reaches the main world only, leaving the
 render and extract worlds on the default. The shipped handler calls `take_payload` before it logs.
 
@@ -465,8 +464,8 @@ fn main() -> AppExit {
 
 ### BV-ERR-06 [S] Override the handler per schedule only where the phase differs
 
-A schedule can carry its own handler. Use it where one phase genuinely wants different treatment —
-a loading schedule that must not panic on a missing optional asset.
+A schedule can carry its own handler. Use it where one phase genuinely wants different treatment — a
+loading schedule that must not panic on a missing optional asset.
 
 **Why:** per-schedule handlers are a real capability and a real way to lose track of what happens to
 an error, because the answer is now "depends which schedule". One global handler plus per-error
@@ -477,19 +476,20 @@ could not have expressed it.
 
 ## The panicking half
 
-### BV-ERR-07 [M] Prefer the non-panicking half of every pair
+### BV-ERR-07 [M] Call the non-panicking half of every pair outside a test
 
-Bevy ships both halves for most `World` lookups. Take the one that returns `Option` or `Result`.
-A query, an asset collection and an `EntityRef` return one already, and unwrapping it is the
-`unwrap_used` row. This is about game code: a `#[cfg(test)]` body may take the panicking half,
-because a test asserting on the world wants the panic (BV-TEST-06), and routing it through
-`get_resource` would only add an unwrap that BV-ERR-01 forbids.
+Bevy ships both halves for most `World` lookups, and game code takes the one that returns `Option`
+or `Result`. A query, an asset collection and an `EntityRef` return one already, and unwrapping it
+is the `unwrap_used` row. In a `#[cfg(test)]` body the panicking half is the assertion: the test
+wants the panic (BV-TEST-06), and `get_resource` would only add an `expect` saying what the panic
+says.
 
 **Why:** the panicking half exists for examples and for code where the invariant is structural, and
 game code is neither. The pairs are easy to miss because the panicking name is the shorter one — it
 reads as the default when it is the exception.
 
-**Check:** grep for the left column, outside `#[cfg(test)]`.
+**Check:** read each call in the left column outside `#[cfg(test)]`; the receiver decides, since a
+query's and an asset collection's `get` already return the `Option`.
 
 | Panicking | Use instead |
 |---|---|
@@ -577,9 +577,7 @@ mod tests {
         assert!(app.world_mut().despawn(player));
         app.update();
 
-        let Some(rig) = app.world().get_resource::<CameraRig>() else {
-            unreachable!()
-        };
+        let rig = app.world().resource::<CameraRig>();
         assert_eq!(rig.watching, Some(player));
         assert!(
             rig.focus
@@ -597,9 +595,7 @@ mod tests {
         // which both systems ran past the missing transform.
         app.update();
 
-        let Some(rig) = app.world().get_resource::<CameraRig>() else {
-            unreachable!()
-        };
+        let rig = app.world().resource::<CameraRig>();
         assert!(rig.watching.is_some());
         assert!(rig.focus.abs_diff_eq(Vec3::ZERO, f32::EPSILON));
     }
@@ -621,47 +617,38 @@ while the game runs. If so it is a `Result` with the path in the message.
 
 ## Elsewhere
 
-### BV-ERR-09 [M] Report through `tracing`, never through `println!`
-
-`info!`, `warn!`, `error!`, `debug!`, `trace!`, as `rust-style`'s RS-CLI-25 asks. In Bevy,
-`LogPlugin` is the subscriber, and on wasm `println!` never reaches the browser console.
-
-**Why:** `LogPlugin` gives every record a level, a target and a filter, so a shipped build turns the
-noisy ones off and a developer turns one module's on. `println!` bypasses all of it, and on wasm it
-is lost, information and all.
-
-**Check:** grep for `println!` and `eprintln!` outside `build.rs` and a CLI tool's output. `dbg!` is
-the `dbg_macro` row.
-
-### BV-ERR-10 [M] Exit with `AppExit::error` when startup cannot continue
+### BV-ERR-09 [M] Exit with `AppExit::error` when startup cannot continue
 
 A missing required asset directory, an unusable GPU, a corrupt configuration: write
 `AppExit::error()` to the message and let the app shut down.
 
 **Why:** here continuing is worse than stopping, and the exit code reaches the launcher, the test
-harness and the crash reporter as a panic's would, minus a stack trace nobody can act on. It is
-also the clean stop: plugins shut down, and the window closes rather than vanishing.
+harness and the crash reporter as a panic's would, minus a stack trace nobody can act on. It is also
+the clean stop: plugins shut down, and the window closes rather than vanishing.
 
 **Check:** for each `panic!` outside a test, ask whether `AppExit::error()` says the same thing more
 usefully.
 
-### BV-ERR-11 [M!] Decide the render error policy, because the default quits
+### BV-ERR-10 [M!] Decide the render error policy, because the default quits
 
 `bevy::render::error_handler::RenderErrorHandler` decides what happens when the GPU fails. Insert
 your own before `DefaultPlugins`, beside the `set_error_handler` call; `RenderPlugin` registers it
 with `init_resource`, so yours wins. `RenderErrorPolicy::Recover(RenderCreation)` rebuilds the
-device, `StopRendering` keeps the app alive with the image frozen, and `Ignore` keeps drawing, which
-can strobe when the fault repeats — so `Ignore` is the one that has to be justified.
+device, `StopRendering` keeps the app alive with the image frozen, and `Ignore` keeps drawing.
+Return `Recover` only from the `ErrorType::DeviceLost` arm. An `OutOfMemory` or `Validation` error
+comes from how the GPU is being used, so it recurs on a rebuilt device as it does under `Ignore`,
+and `bevy_render` itself warns that hitting one repeatedly strobes; those arms stop rendering.
 
-*Relaxed form:* a tool or an example may take the default, and then the rule is that nobody reports
-its clean exit as a crash.
+*Relaxed form:* the default policy, which quits on every render error, with nothing that reads that
+exit as a crash.
 
-**Why:** the default logs and writes `AppExit::error()` for **every** `RenderError`, so a
-transient GPU fault closes the player's window and BV-ARCH-16 turns it into an exit that reads as a
-crash. BV-ERR-10 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
+**Why:** the default logs and writes `AppExit::error()` for **every** `RenderError`, so a transient
+GPU fault closes the player's window and BV-ARCH-16 turns it into an exit that reads as a crash.
+BV-ERR-09 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
-**Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
-than returning one blanket policy.
+**Check:** read the `RenderErrorHandler` insertion. Exactly one, and it branches on the error rather
+than returning one blanket policy: `Recover` from the `DeviceLost` arm only, and `Ignore` from none
+without a written reason.
 
 ```rust
 // fragment — `RenderErrorHandler` lives in `bevy_render`, which needs a GPU
@@ -696,7 +683,7 @@ fn on_render_error(
             RenderErrorPolicy::StopRendering
         }
         // A validation or internal fault is a bug in our own render code, so
-        // stop with an exit code the launcher can act on (BV-ERR-10).
+        // stop with an exit code the launcher can act on (BV-ERR-09).
         ErrorType::Validation | ErrorType::Internal => {
             error!("unrecoverable render error: {}", error.description);
             main_world.write_message(AppExit::error());
@@ -715,16 +702,3 @@ fn main() -> AppExit {
         .run()
 }
 ```
-
-## Decided by tools
-
-A tool settles these on its own; the shipped configuration enables each at the level shown.
-
-| Tool | Lint | Level | Forbids |
-|---|---|---|---|
-| clippy | `expect_used` | deny | `.expect("…")` on a path the game reaches — `?` hands the error to the handler |
-| clippy | `panic` | deny | `panic!` to report a failure — return the error, or write `AppExit::error()` at startup |
-| clippy | `todo` | deny | a `todo!()` on a path the game reaches |
-| clippy | `unimplemented` | deny | an `unimplemented!()` on a path the game reaches |
-| clippy | `indexing_slicing` | deny | indexing a `Vec` or slice an entity count reaches — `get` returns an `Option` |
-| clippy | `dbg_macro` | deny | `dbg!`, which writes to stderr past `LogPlugin` |

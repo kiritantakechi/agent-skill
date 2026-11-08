@@ -1,14 +1,17 @@
-# Ownership, Borrowing, Lifetimes, Resources
+# Ownership: Borrowing, Lifetimes, and Resources
 
 Scope: who owns what and for how long. Choosing between `&T`, `&mut T`, and `T` in a signature;
 clone discipline and `Cow`; lifetimes, elision, and when a type should not have one; smart pointers
-and interior mutability; `Drop` and RAII. The *allocation cost* of these choices is in the
-performance chapter; the *style* of the resulting function bodies is in the functional chapter;
-`Send`/`Sync` and lock discipline are in the concurrency chapter.
+and interior mutability; the guard types and `Drop` details around them. Releasing a resource on
+every path (RAII) and a `Drop` that must not fail are the errors chapter's (RS-ERR-29, RS-ERR-30).
+The *allocation cost* of these choices is in the performance chapter; the *style* of the resulting
+function bodies is in the functional chapter; `Send`/`Sync` and lock discipline are in the
+concurrency chapter.
 
 Ownership is the design language of Rust, not an obstacle to route around. Most "the borrow checker
 won't let me" moments are the compiler correctly reporting that the data model has two owners for
 one thing, or one owner for two things. The fix is almost never `.clone()`.
+
 ## Contents
 
 - **Borrowing and signatures**
@@ -36,29 +39,27 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
   - RS-OWN-18 [M] Do not leak to satisfy a `'static` bound
   - RS-OWN-19 [S] Write higher-ranked bounds rather than avoiding borrowed callbacks
   - RS-OWN-20 [M] Do not build self-referential structs
-  - RS-OWN-21 [S] Prefer indices to references for graph-shaped data
-  - RS-OWN-22 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
-  - RS-OWN-23 [S] Re-examine the data model when a lifetime error resists three attempts
+  - RS-OWN-21 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
+  - RS-OWN-22 [S] Re-examine the data model when a lifetime error resists three attempts
 
 - **Smart pointers and interior mutability**
-  - RS-OWN-24 [M] Justify every use of interior mutability in a comment
-  - RS-OWN-25 [S] Pick the interior-mutability primitive for the actual access pattern
-  - RS-OWN-26 [M] Keep `RefCell` borrows short and out of `Drop`
-  - RS-OWN-27 [S] Use `Rc` in one thread and `Arc` across threads
-  - RS-OWN-28 [M] Break reference cycles with `Weak`
-  - RS-OWN-29 [S] Use `Box` for heap placement, not for borrow-checker relief
-  - RS-OWN-30 [S] Avoid double indirection in pointer types
-  - RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
+  - RS-OWN-23 [M] Justify every use of interior mutability in a comment
+  - RS-OWN-24 [S] Pick the interior-mutability primitive for the actual access pattern
+  - RS-OWN-25 [M] Keep `RefCell` borrows short and out of `Drop`
+  - RS-OWN-26 [S] Use `Rc` in one thread and `Arc` across threads
+  - RS-OWN-27 [M] Break reference cycles with `Weak`
+  - RS-OWN-28 [S] Use `Box` for heap placement, not for borrow-checker relief
+  - RS-OWN-29 [S] Avoid double indirection in pointer types
+  - RS-OWN-30 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
 - **`Drop` and resources**
-  - RS-OWN-32 [M] Acquire in the constructor, release in `Drop`
-  - RS-OWN-33 [M] Make `Drop` infallible and offer an explicit `finish`
-  - RS-OWN-34 [S] Do not implement `Drop` for logging alone
-  - RS-OWN-35 [S] Keep guard types small
-  - RS-OWN-36 [M] Name a guard binding; never bind it to `_`
-  - RS-OWN-37 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
-  - RS-OWN-38 [S] Prefer scope-based cleanup to defer-style crates
-  - RS-OWN-39 [M] Install process-wide resources once, at the top of `main`
+  - RS-OWN-31 [S] Do not implement `Drop` for logging alone
+  - RS-OWN-32 [S] Keep guard types small
+  - RS-OWN-33 [M] Name a guard binding; never bind it to `_`
+  - RS-OWN-34 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
+  - RS-OWN-35 [S] Prefer scope-based cleanup to defer-style crates
+  - RS-OWN-36 [M] Install process-wide resources once, at the top of `main`
+
 - Decided by tools
 
 ---
@@ -96,9 +97,9 @@ arrive as a literal, take `impl Into<String>`, so an owner moves it in and a lit
 owned value now pays for a clone they could have avoided by moving, and the caller who had a borrow
 pays exactly what they would have paid anyway.
 
-**Check:** grep for `.clone()` and `.to_owned()` on a parameter in the first few lines of a
-function. Each is a signature that should have taken ownership. The other direction is the
-`needless_pass_by_value` row below.
+**Check:** is `.clone()` or `.to_owned()` applied to a parameter in a function's first lines? Each
+is a signature that should have taken ownership. The other direction is clippy's
+`needless_pass_by_value`.
 
 ```rust
 // verified
@@ -177,9 +178,9 @@ output.extend(transformer.transform(input));
 
 **Why:** they encode the disjointness the compiler needs, so you get mutable access to two parts of
 one slice without `unsafe`. Reaching for raw pointers here is the most common unnecessary `unsafe`
-in Rust (`references/unsafe.md` RS-UNSAFE-01).
+in Rust (RS-UNSAFE-01).
 
-**Check:** grep for `unsafe` near slice indexing. Is there a splitting method that expresses it?
+**Check:** is `unsafe` used near slice indexing? Is there a splitting method that expresses it?
 
 ```rust
 // verified
@@ -245,7 +246,7 @@ pub fn total_len(lines: &[String]) -> usize {
 scanning a function for allocation. `x.clone()` on an `Arc<HashMap<..>>` reads exactly like cloning
 the map.
 
-**Check:** grep `.clone()` on bindings whose type is `Arc` or `Rc`.
+**Check:** is `.clone()` called on a binding whose type is `Arc` or `Rc`?
 
 ### RS-OWN-11 [S] Prefer `to_owned` to `to_string` for `&str`
 
@@ -264,9 +265,9 @@ borrows and return borrows: sub-slicing is pointer arithmetic.
 ever being needed. Building a lowercase `String` just to compare is the most common avoidable
 allocation in text-handling code, and it is usually inside a loop.
 
-**Check:** grep for `to_lowercase()`, `to_uppercase()`, `to_string()` and `format!` inside a
-condition or a comparison. For each, find where the owned value is stored or returned; if it is only
-read locally, delete the conversion.
+**Check:** is `to_lowercase()`, `to_uppercase()`, `to_string()` or `format!` used inside a condition
+or a comparison? For each, find where the owned value is stored or returned; if it is only read
+locally, delete the conversion.
 
 ```rust
 // verified
@@ -348,8 +349,8 @@ impl Manifest {
 ### RS-OWN-16 [M] Read every lifetime parameter as a constraint on your users
 
 **Why:** `<'a>` means "this value cannot outlive that borrow", and your users are the ones who have
-to satisfy it — in their struct fields, their return types, and their spawned tasks. Adding one is
-a decision about their code, not just yours.
+to satisfy it — in their struct fields, their return types, and their spawned tasks. Adding one is a
+decision about their code, not just yours.
 
 **Check:** write the sentence "your value cannot outlive X" for each lifetime. Is X something users
 will reasonably keep alive?
@@ -366,15 +367,15 @@ outlive the call? If not, remove it.
 ### RS-OWN-18 [M] Do not leak to satisfy a `'static` bound
 
 Memory you mean to reclaim leaves through `Box::into_raw` or `Box::into_non_null` and comes back
-through `from_raw`/`from_non_null`. Never rebuild a `Box` from a leaked reference: std's docs
-call that "unleaking" and say to avoid it.
+through `from_raw`/`from_non_null`. Never rebuild a `Box` from a leaked reference: std's docs call
+that "unleaking" and say to avoid it.
 
 **Why:** `Box::leak` to make a `&'static str` is a memory leak dressed as a type fix, and in a
 server it is an unbounded one. It is acceptable exactly once, at program start, for genuinely
 process-lifetime configuration — and then it should be commented as such.
 
-**Check:** grep `Box::leak`, `String::leak`, and `Vec::leak`. Each must be reachable only once per
-process.
+**Check:** is a `Box::leak`, `String::leak` or `Vec::leak` reachable more than once per process?
+Each such leak is the finding.
 
 ### RS-OWN-19 [S] Write higher-ranked bounds rather than avoiding borrowed callbacks
 
@@ -394,47 +395,7 @@ under move — which the compiler will not stop you from doing. Use indices into
 
 **Check:** does any struct hold a pointer or reference into another of its own fields?
 
-### RS-OWN-21 [S] Prefer indices to references for graph-shaped data
-
-`Vec<Node>` plus `NodeId(u32)`.
-
-**Why:** it sidesteps lifetimes entirely, it is cache-friendly, it serializes trivially, and it
-makes cycles representable without `Weak`. Newtype the index so it cannot be confused with a length
-or with an index into a different arena (`references/api.md` RS-API-25).
-
-**Check:** does the graph type have a lifetime parameter? Indices remove it.
-
-```rust
-// verified
-/// Index newtypes instead of pointers: one allocation, and the graph stays `Send`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NodeId(u32);
-
-#[derive(Debug, Default)]
-pub struct Tree {
-    nodes: Vec<Node>,
-}
-
-#[derive(Debug)]
-struct Node {
-    parent: Option<NodeId>,
-}
-
-impl Tree {
-    pub fn push(&mut self, parent: Option<NodeId>) -> NodeId {
-        let id = NodeId(u32::try_from(self.nodes.len()).unwrap_or(u32::MAX));
-        self.nodes.push(Node { parent });
-        id
-    }
-
-    #[must_use]
-    pub fn parent(&self, NodeId(index): NodeId) -> Option<NodeId> {
-        self.nodes.get(index as usize).and_then(|node| node.parent)
-    }
-}
-```
-
-### RS-OWN-22 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
+### RS-OWN-21 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
 
 Write `+ use<'a, T>` (precise capturing) to state what is actually borrowed.
 
@@ -445,7 +406,7 @@ mutate an unrelated argument while holding it.
 **Check:** does a returned `impl Trait` keep an argument borrowed that its implementation never
 touches?
 
-### RS-OWN-23 [S] Re-examine the data model when a lifetime error resists three attempts
+### RS-OWN-22 [S] Re-examine the data model when a lifetime error resists three attempts
 
 **Why:** almost every intractable lifetime puzzle in application code is a design that has a borrow
 where it wants ownership. Adding parameters makes the signature worse without fixing the cause; the
@@ -456,7 +417,7 @@ index?
 
 ## Smart pointers and interior mutability
 
-### RS-OWN-24 [M] Justify every use of interior mutability in a comment
+### RS-OWN-23 [M] Justify every use of interior mutability in a comment
 
 When the honest note is "this could be threaded through `&mut self`, but the refactor is large",
 write that down rather than leaving it implied.
@@ -467,35 +428,35 @@ declaration is the one place a reader can learn that state changes behind a shar
 
 **Check:** does every such field have a comment on its declaration?
 
-### RS-OWN-25 [S] Pick the interior-mutability primitive for the actual access pattern
+### RS-OWN-24 [S] Pick the interior-mutability primitive for the actual access pattern
 
 `Cell<T>` for `Copy` types, `RefCell<T>` for the rest in single-threaded code, `Mutex`/`RwLock`
 across threads, `OnceLock`/`LazyLock` for one-time initialization.
 
 **Why:** `Cell` has no runtime check at all and cannot panic; `RefCell` can. `OnceLock` and
 `LazyLock` are in `std`, so `lazy_static` and `once_cell` are dependency weight for the common cases
-(`references/concurrency.md` RS-CONC-27).
+(RS-CONC-27).
 
-**Check:** grep for `RefCell<T>` where `T: Copy`.
+**Check:** is a `RefCell<T>` holding a `T: Copy`? That is a `Cell`.
 
-### RS-OWN-26 [M] Keep `RefCell` borrows short and out of `Drop`
+### RS-OWN-25 [M] Keep `RefCell` borrows short and out of `Drop`
 
 **Why:** a `RefCell` borrow conflict is a panic rather than a compile error, and a panic inside
-`Drop` during unwinding aborts the process (RS-OWN-33). Holding a `Ref`
-across a call that can re-enter is the classic way to hit it.
+`Drop` during unwinding aborts the process (RS-ERR-30). Holding a `Ref` across a call that can
+re-enter is the classic way to hit it.
 
 **Check:** does any `borrow()`/`borrow_mut()` result live across a function call? Bind it in the
 smallest possible scope.
 
-### RS-OWN-27 [S] Use `Rc` in one thread and `Arc` across threads
+### RS-OWN-26 [S] Use `Rc` in one thread and `Arc` across threads
 
-**Why:** `Arc`'s refcount operations are atomic, which is not free — and using it in
-single-threaded code out of habit pays for a guarantee nobody needs. The compiler tells you when you
-need `Arc`; it does not tell you when you do not.
+**Why:** `Arc`'s refcount operations are atomic, which is not free — and using it in single-threaded
+code out of habit pays for a guarantee nobody needs. The compiler tells you when you need `Arc`; it
+does not tell you when you do not.
 
 **Check:** does the `Arc` ever cross a thread boundary or enter a `Send` bound? If not, `Rc`.
 
-### RS-OWN-28 [M] Break reference cycles with `Weak`
+### RS-OWN-27 [M] Break reference cycles with `Weak`
 
 **Why:** `Rc`/`Arc` cycles never drop — the memory and everything it owns leaks for the life of the
 process. Parent pointers, observer registries, and back-references in doubly-linked structures are
@@ -504,7 +465,7 @@ the usual sites. Document which direction is strong.
 **Check:** for each `Rc`/`Arc` field, can the graph contain a cycle through it? A tree with parent
 pointers always can.
 
-### RS-OWN-29 [S] Use `Box` for heap placement, not for borrow-checker relief
+### RS-OWN-28 [S] Use `Box` for heap placement, not for borrow-checker relief
 
 **Why:** `Box` is for recursive types, large values you move often, and trait objects. It is not a
 general-purpose wrapper that makes lifetime errors go away — reaching for it in that role usually
@@ -512,7 +473,7 @@ means the value should have been owned somewhere else.
 
 **Check:** for each `Box`, which of the three reasons applies?
 
-### RS-OWN-30 [S] Avoid double indirection in pointer types
+### RS-OWN-29 [S] Avoid double indirection in pointer types
 
 `Box<[T]>` not `Box<Vec<T>>`; `Arc<str>` not `Arc<String>`; `Rc<[T]>` not `Rc<Vec<T>>`.
 
@@ -520,10 +481,12 @@ means the value should have been owned somewhere else.
 is two dereferences and every value carries an extra two words. The first form stores the length in
 the fat pointer.
 
-**Check:** grep for `Arc<String>`, `Arc<Vec<` and `Rc<String>`. `Box<Vec<T>>` and a box inside an
-`Rc` or `Arc` are the `box_collection` and `redundant_allocation` rows below.
+**Check:** `rg -n '(Arc|Rc)<String>' -g '*.rs'` finds a string behind two pointers; each hit is the
+finding — `Arc<str>`. An `Arc<Vec<T>>` is the same double indirection unless `make_mut` grows it
+(RS-OWN-30). `Box<Vec<T>>` and a box inside an `Rc` or `Arc` are clippy's `box_collection` and
+`redundant_allocation`.
 
-### RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
+### RS-OWN-30 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
 `Arc::make_mut` and `Rc::make_mut` to change the value in place; `Arc::unwrap_or_clone` and
 `Rc::unwrap_or_clone` to take it out.
@@ -532,7 +495,8 @@ the fat pointer.
 manual alternative — `try_unwrap`, match, clone on failure — is four lines that do the same thing
 with more places to get it wrong.
 
-**Check:** grep for `Arc::try_unwrap` or `Rc::try_unwrap` followed by a clone.
+**Check:** is an `Arc::try_unwrap` or `Rc::try_unwrap` followed by a clone? That is
+`unwrap_or_clone`.
 
 ```rust
 // verified
@@ -549,51 +513,14 @@ pub fn into_sorted(shared: Arc<Vec<u32>>) -> Vec<u32> {
 
 ## `Drop` and resources
 
-### RS-OWN-32 [M] Acquire in the constructor, release in `Drop`
-
-**Why:** RAII makes the release unforgettable, including on early return and on panic. Exposing
-`open`/`close` pairs means every caller must get every path right, and the one they miss is the
-error path they never tested.
-
-**Check:** does the API have a `close`, `release`, `unlock`, or `end` that a caller must remember to
-call? That is a guard type.
-
-### RS-OWN-33 [M] Make `Drop` infallible and offer an explicit `finish`
-
-Offer `fn finish(self) -> Result<T, Error>` for the path that can fail, and let `Drop` be the
-best-effort fallback for the path that forgot.
-
-**Why:** `Drop` cannot return a `Result`, so a failing flush or commit is silently swallowed —
-`BufWriter` loses the last block and nobody finds out. A `Drop` that panics while another panic
-unwinds aborts the process, with no cleanup anywhere.
-
-**Check:** does any `Drop` impl perform I/O, commit, or flush? Is there a fallible alternative the
-caller can use? Does any `Drop` call `unwrap`, `expect`, `assert`, or anything else that can panic?
-
-```rust
-// verified
-use std::io::{self, Write};
-
-/// `Drop` on a buffered writer swallows the error, so flush explicitly and check it.
-///
-/// # Errors
-/// Returns the first write or flush error encountered.
-pub fn write_all(mut sink: impl Write, lines: &[String]) -> io::Result<()> {
-    for line in lines {
-        writeln!(sink, "{line}")?;
-    }
-    sink.flush()
-}
-```
-
-### RS-OWN-34 [S] Do not implement `Drop` for logging alone
+### RS-OWN-31 [S] Do not implement `Drop` for logging alone
 
 **Why:** a `Drop` impl prevents destructuring the type by move, prevents partial moves out of it,
 and surprises callers who expected a plain value. That is a large ergonomic cost for a log line.
 
 **Check:** does the `Drop` release a resource, or only observe? If only observe, remove it.
 
-### RS-OWN-35 [S] Keep guard types small
+### RS-OWN-32 [S] Keep guard types small
 
 **Why:** a type with `Drop` cannot be partially moved out of, so anything the guard holds is held
 until the guard dies. A guard that carries the whole context keeps the whole context alive and
@@ -601,14 +528,14 @@ borrowed.
 
 **Check:** does the guard hold more than the release needs?
 
-### RS-OWN-36 [M] Name a guard binding; never bind it to `_`
+### RS-OWN-33 [M] Name a guard binding; never bind it to `_`
 
 **Why:** `let _ = cell.borrow_mut();` drops the guard at once, ending the borrow before the code
 that needed it runs: a bug that compiles and looks correct. rustc rejects it for a std lock guard
 (`let_underscore_lock`), not for a `RefCell`'s or another crate's lock; `let _guard = …` holds both.
 
 **Check:** `rg -n 'let _ = .*\.(borrow|borrow_mut|enter|read|write)\('`. A std `Mutex` or `RwLock`
-guard is the `let_underscore_lock` row below; any other hit compiles, and is the defect.
+guard is rustc's `let_underscore_lock`; any other hit compiles, and is the defect.
 
 ```rust
 // rejected — rustc: non-binding let on a synchronization lock (`let_underscore_lock`)
@@ -620,17 +547,17 @@ let _ = self.state.lock();
 let _guard = self.state.lock();
 ```
 
-### RS-OWN-37 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
+### RS-OWN-34 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
 
 **Why:** both are safe functions with unsafe consequences for other people's invariants — leaking a
 guard, skipping a `Drop` that another type relies on. They are legitimate inside an abstraction that
 knows the whole picture and dangerous anywhere else.
 
-**Check:** grep `ManuallyDrop`; each needs a comment and should be inside the module that defines
-the type it applies to. `mem::forget` is the `mem_forget` row below, so each needs an `#[expect]`
-with its reason.
+**Check:** does each `ManuallyDrop` carry a comment and sit inside the module that defines the type
+it applies to? `mem::forget` is the `mem_forget` row below, so each needs an `#[expect]` with its
+reason.
 
-### RS-OWN-38 [S] Prefer scope-based cleanup to defer-style crates
+### RS-OWN-35 [S] Prefer scope-based cleanup to defer-style crates
 
 **Why:** a block, a guard struct, or a closure taking `&mut T` all express "cleanup happens" using
 only the language, with no dependency and no macro. A `defer!` macro also runs at end of scope, so
@@ -638,14 +565,14 @@ it buys nothing except unfamiliarity.
 
 **Check:** is there a `defer`-style dependency? What does it do that a guard struct does not?
 
-### RS-OWN-39 [M] Install process-wide resources once, at the top of `main`
+### RS-OWN-36 [M] Install process-wide resources once, at the top of `main`
 
 Signal handlers, terminal raw mode, the global logger, panic hooks.
 
-**Why:** installing from a library constructor makes the crate unusable inside another program —
-two callers fight over one handler, and the second silently wins. Pass handles downward instead.
+**Why:** installing from a library constructor makes the crate unusable inside another program — two
+callers fight over one handler, and the second silently wins. Pass handles downward instead.
 
-**Check:** grep for `set_hook`, `signal`, `set_logger`, and terminal-mode calls outside `main`.
+**Check:** is `set_hook`, `signal`, `set_logger`, or a terminal-mode call made outside `main`?
 
 ```rust
 // verified
@@ -675,13 +602,8 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `ptr_arg` | warn | `&Vec<T>`, `&String` or `&PathBuf` where `&[T]`, `&str` or `&Path` serves |
-| clippy | `needless_pass_by_value` | warn | an owned parameter the body only reads — borrow it |
+| clippy | `ptr_arg` | warn | `&Vec<T>`, `&String` or `&PathBuf` where `&[T]`, `&str` or `&Path` serves — listed because it is the borrowed-view half of RS-API-15, the rule a revision demoted to it |
 | rustc | `elided_lifetimes_in_paths` | warn | a type whose lifetime the path hides — write `Iter<'_, T>` |
-| rustc | `mismatched_lifetime_syntaxes` | warn | a lifetime hidden in the return type while the input names it |
-| clippy | `elidable_lifetime_names` | warn | a named lifetime where `'_` says the same |
-| clippy | `needless_lifetimes` | warn | a lifetime parameter elision would supply |
-| clippy | `box_collection` | warn | `Box<Vec<T>>`, `Box<String>`: a pointer to a pointer |
-| clippy | `redundant_allocation` | warn | `Rc<Box<T>>`, `Box<&T>` and the other boxes around a pointer |
-| rustc | `let_underscore_lock` | deny | `let _ = mutex.lock()`, which unlocks before the next line |
+| rustc | `explicit_outlives_requirements` | warn | a `T: 'a` bound on a struct, which the compiler infers |
+| clippy | `needless_lifetimes` | warn | a lifetime parameter elision would supply — listed because writing only the lifetimes elision cannot supply is the rule a revision demoted to it |
 | clippy | `mem_forget` | deny | `mem::forget`, which skips a `Drop` someone relies on |

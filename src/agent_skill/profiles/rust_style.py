@@ -1,278 +1,100 @@
 """rust-style: its own `[M]` rules, applied to its own examples."""
 
 import re
-from dataclasses import dataclass, field
-from typing import override
-lazy from collections.abc import Iterable, Iterator
+from dataclasses import replace
+lazy from collections.abc import Iterator
 
-from agent_skill.lang.rust import RUST_STYLE, Crate
-from agent_skill.model import Block, Skill, repr_c_above
-from agent_skill.profiles import Exemption, NotDecisive, Profile, register
-from agent_skill.report import Finding, fail, note
-from agent_skill.text import group, strip_comment
-
-#: RS-NAME-22 — a `bool`-returning method reads as a question.
-QUESTION = re.compile(
-    r"^(is_|has_|can_|should_|may_|will_|wants_|allows_|accepts_|needs_|"
-    r"contains|starts_with|ends_with|matches|intersects|all_|any_|"
-    r"exceeds|fits|owns|holds|knows)"
+from agent_skill.ids import RuleId, Version
+from agent_skill.lang.rust import EDITION, RUST_STYLE
+from agent_skill.profiles.record import (
+    Evals,
+    LineRule,
+    Near,
+    NotDecisive,
+    Profile,
+    Unless,
+    keyed,
+    listed,
+    rules,
 )
+from agent_skill.report import Level, declare, note
+lazy from agent_skill.model import Block
+lazy from agent_skill.report import Finding
 
 #: A doc comment inside an example explains the API, not the skill.
-META = re.compile(
+META = (
     r"\b(this example|this rule|the wrapper|as shipped|the block|"
-    r"what makes .* testable|for the purposes of)\b",
-    re.IGNORECASE,
+    r"what makes .* testable|for the purposes of)\b"
+)
+
+#: The item a line belongs to is declared `#[repr(C)]`: one of the
+#: thirteen lines above it says so, before the `}` that closes the item
+#: above. Per line, not per block, so a block that mixes a
+#: layout-sensitive type with an ordinary one still reports the
+#: ordinary one.
+REPR_C = Near(r"repr\(C\)", above=13, stop=r"^\s*\}", own=False)
+
+# The branches of `conventions` this standard's own rules fire through.
+BOOL_PARAMETER = declare("conventions", "rs_bool_parameter", Level.FAIL)
+QUESTION_NAME = declare("conventions", "rs_question", Level.NOTE)
+PUBLIC_FIELD = declare("conventions", "rs_public_field", Level.FAIL)
+TUPLE_FIELD = declare("conventions", "rs_tuple_field", Level.FAIL)
+SETTER = declare("conventions", "rs_setter", Level.FAIL)
+META_DOC = declare("conventions", "rs_meta_doc", Level.FAIL)
+UNUSED_DEFAULT = declare("conventions", "rs_unused_default", Level.NOTE)
+
+CONVENTIONS = (
+    # RS-API-24 — a public signature never takes a bare `bool`.
+    LineRule(
+        BOOL_PARAMETER,
+        r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\((?=[^)]*:\s*bool\b)[^)]*\)",
+        "`{1}` takes a bool parameter (RS-API-24)",
+        unless_own=RuleId.parse("RS-API-24"),
+    ),
+    # RS-NAME-21 — a `bool`-returning method reads as a question.
+    LineRule(
+        QUESTION_NAME,
+        r"\bpub (?:async )?fn "
+        r"(?!is_|has_|can_|should_|may_|will_|wants_|allows_|accepts_|needs_|"
+        r"contains|starts_with|ends_with|matches|intersects|all_|any_|"
+        r"exceeds|fits|owns|holds|knows)"
+        r"(\w+)\([^)]*\)\s*->\s*bool\b",
+        "`{1}` returns bool but does not read as a question (RS-NAME-21)",
+    ),
+    # RS-API-21 — no public field, tuple fields included.
+    LineRule(
+        PUBLIC_FIELD,
+        r"^\s+pub [a-z_]\w*:",
+        "public struct field outside `#[repr(C)]` (RS-API-21)",
+        comments=True,
+        unless=Unless(near=(REPR_C,)),
+    ),
+    LineRule(TUPLE_FIELD, r"struct \w+\(\s*pub ", "public tuple field (RS-API-21)"),
+    # House convention — a by-value setter is `with_*`: a method that
+    # takes `self` by value, assigns a field in its first lines, and
+    # returns `Self` without taking another `Self`.
+    LineRule(
+        SETTER,
+        r"\bpub fn (?!with_|from_)(\w+)\((?:mut )?self"
+        r"(?:,\s*(?![^)]*:\s*(?:&\s*)?Self\b)[^)]*)?\)\s*->\s*Self\b",
+        "by-value setter `{1}` is not spelled `with_*`",
+        needs=(Near(r"self\.\w+\s*=[^=]", below=7),),
+    ),
+    LineRule(
+        META_DOC,
+        rf"(?i)^\s*///.*{META}",
+        "doc comment discusses the example rather than the API",
+        comments=True,
+    ),
 )
 
 
-@dataclass
-class RustStyle(Profile):
-    """What rust-style's checks need to know about it."""
+def unused_defaults(b: Block) -> Iterator[Finding]:
+    """A derived `Default` nobody can reach is dead weight.
 
-    name: str = "rust-style"
-    prefix: str = "RS"
-    languages: tuple[str, ...] = ("rust",)
-    marked_languages: tuple[str, ...] = ("toml",)
-    toolchain: str = "rust"
-    tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
-    language: str = "Rust"
-    verified_as: str = "compiles as written against Rust {rust}, edition 2024"
-    strict_scope: str = "library and high-reliability"
-    crate: Crate | None = RUST_STYLE
-    #: Each snippet is the defect its rule forbids, written the way it
-    #: turns up in real code. A fixture shaped to match proves the
-    #: fixture, not the pattern.
-    fires: dict[str, tuple[str, ...]] = field(
-        default_factory=lambda: {
-            # A dependency the standard library replaced, one per
-            # pattern.
-            "RS-MIG-01": ('lazy_static = "1.5"', 'async-trait = "0.1"'),
-            "RS-MIG-02": (
-                "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
-                "let ceiling = std::i32::MAX;",
-            ),
-            "RS-DOC-19": ("    // let unused = compute_total(&items);",),
-            "RS-DOC-27": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
-        }
-    )
-    #: Measured, not judged: each of these was promoted to accuse and
-    #: hit the standard's own compliant examples. The reason names what
-    #: the span finds and what, outside the match, decides whether the
-    #: hit is a defect — never how many examples it hit the day someone
-    #: measured, which is a number `_render` already prints live two
-    #: fields away and nothing re-measures.
-    not_decisive: dict[str, NotDecisive] = field(
-        default_factory=lambda: {
-            "RS-API-04": NotDecisive(
-                "std::collections::",
-                "the span finds every `std::collections::`; whether it appears in a "
-                "public return type rather than inside a body decides",
-            ),
-            "RS-API-08": NotDecisive(
-                "to_owned()",
-                "the span finds every `to_owned()`; whether it is applied to a `&str` "
-                "parameter the function goes on to store decides",
-            ),
-            "RS-API-19": NotDecisive(
-                ": bool",
-                "the span finds every `bool` parameter, private ones included; "
-                "whether the signature is public decides, and their number chooses "
-                "between an enum and an options struct",
-            ),
-            "RS-API-50": NotDecisive(
-                "fn set_",
-                "the span finds every `set_` method; whether the type is a builder "
-                "decides, and an ordinary struct's setter is not this rule's subject",
-            ),
-            "RS-CLI-03": NotDecisive(
-                "env::var",
-                "the span finds every environment read, the sanctioned one included; "
-                "whether it sits outside the single construction path decides",
-            ),
-            "RS-CLI-31": NotDecisive(
-                "env::var",
-                "the span finds every environment read; whether that name is prefixed "
-                "and documented in the help output decides, and neither fact is on "
-                "the line",
-            ),
-            "RS-CONC-12": NotDecisive(
-                "join()",
-                "the span finds every `join()`; whether its result is discarded "
-                "rather than handled decides",
-            ),
-            "RS-CONC-20": NotDecisive(
-                "lock()",
-                "the span finds every `lock()`; whether an `.await` sits between it "
-                "and the end of its scope decides",
-            ),
-            "RS-CONC-30": NotDecisive(
-                "std::fs",
-                "the span finds every `std::fs`; whether the enclosing body is "
-                "`async` decides, which the matched line does not say",
-            ),
-            "RS-CONC-46": NotDecisive(
-                "spawn(",
-                "the span finds every `spawn(`; whether its handle is kept, joined, "
-                "or detached with a comment decides",
-            ),
-            "RS-ERR-02": NotDecisive(
-                "let _ = ",
-                "the span finds every discarded binding; whether what it discards is "
-                "a `Result`, and whether a comment names why that failure does not "
-                "matter, decides",
-            ),
-            "RS-ERR-08": NotDecisive(
-                "map_err(|_|",
-                "the span finds every erased error; whether the erasure is a "
-                "commented decision rather than an oversight decides",
-            ),
-            "RS-ERR-24": NotDecisive(
-                "ok_or(",
-                "the span finds every eager combinator; whether its argument is a "
-                "`Copy` constant, rather than something that allocates or calls, "
-                "decides",
-            ),
-            "RS-FUNC-03": NotDecisive(
-                "Vec::new()",
-                "the span finds every `Vec::new()`; whether a `for` whose body is a "
-                "single `push` follows decides",
-            ),
-            "RS-FUNC-04": NotDecisive(
-                "sum()",
-                "the span matches `sum()`, which is the spelling this rule asks for; "
-                "whether a hand-written `for` accumulating a scalar remains beside it "
-                "decides",
-            ),
-            "RS-FUNC-17": NotDecisive(
-                "into_iter().collect()",
-                "the span finds every round trip through `into_iter().collect()`; "
-                "whether the collection the caller needs could have been collected "
-                "into directly decides",
-            ),
-            "RS-FUNC-19": NotDecisive(
-                "len() - 1",
-                "the span finds every `len() - 1`; whether an adapter encodes the "
-                "same arithmetic decides, and the loop it belongs to is not on the "
-                "line",
-            ),
-            "RS-NAME-16": NotDecisive(
-                "fn get_",
-                "the span finds every `get_`; whether the method returns `Option` or "
-                "`Result`, or is the `_unchecked`/`_mut` sibling of one that does, "
-                "decides",
-            ),
-            "RS-NAME-28": NotDecisive(
-                "not_",
-                "the span finds every negated name; whether it is the one conversion "
-                "at the boundary the rule allows decides",
-            ),
-            "RS-OWN-02": NotDecisive(
-                ".clone()",
-                "the span finds every `.clone()`; whether it is applied to a "
-                "parameter in the opening lines of a function that should have taken "
-                "ownership decides",
-            ),
-            "RS-OWN-10": NotDecisive(
-                ".clone()",
-                "the span finds every `.clone()`; whether the receiver's type is "
-                "`Arc` or `Rc` decides, and the type is not on the line",
-            ),
-            "RS-OWN-12": NotDecisive(
-                "to_lowercase()",
-                "the span finds every `to_lowercase()`; whether it is inside a "
-                "condition or a comparison, rather than producing a value that is "
-                "kept, decides",
-            ),
-            "RS-PERF-07": NotDecisive(
-                "Vec::new",
-                "the span finds every `Vec::new`; whether it sits inside a loop body "
-                "decides, which is a fact about what encloses it",
-            ),
-            "RS-PERF-30": NotDecisive(
-                "try_from",
-                "the span matches `try_from`, which is the conversion this rule asks "
-                "for; the defect is an `as` cast that could exceed the target range, "
-                "which this span does not find",
-            ),
-            "RS-MOD-13": NotDecisive(
-                "pub(crate)",
-                "the span matches `pub(crate)`; whether the item is used only from "
-                "`#[cfg(test)]`, and was widened to satisfy a test, decides",
-            ),
-            "RS-TEST-11": NotDecisive(
-                "assert!(",
-                "the span finds every `assert!(`; whether it contains `==`, `.len()`, "
-                "or `&&` — an `assert_eq!` that would print more — decides",
-            ),
-        }
-    )
-    exempt: dict[str, Exemption] = field(
-        default_factory=lambda: {
-            # RS-API-15: "Every hit that is not on a `#[repr(C)]` type
-            # is a defect"
-            "RS-API-15": lambda lines, at, _in_test: repr_c_above(lines, at.start - 1),
-        }
-    )
-
-    @override
-    def pin(self) -> str:
-        """The `rust-version` the verified crate is compiled under."""
-        return self.crate.rust_version if self.crate else ""
-
-    @override
-    def conventions(self, skill: Skill) -> Iterable[Finding]:
-        """rust-style's own rules, applied to its own examples."""
-        for b in skill.advice("rust"):
-            lines = b.lines
-            for j, raw in enumerate(lines):
-                yield from _line(b, lines, j, raw)
-            yield from _unused_defaults(b)
-
-
-def _line(b: Block, lines: list[str], j: int, raw: str) -> Iterator[Finding]:
-    """What line `j` of example `b` breaks."""
-    where = f"{b.file}:{b.at(j)} [{b.rule}]"
-    code = strip_comment(raw)
-
-    # RS-API-19 — a public signature never takes a bare `bool`
-    m = re.search(r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code)
-    if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-19":
-        yield fail(f"`{m.group(1)}` takes a bool parameter (RS-API-19)", where)
-
-    # RS-NAME-22 — a `bool`-returning method reads as a question
-    m = re.search(r"\bpub (?:async )?fn (\w+)\([^)]*\)\s*->\s*bool\b", code)
-    if m and not QUESTION.match(m.group(1)):
-        yield note(
-            f"`{m.group(1)}` returns bool but does not read as a question (RS-NAME-22)",
-            where,
-        )
-
-    # RS-API-15 — no public field, tuple fields included
-    if re.match(r"^\s+pub [a-z_]\w*:", raw) and not repr_c_above(lines, j):
-        yield fail("public struct field outside `#[repr(C)]` (RS-API-15)", where)
-    if re.search(r"struct \w+\(\s*pub ", code):
-        yield fail("public tuple field (RS-API-15)", where)
-
-    yield from _setter(code, lines, j, where)
-
-    if raw.lstrip().startswith("///") and META.search(raw):
-        yield fail("doc comment discusses the example rather than the API", where)
-
-
-def _setter(code: str, lines: list[str], j: int, where: str) -> Iterator[Finding]:
-    """House convention — a by-value setter is `with_*`."""
-    m = re.search(r"\bpub fn (\w+)\((mut )?self(?:,\s*([^)]*))?\)\s*->\s*Self\b", code)
-    if m:
-        fn, param = m.group(1), group(m, 3)
-        assigns = any(re.search(r"self\.\w+\s*=[^=]", ln) for ln in lines[j : j + 8])
-        takes_self = re.search(r":\s*(&\s*)?Self\b", param)
-        if assigns and not takes_self and not fn.startswith(("with_", "from_")):
-            yield fail(f"by-value setter `{fn}` is not spelled `with_*`", where)
-
-
-def _unused_defaults(b: Block) -> Iterator[Finding]:
-    """A derived `Default` nobody can reach is dead weight."""
+    Read across the whole example rather than a line: whether anything
+    reaches the derive is a fact about every other line of it.
+    """
     for m in re.finditer(
         r"#\[derive\([^)]*\bDefault\b[^)]*\)\]\s*\n"
         r"(?:\s*#\[[^\]]*\]\s*\n)*\s*pub enum (\w+)",
@@ -288,7 +110,156 @@ def _unused_defaults(b: Block) -> Iterator[Finding]:
             yield note(
                 f"`{name}` derives Default that nothing in the block uses",
                 b.where,
+                UNUSED_DEFAULT,
             )
 
 
-register(RustStyle())
+PROFILE = Profile(
+    name="rust-style",
+    prefix="RS",
+    languages=("rust",),
+    marked_languages=("toml",),
+    tools=("rustc", "clippy", "rustdoc"),
+    language="Rust",
+    verified_as="compiles as written against Rust {toolchain}, edition 2024",
+    strict_scope="library and high-reliability",
+    # Each `env` function edition 2024 made `unsafe`, as a call: the
+    # migration table's `gone` row names it, and its probe compiles the
+    # call outside `unsafe`.
+    toolchain=replace(
+        RUST_STYLE,
+        unsafe_calls={
+            "env::remove_var": 'std::env::remove_var("KEY")',
+            "env::set_var": 'std::env::set_var("KEY", "value")',
+        },
+    ),
+    edition=Version.parse(EDITION),
+    # Each snippet is the defect its rule forbids, written the way it
+    # turns up in real code. A fixture shaped to match proves the
+    # fixture, not the pattern.
+    fires=keyed(
+        {
+            # A dependency the standard library replaced, one per
+            # pattern.
+            "RS-MIG-03": ('lazy_static = "1.5"', 'fd-lock = "4"'),
+            # A grab-bag module, declared inline and from a file.
+            "RS-NAME-04": ("pub mod utils;", "mod helpers {"),
+            "RS-DATA-07": ("pub fn items(&self) -> &Vec<Item> {",),
+            "RS-OUT-02": ('    print!("{name}: ");',),
+            "RS-OUT-03": ("        std::process::exit(2);",),
+            "RS-OUT-07": ("    env_logger::init();",),
+            "RS-API-45": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
+            "RS-BUILD-13": ('serde = { version = "1", optional = true }',),
+            "RS-BUILD-46": (
+                "- uses: actions/checkout@v7",
+                "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            ),
+            "RS-BUILD-20": ('serde = "=1.0.200"',),
+            "RS-BUILD-22": ("#![deny(missing_docs)]",),
+            "RS-BUILD-23": ('pedantic = "allow"',),
+            "RS-BUILD-25": (
+                'RUSTFLAGS="-Dwarnings" cargo build',
+                'RUSTDOCFLAGS="-D warnings" cargo doc',
+            ),
+            "RS-CONC-24": ("let guard = state.lock().unwrap();",),
+            "RS-CONC-27": (
+                "static mut COUNTER: u32 = 0;",
+                "static CACHE: Mutex<Option<Config>> = Mutex::new(None);",
+            ),
+            "RS-DOC-25": ("    // TODO: handle the empty case",),
+            "RS-ERR-08": ("let n = s.parse::<u32>().map_err(|_| Error::Parse)?;",),
+            "RS-ERR-26": ('panic = "abort"',),
+            "RS-API-06": ("pub use crate::matcher::*;",),
+            "RS-NAME-06": ("use-simd = []",),
+            "RS-NAME-15": ("pub fn get_name(&self) -> &str {",),
+            "RS-NAME-20": ("pub fn new_with_capacity(capacity: usize) -> Self {",),
+            "RS-NAME-28": ("pub trait ParserTrait {",),
+            "RS-NAME-32": ("fn first<'life>(items: &'life [u8]) -> &'life u8 {",),
+            "RS-NAME-34": (
+                'let message = format!("the connection to {host} was closed by the '
+                + 'peer before the handshake finished");',
+            ),
+            "RS-OWN-29": ("let shared: Arc<String> = Arc::new(name);",),
+            "RS-PERF-19": ("reader.read(&mut [0u8; 1])?;",),
+            "RS-TEST-18": ('let path = Path::new("/tmp/out.txt");',),
+            "RS-TRAIT-25": (
+                "default fn describe(&self) -> String {",
+                "#![feature(specialization)]",
+            ),
+            "RS-MIG-04": (
+                "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
+                "let ceiling = std::i32::MAX;",
+            ),
+            "RS-DOC-19": ("    // let unused = compute_total(&items);",),
+            "RS-DOC-27": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
+        }
+    ),
+    # Each of these ships an `rg` pattern that no fixture in `fires`
+    # proves yet. Giving one a fixture means deleting it here, which
+    # `sensitivity` insists on, so the list only shrinks.
+    unproven=rules(
+        "RS-API-21",
+        "RS-MOD-08",
+        "RS-API-04",
+        "RS-OWN-33",
+    ),
+    # Measured, not judged: each of these was promoted to accuse and
+    # hit the standard's own compliant examples. The reason names what
+    # the span finds and what, outside the match, decides whether the
+    # hit is a defect — never how many examples it hit the day someone
+    # measured, which is a number `_render` already prints live two
+    # fields away and nothing re-measures.
+    not_decisive=keyed(
+        {
+            "RS-API-45": NotDecisive(
+                "fn set_",
+                "the span finds every `set_` method; whether the type is a builder "
+                "decides, and an ordinary struct's setter is not this rule's subject",
+            ),
+            "RS-ERR-08": NotDecisive(
+                "map_err(|_|",
+                "the span finds every erased error; whether the erasure is a "
+                "commented decision rather than an oversight decides",
+            ),
+            "RS-NAME-15": NotDecisive(
+                "fn get_",
+                "the span finds every `get_`; whether the method returns `Option` or "
+                "`Result`, or is the `_unchecked`/`_mut` sibling of one that does, "
+                "decides",
+            ),
+            "RS-OUT-03": NotDecisive(
+                "each hit in library code",
+                "the pattern finds every print and exit; whether the file is library "
+                "code rather than `main`, a test or an example decides",
+            ),
+            "RS-PERF-08": NotDecisive(
+                "Vec::new",
+                "the span finds every `Vec::new`; whether it sits inside a loop body "
+                "decides, which is a fact about what encloses it",
+            ),
+        }
+    ),
+    exempt=keyed(
+        {
+            # RS-API-21: "Every hit that is not on a `#[repr(C)]` type
+            # is a defect"
+            "RS-API-21": Unless(near=(REPR_C,)),
+        }
+    ),
+    domain={
+        "ownership": "the borrow checker",
+        "traits": "traits and their dispatch",
+        "functional": "expressions and iterator adapters",
+        "macros": "declarative and procedural macros",
+        "unsafe": "unsafe code and the soundness it takes on",
+        "cli": "a binary's command line: arguments, environment and signals",
+    },
+    # The eval suite's cases: two BAD examples to review, two spellings
+    # the target rejects (one-abstract-standard, decision 8).
+    evals=Evals(
+        review=listed("RS-OUT-02", "RS-OUT-03"),
+        migrate=("#[no_mangle]", "gen"),
+    ),
+    conventions=CONVENTIONS,
+    structural=(unused_defaults,),
+)

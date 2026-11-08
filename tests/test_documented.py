@@ -14,13 +14,18 @@ from pathlib import Path
 
 import pytest
 
-from agent_skill.checks.documented import CONTROLS_SCOPE, documented_rows
+from agent_skill.checks import all_checks
+from agent_skill.checks.documented import documented_rows
 
 README = Path(__file__).resolve().parents[1] / "README.md"
 
 
+#: The README table's header, which makes the lines under it a table.
+HEADER = "| Check | Catches | Added because |\n|---|---|---|\n"
+
+
 def row(name: str, catches: str, why: str) -> str:
-    return f"| `{name}` | {catches} | {why} |\n"
+    return f"{HEADER}| `{name}` | {catches} | {why} |\n"
 
 
 def test_the_shipped_table_reads_in_full() -> None:
@@ -76,16 +81,24 @@ def test_an_empty_reason_is_still_empty() -> None:
 
 
 def test_a_row_that_is_not_a_check_row_is_not_read_as_one() -> None:
-    assert documented_rows("| `dialect` | only one cell |\n") == {}
-    assert documented_rows("| `Dialect` | a | b |\n") == {}, (
+    assert documented_rows(f"{HEADER}| `dialect` | only one cell |\n") == {}
+    assert documented_rows(f"{HEADER}| `Dialect` | a | b |\n") == {}, (
         "the name column is lowercase"
     )
 
 
-def test_the_controls_scope_is_read_from_the_first_cell() -> None:
-    """`CONTROLS_SCOPE` is matched against `catches`, the first cell.
+def test_a_row_inside_an_example_is_not_a_row() -> None:
+    """The table is read from the tree, where a fence is code."""
+    assert documented_rows(f"```markdown\n{row('dialect', 'a', 'b')}```\n") == {}
+
+
+def test_a_stated_scope_is_read_from_the_first_cell() -> None:
+    """A check's `covers` is matched against `catches`, the first cell.
 
     A shift in the cells would match it against the wrong text.
     """
-    catches = documented_rows(README.read_text())["controls"][0]
-    assert CONTROLS_SCOPE in catches
+    rows = documented_rows(README.read_text())
+    stated = [c for c in all_checks() if c.covers]
+    assert stated, "no check states its scope, so nothing is compared"
+    for c in stated:
+        assert c.covers in rows[c.name][0], c.name

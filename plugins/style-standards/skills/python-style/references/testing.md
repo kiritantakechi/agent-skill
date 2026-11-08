@@ -2,12 +2,7 @@
 
 Scope: configuring pytest 9, what a test should assert and how it should be shaped, fixture
 discipline, and the particular difficulty of testing code that runs in parallel. What to document
-about a function is the documentation chapter; the interpreter and tool pins are the build
-chapter.
-
-Two sources are merged here: the **pytest 9 documentation**, which added a native TOML table, a
-`strict` umbrella and subtests, and **Ruff's `PT` family**, thirty-one rules on pytest style. The
-configuration half of this chapter is new in pytest 9 and most Python on the internet predates it.
+about a function is the documentation chapter; the interpreter and tool pins are the build chapter.
 
 Unless a block shows its own imports, it assumes `import pytest`.
 
@@ -15,31 +10,38 @@ Unless a block shows its own imports, it assumes `import pytest`.
 
 - **Configuration**
   - PS-TEST-01 [M] Configure pytest in the native `[tool.pytest]` table
-  - PS-TEST-02 [M] Know the discovery order, and that an empty file wins
+  - PS-TEST-02 [M] Keep exactly one pytest configuration file
   - PS-TEST-03 [M] Turn on `strict`
   - PS-TEST-04 [M] Declare every marker
 - **What a test asserts**
   - PS-TEST-05 [M] Test the behaviour, never the implementation
-  - PS-TEST-06 [M] Assert one thing, and name the test after it
-  - PS-TEST-07 [M] Arrange, act, assert — in that order, with blank lines between
+  - PS-TEST-06 [M] Assert one claim per test
+  - PS-TEST-07 [S] Arrange, act, assert — in that order, with blank lines between
   - PS-TEST-08 [M] Never put a branch or a loop in a test
   - PS-TEST-09 [M] Assert on values, not on the shape of a call
   - PS-TEST-10 [M] Make every test fail before you make it pass
+  - PS-TEST-11 [M] Name a test for the claim it makes
+  - PS-TEST-12 [M] Test the boundaries and the invalid input, not only the happy path
+  - PS-TEST-13 [M] Give every bug fix a test that failed before it
 - **Parametrisation**
-  - PS-TEST-11 [M] Parametrise over cases rather than repeating a test
-  - PS-TEST-12 [S] Use subtests when the cases are not a product
-  - PS-TEST-13 [M] Give every parametrised case a readable id
+  - PS-TEST-14 [M] Parametrise over cases rather than repeating a test
+  - PS-TEST-15 [S] Use subtests when the cases are not a product
+  - PS-TEST-16 [M] Give every parametrised case a readable id
 - **Fixtures**
-  - PS-TEST-14 [M] Use the narrowest fixture scope that works
-  - PS-TEST-15 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
-  - PS-TEST-16 [M] Never let a fixture assert
-  - PS-TEST-17 [S] Prefer a factory fixture to a fixture per variation
+  - PS-TEST-17 [M] Use the narrowest fixture scope that works
+  - PS-TEST-18 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
+  - PS-TEST-19 [M] Never let a fixture assert
+  - PS-TEST-20 [S] Prefer a factory fixture to a fixture per variation
 - **Failures and time**
-  - PS-TEST-18 [M] Never sleep in a test
-  - PS-TEST-19 [M] Inject the clock rather than reading it
+  - PS-TEST-21 [M] Never sleep in a test
+  - PS-TEST-22 [M] Inject the clock rather than reading it
+- **Generated inputs and recorded output**
+  - PS-TEST-23 [S] Test a fast implementation against a simple reference over generated input
+  - PS-TEST-24 [M] Pin every failing input a generator finds as a fixed test
+  - PS-TEST-25 [S] Snapshot large, exact output, and review every change to it
 - **Concurrency**
-  - PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
-  - PS-TEST-21 [M] Know that pytest itself is not thread-safe
+  - PS-TEST-26 [M!] Assert an invariant, not merely that threads ran
+  - PS-TEST-27 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
 - Decided by tools
 
 ---
@@ -51,9 +53,9 @@ Unless a block shows its own imports, it assumes `import pytest`.
 `[tool.pytest]` in `pyproject.toml`, or a standalone `pytest.toml`. Not `[tool.pytest.ini_options]`.
 The two **cannot coexist**: pytest errors out when it finds both.
 
-**Why:** pytest 9 added a table that takes real TOML types — arrays, booleans, integers — where
-the older one takes INI strings that each option parses itself. Migrating is mechanical, and the
-INI table exists now only for backwards compatibility.
+**Why:** pytest 9 added a table that takes real TOML types — arrays, booleans, integers — where the
+older one takes INI strings that each option parses itself. Migrating is mechanical, and the INI
+table exists now only for backwards compatibility.
 
 **Check:** `rg -n 'tool.pytest.ini_options' .` — every hit is the legacy table.
 
@@ -65,10 +67,11 @@ strict = true
 markers = ["slow: needs a real toolchain"]
 ```
 
-### PS-TEST-02 [M] Know the discovery order, and that an empty file wins
+### PS-TEST-02 [M] Keep exactly one pytest configuration file
 
-`pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`, `tox.ini`,
-`setup.cfg` — first match wins, and configuration files are **never merged**.
+pytest reads the first of `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
+`pyproject.toml`, `tox.ini` and `setup.cfg` it finds, and configuration files are **never merged**:
+an empty file wins.
 
 **Why:** an empty `pytest.toml` in the repository root outranks a fully configured `pyproject.toml`
 and discards it: your `testpaths`, markers and `strict` setting stop applying, and the tests still
@@ -111,23 +114,24 @@ nothing. It also cannot catch the bug where the helper is called correctly and t
 
 **Check:** every assertion mentioning a private name, a call count, or a mock's internals.
 
-### PS-TEST-06 [M] Assert one thing, and name the test after it
+### PS-TEST-06 [M] Assert one claim per test
 
-`test_rejects_a_port_above_the_range`, not `test_port`.
+A test with assertions on unrelated properties is several tests. The setup can be shared through a
+fixture; the assertion should not be.
 
-**Why:** when a test with six assertions fails, the name tells you nothing and the first failure
-hides the rest. One behaviour per test means the name is the failure message, and the report
-reads as a specification. The setup can be shared through a fixture; the assertion should not be.
+**Why:** when a test with six assertions fails, the first failure hides the rest and nothing says
+which of the six claims was the one that broke. One claim per test means each failure is a single
+sentence that stopped being true.
 
-**Check:** every test with assertions on unrelated properties, and every test whose name is a noun.
+**Check:** every test with assertions on unrelated properties.
 
-### PS-TEST-07 [M] Arrange, act, assert — in that order, with blank lines between
+### PS-TEST-07 [S] Arrange, act, assert — in that order, with blank lines between
 
 Three blocks. Setup, the single call under test, the assertions.
 
-**Why:** the shape makes the call under test findable at a glance, which is the first thing a
-reader of a failing test needs. Interleaving them hides which call is the subject, and it is how
-a test ends up asserting on the arrangement rather than on the result.
+**Why:** the shape makes the call under test findable at a glance, which is the first thing a reader
+of a failing test needs. Interleaving them hides which call is the subject, and it is how a test
+ends up asserting on the arrangement rather than on the result.
 
 **Check:** every test with more than one call to the system under test.
 
@@ -135,8 +139,8 @@ a test ends up asserting on the arrangement rather than on the result.
 
 No `if`, no `for`, no `try` around the assertion.
 
-**Why:** logic in a test is untested logic, and it can make the test pass by skipping the
-assertion — a `for` over an empty list asserts nothing and reports success. Loops over cases are
+**Why:** logic in a test is untested logic, and it can make the test pass by skipping the assertion
+— a `for` over an empty list asserts nothing and reports success. Loops over cases are
 parametrisation; branches are two tests.
 
 **Check:** `rg -n '^[ \t]+(if|for|while) ' tests/` — every hit inside a test function is the
@@ -144,9 +148,9 @@ finding.
 
 ### PS-TEST-09 [M] Assert on values, not on the shape of a call
 
-`assert result == expected`. Not `mock.assert_called_once_with(...)` as the only assertion. Where
-an effect genuinely is the behaviour — a message published, a row written — assert the effect, not
-the call that caused it.
+`assert result == expected`. Not `mock.assert_called_once_with(...)` as the only assertion. Where an
+effect genuinely is the behaviour — a message published, a row written — assert the effect, not the
+call that caused it.
 
 **Why:** asserting the call verifies that you wrote the code you wrote. It passes when the
 collaborator is called perfectly and returns the wrong thing, and it fails when you rename a
@@ -158,16 +162,96 @@ parameter.
 
 Break the code, watch the test fail, restore it.
 
-**Why:** a test that has never failed might be asserting nothing — an assertion in a skipped
-branch, a fixture that returns early, an `assert` on a truthy object rather than a value — and
-watching it fail is the only check that catches all of them.
+**Why:** a test that has never failed might be asserting nothing — an assertion in a skipped branch,
+a fixture that returns early, an `assert` on a truthy object rather than a value — and watching it
+fail is the only check that catches all of them.
 
-**Check:** the repository's own mutation check does this mechanically — delete a statement and see
-whether any test notices.
+**Check:** revert the change a new test covers and run it: a test that still passes is the finding.
+Mutation testing does the same across a codebase — delete or invert a statement, and see whether any
+test notices.
+
+### PS-TEST-11 [M] Name a test for the claim it makes
+
+`test_rejects_a_port_above_the_range`, not `test_port` or `test_port_2`.
+
+**Why:** a failing test is reported by its name alone, in a list of hundreds. A name that states the
+claim makes the report read as a specification of what stopped being true; a noun or a number sends
+the reader into the file to learn what was being tested.
+
+**Check:** every test whose name is a noun, a bare function name or a number.
+
+### PS-TEST-12 [M] Test the boundaries and the invalid input, not only the happy path
+
+Test the empty input, the exact limit, one past it, and each way the input can be invalid, naming
+the failure each time with `pytest.raises`.
+
+**Why:** bugs cluster where valid data becomes invalid, because that is where the code changes its
+mind about what the data means. A suite that feeds only valid input verifies the optimistic path and
+never the rejection logic that malformed input exercises.
+
+**Check:** for each function that validates its input, list the limits it enforces and the failures
+it raises; one with no test is the finding, and so is a test in which every input is valid.
+
+```python
+# verified — GOOD
+import pytest
+
+
+def parse_port(text: str) -> int:
+    """Parse a TCP port number."""
+    port = int(text)
+    if not 0 <= port <= 65_535:
+        msg = f"port out of range: {port}"
+        raise ValueError(msg)
+    return port
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("0", 0), ("65535", 65_535)],
+    ids=["lowest", "highest"],
+)
+def test_parse_port_accepts_both_limits(text: str, expected: int) -> None:
+    assert parse_port(text) == expected
+
+
+def test_parse_port_rejects_one_past_the_highest() -> None:
+    with pytest.raises(ValueError, match="out of range"):
+        parse_port("65536")
+
+
+def test_parse_port_rejects_text_that_is_not_a_number() -> None:
+    with pytest.raises(ValueError, match="invalid literal"):
+        parse_port("80o80")
+```
+
+### PS-TEST-13 [M] Give every bug fix a test that failed before it
+
+A fix is committed with a test that fails without it and passes with it, named for the behaviour
+that was wrong, with the issue number in a comment.
+
+**Why:** a bug that occurred once shows that this area is easy to get wrong, so it is where it is
+most likely to recur, and the test is the only artefact that prevents that: the fix alone prevents
+it once. Writing the test first also proves the bug was reproduced, not an adjacent thing changed.
+
+**Check:** a commit whose message says "fix" and whose diff touches no test. Then revert the fix and
+run the new test (PS-TEST-10): one that still passes does not cover the bug.
+
+```python
+# verified — GOOD
+def strip_bom(text: str) -> str:
+    """Drop a leading byte order mark."""
+    return text.removeprefix("\ufeff")
+
+
+def test_strip_bom_removes_a_leading_byte_order_mark() -> None:
+    # Regression: a leading BOM was counted as content (#412).
+    assert strip_bom("\ufeffname") == "name"
+```
 
 ## Parametrisation
 
-### PS-TEST-11 [M] Parametrise over cases rather than repeating a test
+### PS-TEST-14 [M] Parametrise over cases rather than repeating a test
 
 `@pytest.mark.parametrize` with the cases as data.
 
@@ -196,7 +280,7 @@ def test_clamp(value: int, expected: int) -> None:
     assert clamp(value, 0, 10) == expected
 ```
 
-### PS-TEST-12 [S] Use subtests when the cases are not a product
+### PS-TEST-15 [S] Use subtests when the cases are not a product
 
 New in pytest 9. `with subtests.test(path=p):` inside one test, when the cases are discovered rather
 than enumerated.
@@ -208,7 +292,7 @@ give independent failures inside one test, the right shape for a property of eve
 **Check:** every test that loops over discovered items with one assertion inside — see PS-TEST-08.
 That loop is what subtests replace.
 
-### PS-TEST-13 [M] Give every parametrised case a readable id
+### PS-TEST-16 [M] Give every parametrised case a readable id
 
 `ids=[...]`, or parameters whose `repr` is already readable.
 
@@ -221,17 +305,17 @@ the finding.
 
 ## Fixtures
 
-### PS-TEST-14 [M] Use the narrowest fixture scope that works
+### PS-TEST-17 [M] Use the narrowest fixture scope that works
 
 Function scope by default. Widen only when the setup is genuinely expensive, and say why.
 
-**Why:** a session-scoped fixture is shared mutable state between tests, so one test can change
-what another sees and the suite becomes order-dependent. The narrow scope costs setup time and buys
+**Why:** a session-scoped fixture is shared mutable state between tests, so one test can change what
+another sees and the suite becomes order-dependent. The narrow scope costs setup time and buys
 independence, and independence is what makes a failure mean something.
 
 **Check:** ruff `PT003` for the redundant explicit scope. Every non-function scope needs a comment.
 
-### PS-TEST-15 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
+### PS-TEST-18 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
 
 `tmp_path` for files, `monkeypatch.setenv` for the environment, `monkeypatch.chdir` for the
 directory.
@@ -240,10 +324,9 @@ directory.
 state. Writing to a real path or setting a real environment variable makes the suite order-dependent
 and machine-dependent, and the failure appears somewhere other than the test that caused it.
 
-**Check:** `rg -n 'os\.environ\[|open\(["\x27]/|Path\(["\x27]/' tests/` — every hit is the
-finding.
+**Check:** `rg -n 'os\.environ\[|open\(["\x27]/|Path\(["\x27]/' tests/` — every hit is the finding.
 
-### PS-TEST-16 [M] Never let a fixture assert
+### PS-TEST-19 [M] Never let a fixture assert
 
 A fixture arranges. Assertions belong in the test.
 
@@ -253,7 +336,7 @@ fail meaningfully, that is a test of the setup.
 
 **Check:** `rg -nA10 '@pytest.fixture' tests/` for an `assert` in the body.
 
-### PS-TEST-17 [S] Prefer a factory fixture to a fixture per variation
+### PS-TEST-20 [S] Prefer a factory fixture to a fixture per variation
 
 One fixture returning a callable, rather than `user`, `admin_user`, `locked_user`.
 
@@ -264,17 +347,17 @@ and puts the variation at the call site where it is visible in the test that nee
 
 ## Failures and time
 
-### PS-TEST-18 [M] Never sleep in a test
+### PS-TEST-21 [M] Never sleep in a test
 
 No `time.sleep` to wait for something. Poll with a deadline, or make the thing synchronous.
 
 **Why:** a sleep is either too short — so the test is flaky on a loaded machine — or too long, so
-the suite is slow, and usually both at different times. It is also the single largest contributor
-to a suite that people stop running. Wait on the condition instead of on the clock.
+the suite is slow, and usually both at different times. It is also the single largest contributor to
+a suite that people stop running. Wait on the condition instead of on the clock.
 
 **Check:** `rg -n 'sleep\(' tests/` — every hit is the finding.
 
-### PS-TEST-19 [M] Inject the clock rather than reading it
+### PS-TEST-22 [M] Inject the clock rather than reading it
 
 Take `now: Callable[[], datetime]` as a parameter, or freeze it with `monkeypatch`.
 
@@ -282,20 +365,60 @@ Take `now: Callable[[], datetime]` as a parameter, or freeze it with `monkeypatc
 leap day, a timezone transition — without waiting for one. Injecting makes those cases ordinary
 tests. It also removes a source of flakiness where a test straddles a second boundary.
 
-**Check:** ruff `DTZ005` for a naive `datetime.now()`. `rg -n 'datetime.now|time.time' src/` for
-the injection question.
+**Check:** ruff `DTZ005` for a naive `datetime.now()`. `rg -n 'datetime.now|time.time' src/` for the
+injection question.
+
+## Generated inputs and recorded output
+
+### PS-TEST-23 [S] Test a fast implementation against a simple reference over generated input
+
+Where a parser, a matcher or a codec has a slow, obviously correct counterpart, run both on the same
+generated input with a property-testing library such as Hypothesis and assert they agree.
+
+**Why:** for these functions the right output is hard to state as a property but easy to compute
+slowly. The simple version is then the specification, and any disagreement is a bug in one of the
+two, which is a stronger oracle than an expected value written by the author of the fast one.
+
+**Check:** for each optimised parser, matcher or codec, is there a simple reference it is compared
+against on generated input? If the reference was deleted, the oracle went with it.
+
+### PS-TEST-24 [M] Pin every failing input a generator finds as a fixed test
+
+When a generated or fuzzed input fails, reduce it and keep it as an ordinary test with the input
+written out, or as an explicit example on the generating test.
+
+**Why:** a generator finds a failure by chance and may not find it again, so a fix without the
+pinned input is a fix whose test can pass by missing it. A minimal input is also the version a
+reader can debug; the original is often kilobytes of noise.
+
+**Check:** for each failure a property test or fuzzer reported, is there now a deterministic test or
+example holding the minimal input?
+
+### PS-TEST-25 [S] Snapshot large, exact output, and review every change to it
+
+For output that is large, exact and readable by a person, such as a rendered report or a generated
+file, compare it with a stored expected value through a snapshot plugin or an expected literal in
+the test. Review each change to the snapshot as a change to the behaviour.
+
+**Why:** a hundred-line expected value written by hand is never read, and an assertion on a part of
+it misses the rest. A snapshot makes an intended change a one-line diff to review; accepted without
+reading, it turns the test into a change log that cannot fail.
+
+**Check:** for each test asserting on a long rendered string, is it a snapshot or an expected
+literal beside the test? For each snapshot change in a diff, did a reviewer read it?
 
 ## Concurrency
 
-### PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
+### PS-TEST-26 [M!] Assert an invariant, not merely that threads ran
 
-The test must check a property that a race would break — a count, a sum, a set of unique values.
+The test must check a property that a race would break — a count, a sum, a set of unique values. A
+test that only runs the code under threads is a crash check: worth having, named as one, beside a
+test that asserts.
 
-*Relaxed form:* a smoke test that merely runs the code under threads is worth having as a crash
-check, provided it is named as one and is not the only concurrency test.
+*Relaxed form:* a crash check, named as one, as the only concurrency test.
 
-**Why:** running a racy function under eight threads and asserting it did not raise is a test
-that passes on racy code, because a lost update raises nothing. A parallel-test plugin supplies
+**Why:** running a racy function under eight threads and asserting it did not raise is a test that
+passes on racy code, because a lost update raises nothing. A parallel-test plugin supplies
 concurrency; it does not supply an oracle.
 
 **Check:** every test that starts threads. If deleting the assertion would not change the result,
@@ -308,11 +431,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 class Allocator:
+    """Issue increasing ids, each once."""
+
     def __init__(self) -> None:
+        """Start at id 0."""
         self._lock = threading.Lock()  # guards: each id issued once
         self._next = 0
 
     def allocate(self, _request: int) -> int:
+        """Return the next id."""
         with self._lock:
             issued = self._next
             self._next = issued + 1
@@ -324,15 +451,15 @@ def test_allocator_never_issues_an_id_twice() -> None:
     with ThreadPoolExecutor(max_workers=4) as pool:
         issued = list(pool.map(allocator.allocate, range(4_000)))
 
-    # The invariant, not "it did not raise": a race shows up as a duplicate.
+    # The invariant, not "it did not raise": a race repeats an id.
     assert sorted(issued) == list(range(4_000))
 ```
 
-### PS-TEST-21 [M] Know that pytest itself is not thread-safe
+### PS-TEST-27 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
 
-`capsys`, `monkeypatch` and `tmp_path` are not safe to use from several threads, and the maintainers
-have said they do not intend to make pytest thread-safe. Code that needs those fixtures must be
-tested single-threaded.
+pytest itself is not thread-safe: those fixtures are not safe to use from several threads, and the
+maintainers have said they do not intend to make pytest so. Code that needs them is tested
+single-threaded.
 
 **Why:** a parallel-test plugin runs your test body in several threads, which means the fixtures run
 there too — so a test that uses `monkeypatch` under parallelism is testing the plugin's interaction
@@ -347,5 +474,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `PT011` | error | `pytest.raises` without `match=` |
-| ruff | `PT012` | error | a `pytest.raises` block holding more than one statement |
+| ruff | `PT011` | error | `pytest.raises` without `match=` — listed because `raises-require-match-for = ["*"]` extends it from the broad builtins to every type |

@@ -32,15 +32,15 @@ invalidate the work of reading the next.
 2. **Shared state.** For every function a thread or executor runs: which names are neither
    parameters nor locals? For each, who else writes it, and what holds them apart? (`PS-CONC`)
 3. **Compound operations.** Every `+=`, every check-then-act, every read-then-use on a shared name.
-   These are the ones that were merely unlikely under the GIL and are now immediate. (`PS-CONC-02`,
-   `PS-CONC-03`)
+   These are the ones that were merely unlikely under the GIL and are now immediate. (PS-CONC-02,
+   PS-CONC-03)
 4. **Iterators.** Any generator, iterator, or `tee` branch reachable from two threads. The generator
-   raises; everything else is silent. (`PS-CONC-12` … `PS-CONC-14`)
+   raises; everything else is silent. (PS-CONC-13 … PS-CONC-15)
 5. **Things that look safe.** Caches, `cached_property`, `print`, the module-level `random`, and
-   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (`PS-CONC-15` …
-   `PS-CONC-21`)
+   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (PS-CONC-16 …
+   PS-CONC-19)
 6. **Hold times.** Every `contextmanager` used as a decorator, and every lock spanning a call you do
-   not control. (`PS-CONC-22`, `PS-CONC-23`)
+   not control. (PS-CONC-20, PS-CONC-21)
 7. **The public surface.** What is newly public? Is it annotated, is the ownership documented, does
    the package ship `py.typed`?
 8. **Function bodies.** Now read the code.
@@ -54,15 +54,15 @@ Run these before reading anything, and report what could not be run rather than 
 
 ```sh
 uv run ruff check                     # the shipped assets/ruff.toml
-uv run ruff format --check            # zero stderr proves no formatter conflict
+uv run ruff format --check            # warns about some formatter conflicts, not all
 uv run ty check                       # the shipped assets/ty.toml
 uv run pytest
 uv run python -c "import sys; assert sys.abi_info.free_threaded"
-uv run python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"
+uv run python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"
 ```
 
-The two assertions are PS-BUILD-20's: the build, then the runtime once the package is imported.
-Then the greps that no linter carries, because Ruff has no free-threading rule at all:
+The two assertions are PS-BUILD-22's: the build, then the runtime once the package is imported. Then
+the greps that no linter carries, because Ruff has no free-threading rule at all:
 
 ```sh
 rg -n 'from __future__ import annotations' src/
@@ -72,7 +72,7 @@ rg -n 'itertools\.tee' src/
 rg -nB2 '@contextmanager' src/
 ```
 
-Then the dead-API grep, `references/migration.md` PS-MIG-02.
+Then the command after the migration table (PS-MIG-02).
 
 ## Output format
 
@@ -86,7 +86,7 @@ findings that deserve discussion.
 |---|---|---|---|---|
 | Unsound | PS-CONC-04 | `worker.py:41` | `self.count += 1` is a read-modify-write on state three threads reach | Accumulate locally and merge under the lock that already guards `self.totals` |
 | Stale | PS-TYPE-04 | `models.py:3` | `from __future__ import annotations` | Delete it; annotations are lazy already |
-| Contract | PS-API-03 | `pyproject.toml` | The package is typed and ships no `py.typed` | Add the marker to the package data |
+| Contract | PS-API-04 | `pyproject.toml` | The package is typed and ships no `py.typed` | Add the marker to the package data |
 
 ## Discussion
 

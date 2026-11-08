@@ -1,18 +1,12 @@
-# Free Threading: What the GIL Guaranteed, Shared State, Iterators, and the Build
+# Concurrency: Threads, Tasks, Shared State, Cancellation, Iterators, Caches, and Context
 
-Scope: writing Python that is correct when threads run in parallel — what the GIL used to make
+Scope: writing Python that is correct when work runs at the same time — what the GIL used to make
 unlikely, which standard-library objects hold their own locks and which do not, how to share an
-iterator, how caches and context behave, when threads beat processes, and what the free-threaded
-build and its C extensions require. Choosing between `async` and threads at all is in the async
-chapter; the shape of the data being shared is in the data chapter; interpreter and
-allocator overhead is in the performance chapter.
-
-Two sources are merged here: the **CPython 3.15 documentation** — PEP 703, PEP 779, the
-free-threading HOWTO, and the per-module thread-safety notes, quoted where they are normative — and
-the **empirical behaviour of the free-threaded build**, measured on `python3.15t` and cited with the
-numbers it produced. Ruff has no rule in any of its 59 linters that mentions the GIL, free
-threading, or thread safety, so unlike every other chapter in this standard nothing here can be
-delegated to the linter: each rule ships the check that decides it.
+iterator, how caches and context behave, how to ask which build is running, and, for `asyncio`, how
+a program starts and owns its tasks, cancels them, bounds its waits and keeps blocking work off the
+loop. The shape of the data being shared is in the data chapter; interpreter and allocator overhead,
+and when threads beat processes, are in the performance chapter; what a free-threaded wheel declares
+is in the build chapter; what only `asyncio` has is in the async chapter.
 
 Unless a block shows its own imports, it assumes `import threading` and that the module runs on the
 free-threaded build. Where a rule depends on the build, the block probes it rather than assuming.
@@ -23,30 +17,41 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
-  - PS-CONC-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
+  - PS-CONC-04 [S] Accumulate per thread on a hot path, and merge once
   - PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
   - PS-CONC-06 [M] Name the invariant a lock guards, on the line that creates it
   - PS-CONC-07 [M] Never read `frame.f_locals` for a frame executing in another thread
 - **Sharing objects between threads**
   - PS-CONC-08 [M] Snapshot a container before iterating what another thread may mutate
-  - PS-CONC-09 [S] Send an immutable message rather than sharing a mutable object
+  - PS-CONC-09 [M] Send an immutable message rather than sharing a mutable object
   - PS-CONC-10 [M] Hand work between threads with `queue.Queue`
-  - PS-CONC-11 [S] Keep a shared object's lock inside the object that owns it
+  - PS-CONC-11 [M] Bound every `queue.Queue` that a producer can outrun with `maxsize`
+  - PS-CONC-12 [S] Keep a shared object's lock inside the object that owns it
 - **Iterators and generators**
-  - PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
-  - PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
-  - PS-CONC-14 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+  - PS-CONC-13 [M] Serialise a shared iterator with `threading.serialize_iterator`
+  - PS-CONC-14 [M] Give each consumer a full stream with `threading.concurrent_tee`
+  - PS-CONC-15 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 - **Caches, memoisation, and context**
-  - PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
-  - PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
-  - PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
-  - PS-CONC-18 [M] Create every `ContextVar` at module scope
-  - PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
-- **Streams, randomness, and hold times**
-  - PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
-  - PS-CONC-21 [M] Give each thread its own `random.Random`
-  - PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
-  - PS-CONC-23 [S] Never hold a lock across a call you do not control
+  - PS-CONC-16 [M] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-CONC-17 [M] Create every `ContextVar` at module scope
+  - PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
+- **Randomness and hold times**
+  - PS-CONC-19 [M] Give each thread its own `random.Random`
+  - PS-CONC-20 [M] Hold a context in a generator with `with`, not with a decorator
+  - PS-CONC-21 [M] Never hold a lock across a call you do not control
+- **Files shared with other processes**
+  - PS-CONC-22 [M] Replace a file other processes read by renaming a finished temporary over it
+- **Starting and owning tasks**
+  - PS-CONC-23 [M] Enter with `asyncio.run`, and configure with `loop_factory`
+  - PS-CONC-24 [M] Start every task inside a `TaskGroup`
+- **Cancellation and timeouts**
+  - PS-CONC-25 [M] Never swallow `CancelledError`
+  - PS-CONC-26 [M] Leave no state half-updated across an `await`
+  - PS-CONC-27 [M] Shield only what must not be interrupted, and bound it
+  - PS-CONC-28 [M] Give every wait a timeout, with `asyncio.timeout`
+- **Blocking and colour**
+  - PS-CONC-29 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
+  - PS-CONC-30 [M] Do not mark a function `async` unless it awaits
 
 ---
 
@@ -72,12 +77,13 @@ defect in code that must run on another implementation. So is comparing
 ```python
 # verified — GOOD
 import sys
+from typing import Final
 
-FREE_THREADED_BUILD = sys.abi_info.free_threaded
+FREE_THREADED_BUILD: Final = sys.abi_info.free_threaded
 
 
 def running_in_parallel() -> bool:
-    """Is the GIL off at this moment? Guarded: the name is an implementation detail."""
+    """Is the GIL off now? Guarded: the probe is a CPython detail."""
     probe = getattr(sys, "_is_gil_enabled", None)
     if not FREE_THREADED_BUILD or probe is None:
         return False
@@ -97,9 +103,8 @@ window a few bytecodes wide, so the bug survived for years. On the free-threaded
 threads each adding one to a shared attribute 200,000 times finish around 73% short, silently.
 
 **Check:** `rg -n '^[ \t]*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]\n]*\])?[ \t]*([+*|&^-]|//)=' src/`
-and
-read each hit: is the target reachable from more than one thread? A module-level name, an attribute
-of a shared instance, and any dict or list that a worker was handed all are.
+and read each hit: is the target reachable from more than one thread? A module-level name, an
+attribute of a shared instance, and any dict or list that a worker was handed all are.
 
 ```python
 # verified — BAD: this is the measured 73% loss, made deterministic
@@ -118,10 +123,10 @@ def bump() -> None:
 
 
 threads = [threading.Thread(target=bump) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert counter <= 80_000, "80000 is the answer only if nothing interleaved"
 ```
 
@@ -129,23 +134,22 @@ assert counter <= 80_000, "80000 is the answer only if nothing interleaved"
 # verified — GOOD
 import threading
 
-_lock = threading.Lock()  # guards: counter, read and written as one step
-counter = 0
+_lock = threading.Lock()  # guards: totals, each update read and written as one step
+totals = {"bumps": 0}
 
 
 def bump() -> None:
-    global counter
     for _ in range(20_000):
         with _lock:
-            counter += 1
+            totals["bumps"] += 1
 
 
 threads = [threading.Thread(target=bump) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-assert counter == 80_000
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+assert totals["bumps"] == 80_000
 ```
 
 ### PS-CONC-03 [M] Never treat check-then-act as one step
@@ -159,8 +163,8 @@ the same for anything larger.
 released between them, so two threads both see the key absent and both compute. Whenever `compute`
 writes a file, charges an account, or increments a metric, that is a duplicated side effect.
 
-**Check:** `rg -nB2  'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line
-writes to the thing just tested is a defect unless a lock spans both.
+**Check:** `rg -nB2  'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line writes
+to the thing just tested is a defect unless a lock spans both.
 
 ```python
 # verified — GOOD
@@ -170,36 +174,41 @@ _registry: dict[str, int] = {}
 _registry_lock = threading.Lock()  # guards: one id per name in _registry
 
 
-def intern(name: str) -> int:
-    """One winner per name, even when two threads miss together."""
+def register(name: str) -> None:
+    """Give `name` the next id, unless it already has one."""
     with _registry_lock:
-        # setdefault would do for a pure computation; the lock is here because
-        # assigning the id must not race with another thread assigning one.
+        # setdefault would do for a pure computation; the lock is here
+        # because the id is the count, which another thread may be
+        # assigning from at the same moment.
         if name not in _registry:
             _registry[name] = len(_registry)
-        return _registry[name]
 
 
-assert intern("a") == 0
-assert intern("b") == 1
-assert intern("a") == 0
+def id_of(name: str) -> int:
+    """Return the id `register` gave `name`; does not assign one."""
+    return _registry[name]
+
+
+for name in ("a", "b", "a"):
+    register(name)
+assert (id_of("a"), id_of("b")) == (0, 1)
 ```
 
-### PS-CONC-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
+### PS-CONC-04 [S] Accumulate per thread on a hot path, and merge once
 
-A worker that touches shared state on every iteration spends its time on cache-line ping-pong. Give
-each thread a local accumulator, and merge once at the end.
-
-*Relaxed form:* a lock held across the whole read-modify-write is correct and is enough for code
-that is not hot. The per-thread accumulator is what makes it *scale*; the lock is what makes it
-*right*. Never ship the third option, which is neither.
+A worker that touches shared state on every iteration spends its time on cache-line ping-pong: give
+each thread a local accumulator, and merge once at the end. Off the hot path, one lock held across
+the whole read-modify-write is enough. The lock is what makes an update *right* and the accumulator
+what makes it *scale*; an update with neither is PS-CONC-02's defect. One lock held across the whole
+update on a hot path too is correct and only slower.
 
 **Why:** every write to an object shared across cores is an atomic operation on its reference count
 as well as its value, which the free-threaded build pays on a slow path: a documented four-thread
 case took 3.61s against the GIL build's 2.38s, and 0.83s once its shared objects were thread-local.
 
 **Check:** in any function passed to `Thread(target=...)` or an executor's `submit`, every name that
-is not a parameter or a local is a candidate. A write to one on the hot path is the finding.
+is not a parameter or a local is a candidate. A write to one on a hot path, rather than to a local
+accumulator merged once, is the finding.
 
 ```python
 # verified — GOOD
@@ -220,23 +229,23 @@ def tally(words: list[str]) -> None:
 
 
 threads = [threading.Thread(target=tally, args=(["a", "b", "a"],)) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert _totals == Counter({"a": 8, "b": 4})
 ```
 
 ### PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
 
-A lock-free design rests on *Thread Safety Guarantees*, the page that documents each built-in
-type's operations under free threading. There `L.append(x)`, `D[x] = y` and `D1.update(D2)` are
-atomic, `L.sort()` is not, and no operation that makes more than one access is. The library FAQ
-still lists `L.sort()` and still explains its list by saying each bytecode instruction is atomic.
+A lock-free design rests on *Thread Safety Guarantees*, the page that documents each built-in type's
+operations under free threading. There `L.append(x)`, `D[x] = y` and `D1.update(D2)` are atomic,
+`L.sort()` is not, and no operation that makes more than one access is. The library FAQ still lists
+`L.sort()` and still explains its list by saying each bytecode instruction is atomic.
 
 **Why:** bytecode atomicity was the GIL, and readers generalise from a reason: `d[k] += 1` follows
-from it and was never safe. The guarantees page states each operation instead of a reason, and
-says outright that read-modify-write and check-then-act are not atomic.
+from it and was never safe. The guarantees page states each operation instead of a reason, and says
+outright that read-modify-write and check-then-act are not atomic.
 
 **Check:** a comment or docstring justifying the absence of a lock by appealing to the GIL, to
 bytecode atomicity, or to "CPython guarantees" is the finding.
@@ -261,23 +270,33 @@ import threading
 
 
 class BoundedLog:
-    """The bound is the invariant, so the lock spans the test and the append."""
+    """The newest lines, at most `limit` of them."""
 
     def __init__(self, limit: int) -> None:
+        """Hold no more than `limit` lines."""
         self._limit = limit
         self._lock = threading.Lock()  # guards: len(self._lines) <= self._limit
         self._lines: list[str] = []
 
-    def add(self, line: str) -> bool:
+    def add(self, line: str) -> None:
+        """Append `line`, dropping the oldest once the log is full."""
+        # The bound is the invariant, so the lock spans the test and the
+        # append.
         with self._lock:
             if len(self._lines) >= self._limit:
-                return False
+                del self._lines[0]
             self._lines.append(line)
-            return True
+
+    def lines(self) -> tuple[str, ...]:
+        """Return a snapshot, oldest first."""
+        with self._lock:
+            return tuple(self._lines)
 
 
-log = BoundedLog(2)
-assert [log.add("x"), log.add("y"), log.add("z")] == [True, True, False]
+recent = BoundedLog(2)
+for line in ("x", "y", "z"):
+    recent.add(line)
+assert recent.lines() == ("y", "z")
 ```
 
 ### PS-CONC-07 [M] Never read `frame.f_locals` for a frame executing in another thread
@@ -288,8 +307,8 @@ Introspecting your own stack is fine. Reaching into a frame another thread is ru
 not a data race that yields a wrong answer; it is a segfault. Debuggers, profilers, and error
 reporters that walk `sys._current_frames()` and read locals are the code that does this by accident.
 
-**Check:** `rg -n 'f_locals' src/` — every hit whose frame did not come from
-`sys._getframe()` on the current thread is a defect.
+**Check:** `rg -n 'f_locals' src/` — every hit whose frame did not come from `sys._getframe()` on
+the current thread is a defect.
 
 ## Sharing objects between threads
 
@@ -303,8 +322,8 @@ free-threaded build's internal locks keep the container intact but do not make y
 transaction, so the loud failure became a quiet one: an element seen twice, or missed entirely.
 
 **Check:** for each `for ... in <name>` where `<name>` is not a local, ask whether any thread writes
-to it. `rg -n 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read
-the hits against the writers.
+to it. `rg -n 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read the
+hits against the writers.
 
 ```python
 # verified — GOOD
@@ -315,7 +334,7 @@ _lock = threading.Lock()  # guards: _sessions, copied whole as one snapshot
 
 
 def active_ids() -> list[int]:
-    """The snapshot is taken under the lock; the work happens outside it."""
+    """Snapshot under the lock, then work outside it."""
     with _lock:
         snapshot = dict(_sessions)
     return sorted(v for v in snapshot.values() if v > 0)
@@ -324,7 +343,7 @@ def active_ids() -> list[int]:
 assert active_ids() == [1, 2]
 ```
 
-### PS-CONC-09 [S] Send an immutable message rather than sharing a mutable object
+### PS-CONC-09 [M] Send an immutable message rather than sharing a mutable object
 
 Hand a worker a `frozenset`, a `tuple`, a frozen dataclass, or a `frozendict`. Let it return a value
 rather than write into something you both hold.
@@ -344,6 +363,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class Request:
+    """One unit of work, handed over whole."""
+
     path: str
     retries: int
 
@@ -360,10 +381,10 @@ assert out == ["/a:1", "/b:2"]
 
 ### PS-CONC-10 [M] Hand work between threads with `queue.Queue`
 
-Not a shared list with a lock you wrote, and not a deque you poll. End the stream with
-`shutdown()`: every blocked `get` then raises `queue.ShutDown` once the queue is drained, so the
-producer never counts its consumers to send each a sentinel. Note the documented limit: `Queue` "is
-not designed to handle reentrancy within a thread", so never `put` from a callback its consumer ran.
+Not a shared list with a lock you wrote, and not a deque you poll. End the stream with `shutdown()`:
+every blocked `get` then raises `queue.ShutDown` once the queue is drained, so the producer never
+counts its consumers to send each a sentinel. Note the documented limit: `Queue` "is not designed to
+handle reentrancy within a thread", so never `put` from a callback its consumer ran.
 
 **Why:** `queue.Queue` implements "all of the required locking semantics" per its own docs, and it
 carries the blocking, the shutdown, and the `task_done`/`join` accounting a hand-rolled equivalent
@@ -391,17 +412,65 @@ def consume() -> None:
 
 
 workers = [threading.Thread(target=consume) for _ in range(3)]
-for w in workers:
-    w.start()
+for worker in workers:
+    worker.start()
 for i in range(9):
     work.put(i)
 work.shutdown()  # one call, however many consumers there are
-for w in workers:
-    w.join()
+for worker in workers:
+    worker.join()
 assert sorted(seen) == list(range(9))
 ```
 
-### PS-CONC-11 [S] Keep a shared object's lock inside the object that owns it
+### PS-CONC-11 [M] Bound every `queue.Queue` that a producer can outrun with `maxsize`
+
+`queue.Queue()` with no `maxsize` has no limit, and `put` never blocks. Give a queue that is fed by
+input the program does not control, such as requests, messages or lines read, a `maxsize`, so that
+`put` blocks the producer while the queue is full. Choose the number from how much work may wait,
+not from how much memory is free.
+
+**Why:** a producer that outruns its consumers converts the lag into memory, and the process is
+killed for it hours later, far from the cause. A bounded queue turns the same lag into a producer
+that waits.
+
+**Check:** every `queue.Queue()` and `queue.SimpleQueue()` fed from outside the process. No
+`maxsize` is the finding; `SimpleQueue` has no bound to give.
+
+```python
+# fragment — BAD: a burst of input becomes memory
+jobs: queue.Queue[bytes] = queue.Queue()
+```
+
+```python
+# verified — GOOD
+import queue
+import threading
+
+jobs: queue.Queue[int] = queue.Queue(maxsize=2)
+
+
+def produce() -> None:
+    for number in range(6):
+        jobs.put(number)  # blocks while two items wait, so the consumer sets the pace
+    jobs.shutdown()
+
+
+def consume() -> int:
+    total = 0
+    while True:
+        try:
+            total += jobs.get()
+        except queue.ShutDown:
+            return total
+
+
+producer = threading.Thread(target=produce)
+producer.start()
+assert consume() == 15
+producer.join()
+```
+
+### PS-CONC-12 [S] Keep a shared object's lock inside the object that owns it
 
 A module-level `_lock` beside a module-level `_cache` works until a second cache appears and takes
 the same lock. Put the lock on the class whose invariant it protects, and route every write through
@@ -423,42 +492,50 @@ from dataclasses import dataclass, replace
 
 @dataclass(frozen=True, slots=True)
 class Position:
+    """A point the tracker replaces, never edits."""
+
     x: int
     y: int
 
 
 class Tracker:
-    """Mutable holder, immutable value: one lock, one field, no partial reads."""
+    """Mutable holder, immutable value: no partial reads."""
 
     def __init__(self) -> None:
+        """Start at the origin."""
         self._lock = threading.Lock()  # guards: self._at is replaced, never edited
         self._at = Position(0, 0)
 
-    def advance(self, dx: int) -> Position:
+    def advance(self, steps: int) -> None:
+        """Move `steps` along x."""
         with self._lock:
-            self._at = replace(self._at, x=self._at.x + dx)
-            return self._at
+            self._at = replace(self._at, x=self._at.x + steps)
+
+    def position(self) -> Position:
+        """Return where the tracker is; a frozen value, whole."""
+        return self._at
 
 
-t = Tracker()
-assert t.advance(3) == Position(3, 0)
+tracker = Tracker()
+tracker.advance(3)
+assert tracker.position() == Position(3, 0)
 ```
 
 ## Iterators and generators
 
-### PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
+### PS-CONC-13 [M] Serialise a shared iterator with `threading.serialize_iterator`
 
 Two threads calling `next()` on one iterator is the defect. `serialize_iterator` hands each item to
-exactly one caller, and it neither copies nor buffers. It is a class, not a function: wrap once,
-and share the wrapper.
+exactly one caller, and it neither copies nor buffers. It is a class, not a function: wrap once, and
+share the wrapper.
 
 **Why:** a shared generator raises `ValueError: generator already executing`, the good case because
 it is loud. With any other iterator, the free-threading HOWTO warns that threads "may see duplicate
 or missing elements", so a pool sharing one processes some items twice and drops others.
 
-**Check:** every iterator passed to more than one thread must be wrapped. An unwrapped one is the
-finding, and the grep is for the sharing rather than for the call —
-`rg -nB3 'Thread\(target=' src/` and read what the target closes over.
+**Check:** every iterator passed to more than one thread must be wrapped, and an unwrapped one is
+the finding. The sharing is the defect, not the call: `rg -nB3 'Thread\(target=' src/` and read what
+the target closes over.
 
 ```python
 # verified — BAD: the loud half of the failure
@@ -482,11 +559,11 @@ def drain() -> None:
 
 
 threads = [threading.Thread(target=drain) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-# A generator is caught here. Every other iterator type fails silently instead.
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+# A generator is caught here; every other iterator fails silently.
 ```
 
 ```python
@@ -502,18 +579,18 @@ def drain() -> None:
 
 
 threads = [threading.Thread(target=drain) for _ in range(3)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 drained = sorted(i for part in got.values() for i in part)
 assert drained == list(range(9)), "each item goes to exactly one caller"
 ```
 
-### PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
+### PS-CONC-14 [M] Give each consumer a full stream with `threading.concurrent_tee`
 
 When every consumer needs every item — not one each — `concurrent_tee(iterable, n)` is the split.
-Its derived iterators are each single-consumer: handing one branch to two threads is PS-CONC-12's
+Its derived iterators are each single-consumer: handing one branch to two threads is PS-CONC-13's
 defect again. `itertools.tee` is not a substitute, and its name is one word from the safe one: its
 docs say a `RuntimeError` "may be raised when simultaneously using iterators returned by the same
 `tee()` call, even if the original iterable is threadsafe", and concurrent use has segfaulted in
@@ -531,12 +608,13 @@ is the finding; so is passing one `concurrent_tee` branch to more than one threa
 ```python
 # verified — GOOD
 import threading
+lazy from collections.abc import Iterator
 
 left, right = threading.concurrent_tee(iter(range(5)), 2)
 sums: dict[str, int] = {}
 
 
-def total(name: str, stream) -> None:
+def total(name: str, stream: Iterator[int]) -> None:
     value = sum(stream)  # this branch belongs to this thread alone
     sums[name] = value  # atomic (PS-CONC-05)
 
@@ -545,20 +623,20 @@ threads = [
     threading.Thread(target=total, args=("left", left)),
     threading.Thread(target=total, args=("right", right)),
 ]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert sums == {"left": 10, "right": 10}, "both consumers saw the whole stream"
 ```
 
-### PS-CONC-14 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+### PS-CONC-15 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 
 A decorator on a function that returns an iterator, so callers get a safe one without knowing to
-wrap it. It applies only where you own the factory; where you are handed an iterator, PS-CONC-12 is
+wrap it. It applies only where you own the factory; where you are handed an iterator, PS-CONC-13 is
 the rule.
 
-**Why:** PS-CONC-12 puts the obligation on every caller, and an obligation every caller must
+**Why:** PS-CONC-13 puts the obligation on every caller, and an obligation every caller must
 remember is one some caller will forget. Decorating the factory moves it to the one place that can
 discharge it.
 
@@ -568,11 +646,12 @@ decorator, is the finding.
 ```python
 # verified — GOOD
 import threading
+lazy from collections.abc import Iterator
 
 
 @threading.synchronized_iterator
-def work_items(n: int):
-    """Callers may share the result across threads without wrapping it."""
+def work_items(n: int) -> Iterator[int]:
+    """Yield `range(n)`, safe to share across threads unwrapped."""
     yield from range(n)
 
 
@@ -585,55 +664,32 @@ def drain() -> None:
 
 
 threads = [threading.Thread(target=drain) for _ in range(3)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert sorted(i for part in got.values() for i in part) == list(range(30))
 ```
 
 ## Caches, memoisation, and context
 
-### PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
+### PS-CONC-16 [M] Put a lock around a memo whose miss is expensive or has an effect
 
-The cache will not corrupt. The function behind it will run more than once for the same key.
+Not around the cache read — around the miss. Neither `functools.lru_cache` nor
+`functools.cached_property` is single-flight: the first holds no lock across the call and the second
+takes none, so threads reaching a cold key each run the body. Memoise an effect only where "once" is
+what every caller wants, such as opening a connection: a cached charge or write happens once while
+each caller believes it happened for them. `functools.cache` also needs every argument to be
+hashable. A pure function, or an expensive miss with no effect, needs no lock: its plain decorator,
+with a comment saying duplicate runs were accepted, so the next reader knows it was a decision.
 
-**Why:** the lock is not held across the call, so per the docs "it is possible for the wrapped
-function to be called more than once": eight threads hitting one cold key ran it seven times.
-Harmless for a pure function; a duplicated charge, write, or connection if the body has an effect.
-
-**Check:** `rg -nB3 '@lru_cache|@cache\b' src/` and read each decorated body for effects — I/O,
-writes, metrics, allocation of a scarce resource. A pure function is fine; anything else needs
-PS-CONC-17.
-
-### PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
-
-It takes no lock. Two threads reaching a cold property both compute it, and one of the two results
-is discarded.
-
-**Why:** a lock would serialise every instance behind one class-wide lock, so `cached_property` is
-a memo, not a once-only guarantee. A discarded result that only computed costs time; one that
-opened a connection or allocated a handle leaks unless something closes it.
-
-**Check:** `rg -nA5 'cached_property' src/` — a getter that constructs anything needing cleanup
-is the finding.
-
-### PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
-
-Not around the cache read — around the miss. Memoise an effect only where "once" is what every
-caller wants, such as opening a connection: a cached charge or write happens once while each caller
-believes it happened for them. `functools.cache` also needs every argument to be hashable.
-
-*Relaxed form:* a pure, cheap function may use the plain decorator and accept duplicate execution;
-say so in a comment on the decorator, so the next reader knows it was a decision.
-
-**Why:** PS-CONC-15 and PS-CONC-16 are the same defect with two spellings. The double-checked shape
-keeps the common case, a hit, lock-free while making the miss single-flight; without it, "cached"
-means "usually computed once", which is not what the word promises the reader.
+**Why:** the docs say "it is possible for the wrapped function to be called more than once", which
+is harmless for a pure body and a duplicated charge, write or leaked handle for one with an effect.
+The double-checked shape keeps a hit lock-free while making the miss single-flight.
 
 **Check:** every `@cache`, `@lru_cache` and hand-written memo. Read the body for I/O, mutation,
-randomness, or time: an effect a caller expects on every call is the finding, and so is an
-effectful miss with no lock.
+randomness, or time: an effect a caller expects on every call is the finding, and so is an effectful
+miss with no lock.
 
 ```python
 # verified — GOOD
@@ -643,24 +699,30 @@ _conns: dict[str, str] = {}
 _conns_lock = threading.Lock()  # guards: at most one open per dsn in _conns
 
 
-def connection(dsn: str) -> str:
-    """Double-checked: the hit is lock-free, the miss happens exactly once."""
-    if (found := _conns.get(dsn)) is not None:
-        return found
+def connect(dsn: str) -> None:
+    """Open `dsn` once, however many threads ask at the same moment."""
+    # Double-checked: the hit takes no lock, and the miss runs once.
+    if dsn in _conns:
+        return
     with _conns_lock:
         # Re-check: another thread may have filled it while we waited.
-        if (found := _conns.get(dsn)) is not None:
-            return found
-        opened = f"conn:{dsn}"  # stands in for the expensive, effectful call
-        _conns[dsn] = opened
-        return opened
+        if dsn in _conns:
+            return
+        _conns[dsn] = f"conn:{dsn}"  # stands in for the effectful open
 
 
+def connection(dsn: str) -> str:
+    """Return the connection `connect` opened; does not open one."""
+    return _conns[dsn]
+
+
+connect("db")
+connect("db")
 assert connection("db") == "conn:db"
-assert connection("db") == "conn:db"
+assert len(_conns) == 1
 ```
 
-### PS-CONC-18 [M] Create every `ContextVar` at module scope
+### PS-CONC-17 [M] Create every `ContextVar` at module scope
 
 Never inside a function, a method, or a loop.
 
@@ -671,7 +733,7 @@ does not work".
 **Check:** `rg -nB5 'ContextVar\(' src/` — any hit whose preceding lines are inside a `def` or
 `class` body is the finding.
 
-### PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
+### PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
 
 `sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build, and so is
 `sys.flags.context_aware_warnings`, which makes `warnings.catch_warnings` context-local. Pass the
@@ -679,11 +741,11 @@ context explicitly, with `Thread(target=work, context=contextvars.copy_context()
 deliberately.
 
 **Why:** a `ContextVar` set before starting a thread is visible inside it on `python3.15t` and
-absent on `python3.15`, so code developed on one build takes a different branch on the other with
-no diagnostic. A context passed explicitly is visible to the reader and the same on both.
+absent on `python3.15`, so code developed on one build takes a different branch on the other with no
+diagnostic. A context passed explicitly is visible to the reader and the same on both.
 
-**Check:** `rg -n 'ContextVar|copy_context' src/` in any module that also starts a thread — a
-read inside a thread target whose value was set outside it is the finding.
+**Check:** `rg -n 'ContextVar|copy_context' src/` in any module that also starts a thread — a read
+inside a thread target whose value was set outside it is the finding.
 
 ```python
 # verified — GOOD
@@ -701,7 +763,7 @@ def worker() -> None:
 
 
 with request_id.set("abc"):
-    # The context is passed, not inherited: this reads the same on both builds.
+    # The context is passed, not inherited, so both builds agree.
     thread = threading.Thread(target=worker, context=contextvars.copy_context())
     thread.start()
     thread.join()
@@ -709,27 +771,16 @@ assert seen == ["abc"]
 assert request_id.get() == "-", "leaving the block reset the variable"
 ```
 
-## Streams, randomness, and hold times
+## Randomness and hold times
 
-### PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
+### PS-CONC-19 [M] Give each thread its own `random.Random`
 
-`open()` in text mode returns one. So do `sys.stdout` and `sys.stderr`. So `print` from two threads
-is the same defect as writing to a shared file from two threads.
-
-**Why:** the `io` docs say buffered streams "protect their internal structures using a lock" but
-"`TextIOWrapper` objects are not thread-safe". A write that under the GIL usually finished in one
-bytecode window now interleaves, in the encoder's internal state as well as in the output.
-
-**Check:** `rg -n '\bprint\(|sys.stdout.write|sys.stderr.write' src/` inside any thread target.
-Logging is the fix: `logging` handlers take a lock around each emit.
-
-### PS-CONC-21 [M] Give each thread its own `random.Random`
-
-The module-level functions all share one instance.
+The module-level functions all share one instance. Seed each thread's from the operating system, as
+`random.Random()` does with no argument: one fixed seed would give every thread the same stream.
 
 **Why:** the docs warn that concurrent calls to the global generator or one `Random` instance "may
 encounter contention and poor performance" on the free-threaded build, and two threads calling
-`random.gauss` at once can receive the same return value. Seeded per thread, a run is reproducible.
+`random.gauss` at once can receive the same return value.
 
 **Check:** `rg -n '\brandom\.(random|gauss|randint|shuffle|choice|uniform)\(' src/` — every hit
 inside a thread target is the finding.
@@ -743,32 +794,32 @@ _local = threading.local()
 
 
 def rng() -> random.Random:
-    """One generator per thread, seeded so each thread is reproducible."""
+    """Return this thread's generator, made on first use."""
     existing = getattr(_local, "rng", None)
     if isinstance(existing, random.Random):
         return existing
-    # Seeded by the name, not by `hash` of it: string hashes are salted per process.
-    made = random.Random(threading.current_thread().name)
+    # No seed: the operating system's, so no two threads share a stream.
+    made = random.Random()  # noqa: S311 — a sampling stream, not a secret
     _local.rng = made
     return made
 
 
-out: list[float] = []
+draws: list[float] = []
 
 
 def draw() -> None:
-    out.append(rng().random())  # atomic (PS-CONC-05)
+    draws.append(rng().random())  # atomic (PS-CONC-05)
 
 
-threads = [threading.Thread(target=draw, name=f"w{i}") for i in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-assert len(out) == 4
+threads = [threading.Thread(target=draw) for _ in range(4)]
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+assert len(set(draws)) == 4, "four threads, four independent streams"
 ```
 
-### PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
+### PS-CONC-20 [M] Hold a context in a generator with `with`, not with a decorator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
 until the generator is exhausted. Previously it closed when the generator object was created. The
@@ -780,32 +831,34 @@ full consumption of the generator, so a lock, a transaction, a `chdir`, or a `co
 holds is held longer, silently: under free threading, new contention and a new deadlock shape.
 
 **Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator built from one that is
-applied to a `def` containing `yield`. Each is a hold time that changed; each needs the lock it
-takes re-examined.
+applied to a `def` containing `yield`. Each is the finding: its hold time changed, and a `with`
+inside the generator, as below, states the hold where it is taken.
 
 ```python
 # verified — GOOD: the hold is explicit, so no version changes it
 import threading
 from contextlib import contextmanager
+lazy from collections.abc import Generator, Iterator
 
 _lock = threading.Lock()  # guards: held pairs each "in" with its "out"
 held: list[str] = []
 
 
 @contextmanager
-def guarded():
+def guarded() -> Generator[None]:
+    """Hold the lock for the body, recording entry and exit."""
     with _lock:
         held.append("in")
         try:
             yield
         finally:
-            # Without this the lock is released but the bookkeeping is not, and
-            # an exception in the body silently skips it.
+            # Without this the lock is released but the bookkeeping is
+            # not, and an exception in the body silently skips it.
             held.append("out")
 
 
-def rows():
-    """Used as a `with` block, the hold is visible and bounded."""
+def rows() -> Iterator[int]:
+    """Yield the rows under a hold the `with` block makes visible."""
     with guarded():
         yield from (1, 2, 3)
 
@@ -814,15 +867,226 @@ assert list(rows()) == [1, 2, 3]
 assert held == ["in", "out"]
 ```
 
-### PS-CONC-23 [S] Never hold a lock across a call you do not control
+### PS-CONC-21 [M] Never hold a lock across a call you do not control
 
 A callback, a plugin hook, an I/O call, or anything that can block. Compute under the lock, call
 outside it.
 
 **Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
-acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-22, a
+acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-20, a
 decorator whose hold time silently grew now spans calls it never used to.
 
 **Check:** read every `with <lock>:` body for a call that is not a local function or a container
 operation. A hit is a candidate, not a verdict — the lock may genuinely need to span it, in which
 case say so in a comment.
+
+## Files shared with other processes
+
+### PS-CONC-22 [M] Replace a file other processes read by renaming a finished temporary over it
+
+Write the new contents to a temporary file in the same directory, flush and `fsync` it, then
+`Path.replace` it over the target; remove the temporary if anything fails. This holds for a file
+another process reads, or one that is read, changed and written back. A file regenerated from
+scratch on every run may be written in place.
+
+**Why:** opening the target for writing truncates it, so a reader, or a crash, finds it empty or
+half-written and the old contents are gone. A rename within one filesystem is atomic, so a reader
+sees the old file or the new. Across filesystems it is not, hence the same directory.
+
+**Check:** an `open(path, "w")` or `Path.write_text` on a path the program or another process reads
+later. Each wants the staging file and the `replace`.
+
+```python
+# fragment — BAD: a reader or a crash sees a truncated file
+Path("state.json").write_text(text)
+```
+
+```python
+# verified — GOOD
+import os
+import tempfile
+from pathlib import Path
+
+
+def replace_file(path: Path, data: bytes) -> None:
+    """Readers see the old file or the new, never half of one."""
+    # Same directory: a rename across filesystems is not atomic.
+    fd, staging = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        Path(staging).replace(path)
+    except BaseException:
+        Path(staging).unlink(missing_ok=True)
+        raise
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    target = Path(tmp) / "state.json"
+    target.write_bytes(b"old")
+    replace_file(target, b"new")
+    assert target.read_bytes() == b"new"
+    assert [p.name for p in Path(tmp).iterdir()] == ["state.json"]
+```
+
+## Starting and owning tasks
+
+### PS-CONC-23 [M] Enter with `asyncio.run`, and configure with `loop_factory`
+
+`asyncio.run(main())`, or `asyncio.Runner` when you need several entries into one loop. Where the
+loop needs configuring, `loop_factory` is the supported hook and is what survives 3.16.
+
+**Why:** `asyncio.run` creates the loop, runs the coroutine, cancels what is left, shuts down async
+generators and the default executor, and closes the loop, in that order. Hand-rolled lifecycles get
+the shutdown half wrong, which is where "task was destroyed but it is pending" comes from.
+
+**Check:** `rg -n 'new_event_loop|run_until_complete|loop.close\(\)' src/` — every hit is
+hand-rolled lifecycle.
+
+```python
+# verified — GOOD
+import asyncio
+
+
+async def main() -> str:
+    await asyncio.sleep(0)
+    return "done"
+
+
+# `loop_factory` is the hook that survives the 3.16 policy removal.
+assert asyncio.run(main(), loop_factory=asyncio.EventLoop) == "done"
+```
+
+### PS-CONC-24 [M] Start every task inside a `TaskGroup`
+
+`async with asyncio.TaskGroup() as tg: tg.create_task(...)`.
+
+**Why:** nothing escapes the block: if one task raises, the rest are cancelled and the group
+re-raises as an `ExceptionGroup`, which `except*` catches (PS-ERR-11); if it exits normally, every
+task has finished. A loose task has neither, so its failure surfaces, if at all, at shutdown.
+
+**Check:** `rg -n 'create_task|ensure_future' src/` — every hit outside a `TaskGroup` needs a
+reference kept to the task, which ruff `RUF006` checks.
+
+```python
+# verified — GOOD
+import asyncio
+
+
+async def work(n: int) -> int:
+    await asyncio.sleep(0)
+    return n * 2
+
+
+async def main() -> list[int]:
+    async with asyncio.TaskGroup() as tg:
+        tasks = [tg.create_task(work(i)) for i in range(3)]
+    # Past the block, every task is done: the group guarantees it.
+    return [t.result() for t in tasks]
+
+
+assert asyncio.run(main()) == [0, 2, 4]
+```
+
+## Cancellation and timeouts
+
+### PS-CONC-25 [M] Never swallow `CancelledError`
+
+Catch it to clean up, then re-raise. It inherits from `BaseException` precisely so that
+`except Exception` will not take it.
+
+**Why:** swallowing cancellation makes the task uncancellable, which turns a graceful shutdown into
+a hang and a timeout into a lie. `asyncio.run` cancels remaining tasks at exit, so a swallowing task
+prevents the process from exiting cleanly.
+
+**Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff `ASYNC`
+and `BLE001` catch the `except Exception` variants that would also take it on older code.
+
+### PS-CONC-26 [M] Leave no state half-updated across an `await`
+
+Every `await` is a cancellation point: between the line before it and the line after it, the task
+may be cancelled and never resume. Make the pair atomic with a context manager, or arrange that the
+half-state is valid.
+
+**Why:** this is the async analogue of PS-CONC-02: state you mutate in two steps around an `await`
+can be left half-updated forever, and a resource acquired before an `await` and released after it
+can leak.
+
+**Check:** every `await` inside a `try`, a lock, or between two writes to the same object.
+
+### PS-CONC-27 [M] Shield only what must not be interrupted, and bound it
+
+`asyncio.shield` around a commit that must complete. Never around a whole operation. Shield the
+smallest thing whose partial completion would be unrecoverable: writing the commit record, not
+fetching the data that goes in it. Give the shielded region a timeout of its own, so that a shield
+cannot become an unbounded wait.
+
+**Why:** shielding defeats cancellation, which is the mechanism timeouts and shutdown are built on.
+A shielded region with no timeout of its own is a task that cannot be stopped by any means.
+
+**Check:** every `shield`. Name what would break if it were interrupted; if you cannot, remove it.
+
+### PS-CONC-28 [M] Give every wait a timeout, with `asyncio.timeout`
+
+`async with asyncio.timeout(5):`. Not `wait_for`, which is the older spelling.
+
+**Why:** a wait with no bound is a hang with extra steps, and in an async program one hung task
+holds its whole logical operation open. `asyncio.timeout` is a context manager, so it composes with
+`TaskGroup` and applies to everything inside it rather than to one awaitable.
+
+**Check:** every `await` on network, subprocess, or queue I/O. No enclosing `timeout` is the
+finding.
+
+```python
+# verified — GOOD
+import asyncio
+
+
+async def slow() -> None:
+    await asyncio.sleep(10)
+
+
+async def main() -> str:
+    try:
+        async with asyncio.timeout(0.01):
+            await slow()
+    except TimeoutError:
+        return "bounded"
+    return "finished"
+
+
+assert asyncio.run(main()) == "bounded"
+```
+
+## Blocking and colour
+
+### PS-CONC-29 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
+
+No `requests.get`, no `open(...).read()` on a large file, no `subprocess.run`, no `sleep`. Move the
+call with `await asyncio.to_thread(blocking_call, arg)`, not a hand-made executor unless you need to
+bound it; then `loop.run_in_executor` with your own executor is the escape, and the bound is the
+point. CPU work between two `await`s blocks the loop just as I/O does, so a long parse or a big
+comprehension belongs in `to_thread` too, and a stretch short enough not to matter stays inline.
+
+**Why:** the loop is one thread and cannot preempt, so a blocking call stops every task, not only
+the one that made it: a 200 ms disk read adds 200 ms to every concurrent request. A long stretch
+with no `await` calls nothing blocking, so no linter recognises it.
+
+**Check:** ruff's `ASYNC` family covers the common calls by name — `ASYNC230` for a blocking `open`,
+`ASYNC240` for a blocking `pathlib` method, `ASYNC210` and `ASYNC212` for blocking HTTP, `ASYNC220`
+through `ASYNC222` for subprocesses, and `ASYNC250` for `input`; each hit needs `to_thread` or an
+explicit executor. For the stretch with no call to name, read each coroutine for a loop or
+comprehension over a large collection with no `await` inside it.
+
+### PS-CONC-30 [M] Do not mark a function `async` unless it awaits
+
+An `async def` with no `await` is a synchronous function that forces every caller into a coroutine.
+
+**Why:** async is viral: making one function async makes every caller async, up to the entry point.
+Paying that cost for a function that never yields buys nothing and makes the code untestable without
+a loop. The exception is an interface a protocol requires to be async — say so in the docstring.
+
+**Check:** a review matter. The rule that decides it mechanically is **preview**, and the shipped
+configuration runs stable rules only; preview rules move between ruff releases.

@@ -5,10 +5,6 @@ pin the engine, which of the other standard's lints have to be relaxed and why, 
 Everything general about manifests, features, semver and CI is unchanged and lives in the other
 standard; this chapter is the Bevy delta.
 
-Two lints are relaxed here and no others. Both were measured against a representative plugin rather
-than assumed, and the measurement is stated with the rule, because "clippy is too strict for Bevy"
-is the usual justification for an allow list forty entries long that hides real defects.
-
 ## Contents
 
 - **The dependency**
@@ -22,18 +18,17 @@ is the usual justification for an allow list forty entries long that hides real 
 - **Profiles**
   - BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
   - BV-BUILD-08 [S] Keep `dynamic_linking` off the committed manifest
-  - BV-BUILD-09 [M!] Keep `overflow-checks` on in release where release must match debug
+  - BV-BUILD-09 [M] Keep `overflow-checks` on in release where release must match debug
   - BV-BUILD-10 [M] Keep tracing and dev tooling behind off-by-default features
   - BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
 
 - **Lints**
-  - BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
-  - BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
-  - BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` on, and allow nothing unmeasured
+  - BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
 - **CI**
-  - BV-BUILD-15 [M] Build the feature set you ship
-  - BV-BUILD-16 [S] Build the wasm target if the game ships to the web
+  - BV-BUILD-13 [M] Build the feature set you ship
+  - BV-BUILD-14 [S] Build the wasm target if the game ships to the web
+
 - Decided by tools
 
 ---
@@ -49,23 +44,23 @@ crate that needs one subcrate and no engine should not depend on Bevy at all (BV
 moves every release: 0.20 split `bevy_shape` and `bevy_curve` out of `bevy_math` and added
 `bevy_extract`. A manifest naming subcrates is rewritten for each such move; the facade's is not.
 
-**Check:** grep the manifests for `bevy_`. Each hit is either a third-party plugin crate or a
-subcrate dependency that needs a reason.
+**Check:** `rg -n -g '*.toml' '^bevy_'` finds a dependency named for a Bevy crate; each hit is
+either a third-party plugin crate or a subcrate dependency that needs a reason.
 
 ### BV-BUILD-02 [M] Start from a feature collection
 
-`default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or the mid-level `2d_api` /
-`default_app` / `default_platform` where the backends are not wanted. Not thirty individual names —
-and not a collection *without* `default-features = false`, which selects nothing: `default` is
-already `["2d", "3d", "ui", "audio"]`.
+Departs from RS-BUILD-21. `default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or
+the mid-level `2d_api` / `default_app` / `default_platform` where the backends are not wanted. Not
+thirty individual names — and not a collection *without* `default-features = false`, which selects
+nothing: `default` is already `["2d", "3d", "ui", "audio"]`.
 
 **Why:** hand-maintained lists rot: a feature is renamed (`animation` became `gltf_animation`) or a
-new one becomes necessary, and the manifest keeps compiling while enabling something other than
-what it says. Bevy 0.20 has 177 features, and nobody re-reads that list every release.
+new one becomes necessary, and the manifest keeps compiling while enabling something other than what
+it says. Bevy 0.20 has 177 features, and nobody re-reads that list every release.
 
 **Check:** is `default-features = false` there? Without it the list is decoration. Then count the
-entries: past about six, they are describing a collection that already exists.
-`assets/Cargo.toml` is a workspace manifest with the collection already chosen.
+entries: past about six, they are describing a collection that already exists. `assets/Cargo.toml`
+is a workspace manifest with the collection already chosen.
 
 ### BV-BUILD-03 [M] Hand-pick features only against a recorded measurement
 
@@ -76,8 +71,8 @@ the measurement is in the manifest as a comment, and each feature says why it is
 list worth its upkeep — a re-read every release — from one that is not. Without it the list is an
 assumption defended forever; with it, the next release can re-measure and decide again.
 
-**Check:** does the manifest state the number the list buys, and the date or version it was measured
-against? If not, switch to a collection until someone measures.
+**Check:** does the manifest state the number the list buys, and the Bevy version it was taken on?
+If not, switch to a collection until someone measures.
 
 ```toml
 # fragment — a hand-picked list that has earned itself, with the number in it
@@ -107,12 +102,12 @@ bevy = { version = "=0.20.1", default-features = false, features = [
 
 ### BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
 
-A game binary writes `bevy = "=0.20.1"`. A crate other people depend on writes `bevy = "0.20"`;
-the general rule against exact pins is unchanged for anything published.
+Departs from RS-BUILD-20. A game binary writes `bevy = "=0.20.1"`. A crate other people depend on
+writes `bevy = "0.20"`, as RS-BUILD-20 asks of every library.
 
-**Why:** a Bevy minor bump renames a large fraction of the API, so in a binary an exact pin makes an
-upgrade a scheduled migration rather than something `cargo update` does. In a library it forbids
-every other patch downstream, and two libraries pinned to different patches cannot be used together.
+**Why:** a caret on `0.20` stops at the minor, so what the pin holds is the patch: `cargo update`
+run for any other crate moves Bevy's too, and with it every `bevy_*` crate at once. In a library it
+forbids every other patch downstream, and two libraries pinned to different patches cannot meet.
 
 **Check:** is the crate a `[[bin]]` or a `[lib]` others depend on? Exact pin for the first, caret
 for the second, and the reason for the pin as a comment beside it.
@@ -143,8 +138,8 @@ version?
 
 ### BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
 
-`[profile.dev.package."*"] opt-level = 3`, with the game's own crates left at the dev default.
-`rust-style`'s RS-BUILD-43 makes this an `[S]` for slow tests; a game makes it mandatory.
+Departs from RS-BUILD-42. `[profile.dev.package."*"] opt-level = 3`, with the game's own crates left
+at the dev default, whether or not the tests are slow.
 
 **Why:** an unoptimised Bevy is slow enough that frame rate stops being a signal about the game, and
 the engine is compiled once and cached, so the cost is paid on the first build only. The game's own
@@ -162,17 +157,14 @@ another machine. Turn it on with `--features bevy/dynamic_linking` on the comman
 with it is broken in a way that shows only when somebody runs it elsewhere. As a command-line flag
 it is a developer's local choice; in the manifest it is everybody's.
 
-**Check:** grep the manifest for `dynamic_linking`. It belongs in a shell alias or a
-`.cargo/config.toml` that is not committed.
+**Check:** `rg -n -g '*.toml' 'dynamic_linking'` finds it in a committed manifest; it belongs in a
+shell alias or a `.cargo/config.toml` that is not committed.
 
-### BV-BUILD-09 [M!] Keep `overflow-checks` on in release where release must match debug
+### BV-BUILD-09 [M] Keep `overflow-checks` on in release where release must match debug
 
 `[profile.release] overflow-checks = true` for any game with replays, rollback, lockstep networking
 or golden test vectors. The trap is a panic, so it needs BV-ERR-05's shipped handler, which resumes
 a panic: a handler that only logs catches the trap and runs the next frame.
-
-*Relaxed form:* a single-player game with no recorded state may take the default, and then the rule
-is that nothing compares a release run against a debug one.
 
 **Why:** integer overflow panics in debug and wraps in release, so the two builds compute different
 numbers — a replay recorded in development desynchronises on a player's machine, invisibly to every
@@ -190,7 +182,7 @@ all go behind a feature that is off by default.
 and the remote protocol opens a TCP listener on localhost. Off by default also makes the shipped
 configuration the one built by accident, which is the right way round.
 
-**Check:** grep the default feature list. Anything whose name mentions trace, debug, remote,
+**Check:** read the default feature list. Anything whose name mentions trace, debug, remote,
 inspector or editor is on by default and should not be.
 
 ### BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
@@ -199,7 +191,7 @@ inspector or editor is on by default and should not be.
 `bevy_dev_tools`. Name its feature alongside the collection, inside the dev feature — never in the
 default list. A feature named *beside* a collection keeps the collection's guarantee and is not the
 hand-picked list BV-BUILD-03 governs; the same shape serves any feature outside the collections,
-`bevy_settings` among them (BV-STATE-08).
+`bevy_settings` among them (BV-STATE-09).
 
 The `render_dev_tools` feature, which bevy's `dev` collection includes, puts
 `RenderDebugOverlayPlugin` into `DefaultPlugins`, disabled at runtime by default and with its keys
@@ -212,8 +204,8 @@ collections a build starts from — `2d`, `3d`, `ui`, any `*_api` — so BV-BUIL
 
 **Check:** read the default feature list, then the dev one. `bevy_dev_tools` in the first is an
 overlay shipped to players; a game that renders it in a release build has answered this rule by
-accident. Where either list reaches `render_dev_tools`, grep for `RenderDebugOverlayPlugin`: a hand
-add is the duplicate.
+accident. Where either list reaches `render_dev_tools`, `rg -n 'RenderDebugOverlayPlugin' src/`
+finds the hand add that duplicates it.
 
 ```toml
 # fragment — the manifest shape, not a whole file
@@ -229,53 +221,33 @@ dev = ["bevy/bevy_dev_tools", "bevy/bevy_ui_debug"]
 
 ## Lints
 
-### BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
+### BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
-`elided_lifetimes_in_paths = "allow"` in the `[lints.rust]` table, with a comment saying why. The
-compliant form exists and compiles — `Query<'_, '_, &mut Shield>` and `Res<'_, Time>` are valid
-system parameters — and the comment says so, rather than letting a reader think it impossible.
+Departs from RS-BUILD-24. Of `rust-style`'s lint table, two entries are `allow` here, each with a
+comment saying which kind of divergence it is. `elided_lifetimes_in_paths` fires on every system
+parameter, because each carries the world and state lifetimes — fourteen warnings in one five-system
+plugin — and its compliant form, `Query<'_, '_, &mut Shield>` or `Res<'_, Time>`, compiles and buys
+two apostrophes: a noise judgement. `clippy::needless_pass_by_value` fires on every `Res<T>` a
+system does not consume, and its suggestion, `&Res<'_, T>`, is not a `SystemParam`, so following it
+is `E0277` at `add_systems`: an impossibility. A third allow states what these two state — the Bevy
+API that forces it, the count, and whether a compliant form exists — and `type_complexity` and
+`too_many_arguments`, which upstream Bevy allows, have one each (BV-ECS-19, BV-SCHED-10), so they
+stay on.
 
-**Why:** it fires on every system parameter — `Query`, `Res`, `Commands`, `MessageReader`, `Local` —
-because each carries the world and state lifetimes: fourteen warnings in one five-system plugin.
-The fix buys nothing but two apostrophes on every parameter of every system in the game.
+**Why:** an allow list starts with an entry copied from upstream "because Bevy" and dies one
+plausible entry at a time: `redundant_clone`, `float_cmp` and `expect_used` are each allowed for
+Bevy somewhere, and none of them has anything to do with it.
 
-**Check:** is the entry present, and does the comment beside it say that the compliant form exists?
-An allow with no reason is the thing this rule exists to prevent.
-
-### BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
-
-`needless_pass_by_value = "allow"` in `[lints.clippy]`, with a comment saying it has no compliant
-form.
-
-**Why:** it fires on every `Res<T>` parameter a system does not consume, and its suggestion does not
-compile: `&Res<'_, T>` is not a `SystemParam`, so following it is `E0277` at `add_systems`. Bevy
-makes this entry impossible rather than merely noisy, and the comment says which of the two it is.
-
-**Check:** is the entry present? Then check nothing else from `pedantic` has been allowed alongside
-it — this is the one.
-
-### BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` on, and allow nothing unmeasured
-
-Both fire on ordinary Bevy code — `type_complexity` on a query with two data items and two filters,
-`too_many_arguments` at eight parameters — and both have a compliant form that is better code: a
-`type` alias named from the domain (BV-ECS-19) and `#[derive(SystemParam)]` (BV-SCHED-09). A third
-allow beside BV-BUILD-12 and BV-BUILD-13 needs what they have: the code that triggers it, the count,
-and whether a compliant form exists.
-
-**Why:** upstream Bevy allows both, and copying that is where most allow lists start. A list then
-dies one plausible entry at a time: `redundant_clone`, `float_cmp` and `expect_used` are all allowed
-"because Bevy", and none of them has anything to do with Bevy.
-
-**Check:** grep the lint table for either name; their presence is the defect. For any other allow,
-name the Bevy API that forces it. If the answer is the game's own code, it is a defect list.
+**Check:** the `allow` entries of the lint table are these two, each with its comment; for any
+other, name the Bevy API that forces it — if the answer is the game's own code, it is a defect.
 
 ## CI
 
-### BV-BUILD-15 [M] Build the feature set you ship
+### BV-BUILD-13 [M] Build the feature set you ship
 
 If the release build uses `default-features = false` and a list, CI builds that list. Building only
 the default feature set proves nothing about the artefact. This is the configuration of
-`rust-style`'s RS-BUILD-18 matrix that a game cannot leave out.
+`rust-style`'s RS-BUILD-17 matrix that a game cannot leave out.
 
 **Why:** a feature-gated compile error is invisible until somebody builds that configuration, and
 the configuration nobody builds locally is the shipped one. Feature-conditional code also rots
@@ -284,7 +256,7 @@ fastest, because the compiler never sees it.
 **Check:** compare the feature list in the CI job with the one in the release manifest or workflow.
 They should be the same string; `assets/ci.yml` has the job.
 
-### BV-BUILD-16 [S] Build the wasm target if the game ships to the web
+### BV-BUILD-14 [S] Build the wasm target if the game ships to the web
 
 `cargo build --target wasm32-unknown-unknown` in CI, with the same features as the web build.
 
@@ -301,5 +273,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `type_complexity` | warn | a query type complex enough to need a `type` alias (BV-ECS-19) |
-| clippy | `too_many_arguments` | warn | a system with eight or more parameters — group them with `#[derive(SystemParam)]` (BV-SCHED-09) |
+| clippy | `type_complexity` | warn | a query type complex enough to need a `type` alias (BV-ECS-19) — listed because upstream Bevy allows it, and this standard keeps it on |
+| clippy | `too_many_arguments` | warn | a system with eight or more parameters — group them with `#[derive(SystemParam)]` (BV-SCHED-10) — listed because upstream Bevy allows it, and this standard keeps it on |

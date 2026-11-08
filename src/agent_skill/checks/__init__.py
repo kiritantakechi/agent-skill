@@ -1,17 +1,46 @@
 """The check registry.
 
-Every check is a function of the parsed skills that yields findings. It
+Every check is a function of the whole tree that yields findings. It
 prints nothing and exits nothing, so the command line, pytest, and the
-negative controls all drive the same code.
+negative controls all drive the same code. A check about one skill at a
+time is written as a function of a skill and lifted by `per_skill`.
 """
 
 import importlib
 import inspect
 from dataclasses import dataclass
-lazy from collections.abc import Callable, Iterable
+lazy from collections.abc import Callable, Collection, Iterable, Iterator
 
 from agent_skill.report import Finding, Result
-lazy from agent_skill.model import Skill
+lazy from agent_skill.model import Skill, Tree
+
+
+@dataclass(frozen=True, slots=True)
+class PerSkill:
+    """A check about one skill, as a check of the whole tree.
+
+    `per_skill` makes one; this is the only place the two shapes meet.
+    Every finding it makes while reading a skill lies in that skill, so
+    reading fewer skills drops only findings no one asked for: that is
+    what lets `--skill` and the controls read less.
+    """
+
+    each: Callable[[Skill], Iterable[Finding]]
+
+    def __call__(self, tree: Tree) -> Iterator[Finding]:
+        """What `each` finds in each skill of `tree`, skill by skill."""
+        for skill in tree:
+            yield from self.each(skill)
+
+    @property
+    def __wrapped__(self) -> Callable[[Skill], Iterable[Finding]]:
+        """The function lifted, as `inspect.unwrap` asks for it."""
+        return self.each
+
+
+def per_skill(each: Callable[[Skill], Iterable[Finding]]) -> PerSkill:
+    """`each`, a check of one skill, lifted to a check of the tree."""
+    return PerSkill(each)
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,8 +49,8 @@ class Check:
 
     name: str
     label: str
+    #: a function of the tree; `controls` also takes the run's `fast`
     fn: Callable[..., Iterable[Finding]]
-    scope: str = "skill"  #: "skill" — once per skill; "all" — once, over every skill
     slow: bool = False  #: needs cargo or zig
     #: External binaries without which this check cannot look.
     #:
@@ -33,6 +62,12 @@ class Check:
     #: against what the source does name, so forgetting to declare one
     #: is a failure rather than a gap.
     needs: tuple[str, ...] = ()
+    #: What the README's row for this check must say it covers, when
+    #: that is a rule over a set that changes — every branch, except
+    #: those exempted — rather than the set itself. A row stating a
+    #: count, or an "every", goes stale the next time the set changes
+    #: and nobody edits the README. "" for a row that may say anything.
+    covers: str = ""
 
     def wants(self, name: str) -> bool:
         """Does this check take that keyword?
@@ -44,24 +79,31 @@ class Check:
         """
         return name in inspect.signature(self.fn).parameters
 
-    def run(self, skills: list[Skill], **kw: object) -> Result:
-        """Run this check over `skills` and collect what it finds.
+    @property
+    def reads_one_skill(self) -> bool:
+        """Is this a check of one skill at a time, lifted?"""
+        return isinstance(self.fn, PerSkill)
 
-        `kw` reaches only an "all"-scope check, and only the keywords it
-        takes. `controls` needs to know whether this is a `--fast` run,
-        because it re-runs the check each control owns and a control on
-        a slow check would drag the whole toolchain into a run that
-        asked to skip it.
+    def run(
+        self, tree: Tree, *, about: Collection[str] = (), fast: bool = False
+    ) -> Result:
+        """Run this check over `tree` and collect what it finds.
+
+        `about` names the skills the caller wants findings in, every one
+        when empty. A per-skill check then reads only those of them the
+        tree holds; any other check reads the whole tree, since what it
+        says about one skill depends on the others. Nothing is filtered
+        here: `Result.within` is the filter.
+
+        `fast` reaches only a check that takes it. `controls` needs to
+        know whether this is a `--fast` run, because it re-runs the
+        check each control owns and a control on a slow check would
+        drag the whole toolchain into a run that asked to skip it.
         """
-        result = Result(self.name)
-        if self.scope == "all":
-            result.extend(
-                self.fn(skills, **{k: v for k, v in kw.items() if self.wants(k)})
-            )
-        else:
-            for skill in skills:
-                result.extend(self.fn(skill))
-        return result
+        wanted = {s.name for s in tree} & set(about)
+        read = tree.only(wanted) if wanted and self.reads_one_skill else tree
+        found = self.fn(read, fast=fast) if self.wants("fast") else self.fn(read)
+        return Result(self.name).extend(found)
 
 
 REGISTRY: list[Check] = []
@@ -71,14 +113,18 @@ def check[F: Callable[..., Iterable[Finding]]](
     name: str,
     label: str,
     *,
-    scope: str = "skill",
     slow: bool = False,
     needs: tuple[str, ...] = (),
+    covers: str = "",
 ) -> Callable[[F], F]:
-    """Register the decorated function as check `name`, unchanged."""
+    """Register the decorated check of the tree as `name`, unchanged.
+
+    A check of one skill is lifted first: `@check(...)` above
+    `@per_skill`.
+    """
 
     def wrap(fn: F) -> F:
-        REGISTRY.append(Check(name, label, fn, scope, slow, needs))
+        REGISTRY.append(Check(name, label, fn, slow, needs, covers))
         return fn
 
     return wrap
@@ -90,16 +136,17 @@ MODULES = (
     "anatomy",
     "assets",
     "citations",
+    "concepts",
     "controls",
     "conventions",
     "crossref",
     "dialect",
     "documented",
+    "evals",
     "frontmatter",
     "layout",
     "lints",
     "markers",
-    "mirror",
     "pins",
     "plugin",
     "prose",

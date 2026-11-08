@@ -1,9 +1,9 @@
 # Events: Messages, Events, Entity Events, Observers
 
-Scope: the three ways one part of a game tells another that something happened, which to choose,
-and how to write each. Bevy has two traits, `Message` and `Event`, for what used to be one concept,
-and most code and most documentation on the internet predates the split. State changes are in the
-state chapter; when a reader runs is in the scheduling chapter.
+Scope: the three ways one part of a game tells another that something happened, which to choose, and
+how to write each. Bevy has two traits, `Message` and `Event`, for what used to be one concept, and
+most code and most documentation on the internet predates the split. State changes are in the state
+chapter; when a reader runs is in the scheduling chapter.
 
 ## Contents
 
@@ -16,23 +16,22 @@ state chapter; when a reader runs is in the scheduling chapter.
   - BV-EVENT-04 [M] Register a message type with `add_message`
   - BV-EVENT-05 [M] Read messages through a `MessageReader`
   - BV-EVENT-06 [M] Make a message a statement about the past
-  - BV-EVENT-07 [M] Read a message in a schedule that runs at least as often as the writer
-  - BV-EVENT-08 [S] Give a message the data its readers need, not an entity to look up
+  - BV-EVENT-07 [S] Give a message the data its readers need, not an entity to look up
 
 - **Entity events**
-  - BV-EVENT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
-  - BV-EVENT-10 [M] Read the target from the named field
-  - BV-EVENT-11 [S] Turn propagation on deliberately, and stop it deliberately
-  - BV-EVENT-12 [M] Treat an entity event as immutable
+  - BV-EVENT-08 [M] Give an event about one entity the `EntityEvent` derive and an entity field
+  - BV-EVENT-09 [M] Read the target from the named field
+  - BV-EVENT-10 [S] Turn propagation on deliberately, and stop it deliberately
+  - BV-EVENT-11 [M] Never retarget an entity event in flight
 
 - **Observers**
-  - BV-EVENT-13 [M] Observe a lifecycle event rather than polling for it
-  - BV-EVENT-14 [M] Spell the lifecycle events without their old `On` prefix
-  - BV-EVENT-15 [M] Keep an observer short, because it runs inside the flush
-  - BV-EVENT-16 [M] Scope an observer to one entity when one entity is the subject
-  - BV-EVENT-17 [M] Never depend on the order two observers run in
-  - BV-EVENT-18 [M] Do not re-trigger the event an observer is handling
-  - BV-EVENT-19 [S] Name the observer's parameter after its event
+  - BV-EVENT-12 [M] Observe a lifecycle event rather than polling for it
+  - BV-EVENT-13 [M] Spell the lifecycle events without their old `On` prefix
+  - BV-EVENT-14 [M] Keep an observer short, because it runs inside the flush
+  - BV-EVENT-15 [M] Scope an observer to one entity when one entity is the subject
+  - BV-EVENT-16 [M] Never depend on the order two observers run in
+  - BV-EVENT-17 [M] Do not re-trigger the event an observer is handling
+  - BV-EVENT-18 [S] Name the observer's parameter after its event
 
 ---
 
@@ -179,10 +178,12 @@ was postponed. A fact that genuinely needs both is two types with a converter, w
 mapping is written down.
 
 **Why:** the two differ in delivery, registration and failure modes, so the readers of a type that
-is both make incompatible assumptions about when it arrives, and no signature says which mechanism
-a given call site used.
+is both make incompatible assumptions about when it arrives, and no signature says which mechanism a
+given call site used.
 
-**Check:** grep for `#[derive(` lines naming both. Each is a choice that has not been made.
+**Check:**
+`rg -n 'derive\([^)]*\bMessage\b[^)]*\bEvent\b|derive\([^)]*\bEvent\b[^)]*\bMessage\b' src/` finds a
+derive naming both. Each is a choice that has not been made.
 
 ## Messages
 
@@ -190,12 +191,13 @@ a given call site used.
 
 `app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`.
 
-**Why:** `add_message` also adds the update system that drops messages older than two frames.
+**Why:** `add_message` also registers the type with the update that drops messages two updates old.
 Without it the buffer grows for the life of the process — a leak whose only symptom is memory, and
 only after a long session.
 
-**Check:** grep for `Messages<` outside a `MessageReader`/`MessageWriter` type. Each occurrence is
-either the registration bug or a good reason that should be written down.
+**Check:** `rg -n 'init_resource::<Messages<|insert_resource\(Messages' src/` finds the registration
+bug; any other `Messages<` outside a `MessageReader` or `MessageWriter` needs its reason written
+down.
 
 ```rust
 // verified
@@ -240,13 +242,14 @@ system on an empty queue, rather than a `MessageReader<M>` gated by `on_message:
 runs. Without one, a system that runs twice between updates sees the same messages twice, and one
 that misses an update sees nothing — silently, both ways.
 
-**Check:** grep for `iter_current_update_messages`. There should be none. A system that reads `M`
-and also runs `.run_if(on_message::<M>)` keeps two cursors where `PopulatedMessageReader` has one.
+**Check:** `rg -n 'iter_current_update_messages' src/` finds a read with no cursor; there should be
+none. A system that reads `M` and also runs `.run_if(on_message::<M>)` keeps two cursors where
+`PopulatedMessageReader` has one.
 
 ### BV-EVENT-06 [M] Make a message a statement about the past
 
-`DamageDealt`, `WaveCleared`, `ButtonPressed` — not `ApplyDamage`, `ClearWave`, `SpawnEnemy`. When
-a single specific effect is wanted, that is a command or an observed event.
+`DamageDealt`, `WaveCleared`, `ButtonPressed` — not `ApplyDamage`, `ClearWave`, `SpawnEnemy`. When a
+single specific effect is wanted, that is a command or an observed event.
 
 **Why:** a message has any number of readers and no ordering, so it cannot be an instruction: two
 readers acting on `SpawnEnemy` spawn two enemies. A past-tense fact is safe to read any number of
@@ -255,19 +258,7 @@ times, which is what the mechanism provides.
 **Check:** read each message name as a sentence starting "the fact that". If it does not fit, the
 type is an instruction.
 
-### BV-EVENT-07 [M] Read a message in a schedule that runs at least as often as the writer
-
-A message written in `FixedUpdate` and read in `Update` arrives in bursts. A message written in
-`Update` and read in `FixedUpdate` may not be read at all before it expires.
-
-**Why:** a message lives two runs of the update system in `First`, and the fixed schedule runs zero
-or several times a frame (BV-SCHED-06), so the clocks never line up. The loss is silent: a reader
-that saw nothing looks like a frame where nothing happened.
-
-**Check:** for each message type, list the writers' schedules and the readers'. A reader in a
-slower-running schedule than its writer needs a stated reason bursts are acceptable.
-
-### BV-EVENT-08 [S] Give a message the data its readers need, not an entity to look up
+### BV-EVENT-07 [S] Give a message the data its readers need, not an entity to look up
 
 If every reader immediately queries the same three components off the entity, put those values in
 the message.
@@ -281,7 +272,7 @@ missing a field.
 
 ## Entity events
 
-### BV-EVENT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
+### BV-EVENT-08 [M] Give an event about one entity the `EntityEvent` derive and an entity field
 
 `#[derive(EntityEvent)] struct Died { entity: Entity }`, triggered with
 `commands.trigger(Died { entity })`. The target is a field of the event, where its type shows it,
@@ -327,7 +318,7 @@ impl Plugin for LootPlugin {
 }
 ```
 
-### BV-EVENT-10 [M] Read the target from the named field
+### BV-EVENT-09 [M] Read the target from the named field
 
 `died.entity`, not `died.event_target()`, and never `trigger.target()` — which no longer exists for
 every event type. `event_target()` is for generic code.
@@ -336,9 +327,10 @@ every event type. `event_target()` is for generic code.
 `victim`, `container` — where the trait method can only say "the target". On an event with several
 entities, that distinction is the whole meaning.
 
-**Check:** grep for `.event_target()` in non-generic observers, and for `.target()` anywhere.
+**Check:** `rg -n '\.target\(\)' src/` finds the removed accessor. Then read each `.event_target()`:
+in an observer that is not generic, it is the field written the long way.
 
-### BV-EVENT-11 [S] Turn propagation on deliberately, and stop it deliberately
+### BV-EVENT-10 [S] Turn propagation on deliberately, and stop it deliberately
 
 `#[entity_event(propagate)]` walks `ChildOf` toward the root. An observer that has handled the event
 calls `propagate(false)`. The engine's own input propagates too: since 0.20, Escape in a focused
@@ -352,25 +344,25 @@ is consumed again above it, which is how a single click closes two menus.
 **Check:** for each propagating event, find the observers that act on it. Any that fully handles the
 event and does not call `propagate(false)` is letting it continue.
 
-### BV-EVENT-12 [M] Treat an entity event as immutable
+### BV-EVENT-11 [M] Never retarget an entity event in flight
 
-The mutating half of `EntityEvent` is a separate trait, `SetEntityEventTarget`. Retargeting an
-event in flight is not something game code does.
+The mutating half of `EntityEvent` is a separate trait, `SetEntityEventTarget`, for propagation's
+machinery; game code reads an event's target and does not set it.
 
 **Why:** every observer for an event sees the same value, so retargeting it mid-flight changes what
 later observers are told happened — and which observers count as later depends on registration
 order, which is not defined.
 
-**Check:** grep for `SetEntityEventTarget`. Anything outside propagation machinery needs an
-explanation.
+**Check:** `rg -n 'SetEntityEventTarget' src/` finds each use; anything outside propagation
+machinery needs an explanation.
 
 ## Observers
 
-### BV-EVENT-13 [M] Observe a lifecycle event rather than polling for it
+### BV-EVENT-12 [M] Observe a lifecycle event rather than polling for it
 
 Setup when a component appears is `On<Add<T>>`, not a system with `Query<…, Added<T>>`. The
 component is the lifecycle event's parameter, not `On`'s, and an observer of dynamic components
-(`.with_component(id)`) is `On<Add<()>>` (`references/migration.md` BV-MIG-14).
+(`.with_component(id)`) is `On<Add<()>>` (BV-EVENT-13).
 
 **Why:** the observer runs at the moment the component is inserted, so nothing else ever sees the
 entity half-initialised. A polling system runs at some later point in the frame, and everything
@@ -426,7 +418,7 @@ mod tests {
 }
 ```
 
-### BV-EVENT-14 [M] Spell the lifecycle events without their old `On` prefix
+### BV-EVENT-13 [M] Spell the lifecycle events without their old `On` prefix
 
 `Add`, `Insert`, `Discard`, `Remove`, `Despawn`. Not `OnAdd`, `OnInsert`, `OnReplace`, `OnRemove`,
 `OnDespawn`, and not `Replace`: the event is `Discard`, and its hook `on_discard`. Where `Add`
@@ -436,10 +428,13 @@ collides with `std::ops::Add`, disambiguate the trait as `ops::Add` rather than 
 `On<OnAdd<T>>`. This is the single most common stale spelling in Bevy code written against a
 tutorial.
 
-**Check:** `rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<|\bReplace<|on_replace'`
-over `src/`. An `OnReplace` is `Discard`, not `Replace`.
+**Check:**
+`rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|[a-z_]: Trigger<|\bReplace<|on_replace' src/`
+and `rg -n '\bOn<[A-Za-z0-9_:]+\s*,|\bOn<(Add|Insert|Discard|Remove|Despawn)>' src/`. An `OnReplace`
+is `Discard`, not `Replace`; `Trigger<` is read as a parameter's type, because `Event::Trigger<'a>`
+and the `Trigger<E>` trait are live; and `On<Add<Enemy>>` passes, because `<` follows `Add`.
 
-### BV-EVENT-15 [M] Keep an observer short, because it runs inside the flush
+### BV-EVENT-14 [M] Keep an observer short, because it runs inside the flush
 
 An observer runs synchronously, in the middle of applying the command that triggered it. Update a
 resource, queue a command, trigger another event — do not run a loop over the world.
@@ -538,7 +533,7 @@ mod tests {
 }
 ```
 
-### BV-EVENT-16 [M] Scope an observer to one entity when one entity is the subject
+### BV-EVENT-15 [M] Scope an observer to one entity when one entity is the subject
 
 `commands.entity(e).observe(handler)` for a handler about that entity. `app.add_observer(handler)`
 is global and runs for every trigger of that event. An entity nested in a `children![]` takes the
@@ -629,10 +624,9 @@ mod tests {
 
     fn only<C: Component>(app: &mut App) -> Entity {
         let mut query = app.world_mut().query_filtered::<Entity, With<C>>();
-        let Ok(entity) = query.single(app.world()) else {
-            unreachable!()
-        };
-        entity
+        query
+            .single(app.world())
+            .expect("the console spawns exactly one of each")
     }
 
     #[test]
@@ -674,7 +668,7 @@ mod tests {
 }
 ```
 
-### BV-EVENT-17 [M] Never depend on the order two observers run in
+### BV-EVENT-16 [M] Never depend on the order two observers run in
 
 Several observers for one event run in an unspecified order. If B must follow A, that is not two
 observers: it is one observer that does both things in order, or an observer that triggers a second
@@ -686,7 +680,7 @@ that works today breaks when a plugin is added earlier.
 **Check:** for each event with more than one observer, ask whether swapping them changes the result.
 If it does, the ordering needs to be expressed rather than assumed.
 
-### BV-EVENT-18 [M] Do not re-trigger the event an observer is handling
+### BV-EVENT-17 [M] Do not re-trigger the event an observer is handling
 
 An observer for `Died` must not trigger `Died`. The recursion is unbounded and the stack is the only
 thing that stops it.
@@ -814,7 +808,7 @@ mod tests {
 }
 ```
 
-### BV-EVENT-19 [S] Name the observer's parameter after its event
+### BV-EVENT-18 [S] Name the observer's parameter after its event
 
 `fn collect_loot(died: On<Died>, …)`, not `trigger` and not `ev`.
 
@@ -822,4 +816,5 @@ mod tests {
 than `trigger.entity`. It is also what makes the old and new APIs distinguishable at a glance in a
 review: a parameter called `trigger` is usually a `Trigger<E>` that was mechanically renamed.
 
-**Check:** grep for `: On<` preceded by `trigger`, `ev`, `event` or `t`. Rename to the event.
+**Check:** `rg -n '\b(trigger|ev|event|t): On<' src/` finds a parameter named for the mechanism.
+Rename it to the event.

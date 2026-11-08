@@ -4,9 +4,13 @@ Scope: how a Bevy project is tested — what can be tested without the engine at
 smallest `App` that exercises a plugin, and how to drive it so the test is deterministic. General
 test practice is unchanged and lives in the other standard; this chapter is the part Bevy shapes.
 
-The most important rule here is the one about not needing this chapter: the boundary of
-`references/architecture.md` BV-ARCH-01 exists so that most of a game's logic is tested by ordinary
-Rust unit tests, in microseconds, with no `World`.
+The most important rule here is the one about not needing this chapter: the boundary of BV-ARCH-01
+exists so that most of a game's logic is tested by ordinary Rust unit tests, in microseconds, with
+no `World`.
+
+What a test asserts is behaviour, as RS-TEST-02 says of any test: that the enemy is gone, not that a
+`Despawn` observer ran; the score, not that a message was written — and the message itself only
+where emitting it is the plugin's interface, as it is for a plugin whose job is to tell others.
 
 ## Contents
 
@@ -22,9 +26,8 @@ Rust unit tests, in microseconds, with no `World`.
 - **What to assert**
   - BV-TEST-06 [M] Assert on the world, not on the log
   - BV-TEST-07 [M] Do not assert by counting entities
-  - BV-TEST-08 [S] Assert the fact, not the mechanism that produced it
-  - BV-TEST-09 [M] Watch a test fail before trusting it
-  - BV-TEST-10 [S] Trigger the event to test an observer
+  - BV-TEST-08 [M] Watch a test fail before trusting it
+  - BV-TEST-09 [S] Trigger the event to test an observer
 
 ---
 
@@ -107,13 +110,13 @@ mod tests {
 something writing `AppExit` — which makes the test's duration a property of the game rather than of
 the test. `update` is one frame, synchronously, which is what an assertion needs.
 
-**Check:** grep the test modules for `.run()`. There should be none outside a test of `main` itself.
+**Check:** read each test module for `.run()`. There should be none outside a test of `main` itself.
 
 ### BV-TEST-04 [M] Run a schedule directly when only that schedule is under test
 
-`app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once. A system
-that reads `Res<Time>` is tested through BV-TEST-05 instead: `run_schedule` skips the fixed loop's
-clock swap, so `Time` there is the virtual clock.
+`app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once. A system that
+reads `Res<Time>` is tested through BV-TEST-05 instead: `run_schedule` skips the fixed loop's clock
+swap, so `Time` there is the virtual clock.
 
 **Why:** `update()` runs the whole main schedule: a test of one `FixedUpdate` system also runs every
 `Update` system in the app, and the elapsed time decides how many fixed steps ran (BV-TEST-05).
@@ -133,7 +136,8 @@ fast machine, several on a slow one — so the assertion is about the machine an
 A sleep is slow by what it sleeps and still not exact; the strategy states the duration in the test.
 
 **Check:** for each test involving `FixedUpdate`, find where the number of steps is decided: by the
-clock, and the test is not deterministic. Grep the tests for `sleep` and `Instant::now`.
+clock, and the test is not deterministic. `rg -n 'thread::sleep|Instant::now' tests/ src/` finds a
+test that waits on the real clock.
 
 ```rust
 // verified
@@ -244,7 +248,7 @@ asserting on a description.
 one-shot systems and internal entities have each been in it at different versions. A count-based
 assertion therefore breaks on an engine upgrade that changed nothing about the game.
 
-**Check:** grep for `entities().len()` and for asserts on a total. Query for the component the test
+**Check:** read each `entities().len()` and each assert on a total. Query for the component the test
 cares about instead.
 
 ```rust
@@ -321,9 +325,10 @@ mod tests {
         let before = app.world().entities().len();
 
         let mut query = app.world_mut().query_filtered::<Entity, With<Enemy>>();
-        let Some(victim) = query.iter(app.world()).next() else {
-            unreachable!("the wave spawned three")
-        };
+        let victim = query
+            .iter(app.world())
+            .next()
+            .expect("the wave spawned three");
         app.world_mut().entity_mut(victim).despawn();
 
         // The facts: one fewer enemy, its weapon went with it, one kill.
@@ -339,23 +344,10 @@ mod tests {
 }
 ```
 
-### BV-TEST-08 [S] Assert the fact, not the mechanism that produced it
+### BV-TEST-08 [M] Watch a test fail before trusting it
 
-`rust-style`'s RS-TEST-02, in Bevy's terms: assert that the enemy is gone, not that a `Despawn`
-observer ran; assert the score, not that a message was written. The exception is a mechanism that
-is the interface: a plugin whose job is to emit a message for other plugins is tested on the
-message.
-
-**Why:** the mechanism is an implementation choice the test should not pin: replacing a message
-with an observer is a refactor, and a test that asserts on the message calls it a regression.
-
-**Check:** for each assertion, ask whether it would survive rewriting the system in a different
-style. If not, it is testing the shape.
-
-### BV-TEST-09 [M] Watch a test fail before trusting it
-
-Break the system, run the test, see red, put it back — for every test, not only the regression test
-`rust-style`'s RS-TEST-19 asks it of.
+Departs from RS-TEST-20. Break the system, run the test, see red, put it back — for every test, not
+only a regression test.
 
 **Why:** a Bevy test has more ways to pass vacuously than an ordinary one: the system was never
 added, the schedule was never run, the entity was never spawned, the command was never flushed. Each
@@ -363,7 +355,7 @@ of those produces a test that passes and asserts nothing, and none of them looks
 
 **Check:** for each new test, was it observed failing? If not, comment out the system's body once.
 
-### BV-TEST-10 [S] Trigger the event to test an observer
+### BV-TEST-09 [S] Trigger the event to test an observer
 
 `world.trigger(Died { entity })` and assert on what changed.
 

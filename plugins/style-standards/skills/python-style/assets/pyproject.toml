@@ -1,7 +1,7 @@
 # The modern shape for a typed, published Python library. Referenced by PS-CONC-01
 # for the free-threading classifier; the build chapter owns the rest.
 [build-system]
-# PS-BUILD-12: one backend, upper-bounded because uv_build follows uv's
+# PS-BUILD-13: one backend, upper-bounded because uv_build follows uv's
 # versioning policy. Not the ceiling PS-BUILD-04 forbids — that rule is about
 # requires-python, which is a claim about interpreters you cannot test.
 requires = ["uv_build>=0.13.3,<0.14"]
@@ -42,13 +42,21 @@ cli = ["typer>=0.15"]
 # Every tool is pinned exactly: each one decides whether the build passes.
 [dependency-groups]
 test = ["pytest==9.2.0"]
-lint = ["ruff==0.17.3"]
-typecheck = ["ty==0.0.95"]
+lint = ["ruff==0.17.4"]
+typecheck = ["ty==0.0.99"]
 dev = [
   { include-group = "test" },
   { include-group = "lint" },
   { include-group = "typecheck" },
 ]
+
+[tool.uv]
+# PS-BUILD-11: every `uv lock` resolves as if releases younger than seven days
+# did not exist, so a compromised version is pulled before it can be locked.
+exclude-newer = "7 days"
+# An exact pin is a review written down, so exactly the `==` pins are
+# exempted, by name: what they depend on still waits out the seven days.
+exclude-newer-package = { pytest = false, ruff = false, ty = false }
 
 # pytest 9 native TOML. NOT [tool.pytest.ini_options], which takes INI strings —
 # the two cannot coexist, and pytest's own error names this one as recommended.

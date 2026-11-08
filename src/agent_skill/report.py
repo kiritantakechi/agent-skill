@@ -8,7 +8,10 @@ negative control that asserts the check *can* fail.
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import override
-lazy from collections.abc import Iterable
+lazy from collections.abc import Collection, Iterable
+
+from agent_skill.ids import Branch
+lazy from agent_skill.ids import Location
 
 
 class Level(Enum):
@@ -28,36 +31,75 @@ class Level(Enum):
     NOTE = "note"
 
 
+#: Every branch a module declares, and the level it reports at, filled
+#: as the modules declaring them are imported.
+DECLARED: dict[Branch, Level] = {}
+
+
+def declare(check: str, name: str, level: Level) -> Branch:
+    """The branch `check.name`, declared as reporting at `level`.
+
+    A branch reports at one level, so which branches can fail a run is
+    read off their declarations rather than off the sites that report
+    them. Declaring one twice is refused: two sites sharing a name could
+    not be told apart by the control that names it.
+    """
+    branch = Branch(check, name)
+    if branch in DECLARED:
+        msg = f"{branch} is declared twice"
+        raise ValueError(msg)
+    DECLARED[branch] = level
+    return branch
+
+
 @dataclass(frozen=True, slots=True)
 class Finding:
-    """One thing a check found: its level, what it says, and where."""
+    """One thing a check found: its level, message, location and branch.
+
+    `branch` is the place in the check that said it, so a negative
+    control can assert that its own branch fired rather than any branch
+    of the same check. `where` is printed by `Location`'s one printer.
+    """
 
     level: Level
     message: str
-    where: str = ""
+    where: Location
+    branch: Branch
+
+    def __post_init__(self) -> None:
+        """Refuse a level other than the one its branch was declared at.
+
+        The bijection of controls onto branches runs over the branches
+        declared at `FAIL`, so a branch declared at another level and
+        reported at `FAIL` would fail runs with no control on it.
+        """
+        if DECLARED.get(self.branch, self.level) is not self.level:
+            msg = f"{self.branch} is declared at {DECLARED[self.branch].name}"
+            raise ValueError(msg)
 
     @override
     def __str__(self) -> str:
-        """The message, led by `where` when there is one."""
-        return f"{self.where}: {self.message}" if self.where else self.message
+        """The message, led by `where` when it names anything."""
+        where = str(self.where)
+        return f"{where}: {self.message}" if where else self.message
 
 
-def fail(message: str, where: str = "") -> Finding:
+def fail(message: str, where: Location, branch: Branch) -> Finding:
     """A defect: the finding that blocks the pass."""
-    return Finding(Level.FAIL, message, where)
+    return Finding(Level.FAIL, message, where, branch)
 
 
-def unrun(message: str, where: str = "") -> Finding:
+def unrun(message: str, where: Location, branch: Branch) -> Finding:
     """The check could not be performed.
 
     Not a pass, and not a defect either.
     """
-    return Finding(Level.UNRUN, message, where)
+    return Finding(Level.UNRUN, message, where, branch)
 
 
-def note(message: str, where: str = "") -> Finding:
+def note(message: str, where: Location, branch: Branch) -> Finding:
     """Something worth saying that does not block the pass."""
-    return Finding(Level.NOTE, message, where)
+    return Finding(Level.NOTE, message, where, branch)
 
 
 @dataclass(slots=True)
@@ -99,3 +141,12 @@ class Result:
         """Add `findings`, and return this result so calls can chain."""
         self.findings.extend(findings)
         return self
+
+    def within(self, skills: Collection[str]) -> Result:
+        """Only the findings in one of `skills`, or in no skill at all.
+
+        A finding in no skill is about the repository or the run, so no
+        selection of skills leaves it out.
+        """
+        kept = [f for f in self.findings if f.where.skill in {None, *skills}]
+        return Result(self.name, kept, list(self.details))

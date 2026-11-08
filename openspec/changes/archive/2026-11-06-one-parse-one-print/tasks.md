@@ -1,0 +1,508 @@
+## 1. Baseline
+
+- [x] 1.1 Record the baseline the change is judged against: full `check` result, pytest result and
+  wall-clock, `check --fast` wall-clock, per-check timings, the number of rule-ID regex literals,
+  `## `-boundary scanners, fence trackers and `WIDTH` definitions in `src/` — see "Baseline
+  (measured)"; the full `check` (≈22 min) and the pytest run were reported, not re-run, and
+  `toolchain` and `mutation` were not timed alone
+- [x] 1.2 Enumerate every failure site in every check as a candidate branch, and record which of the
+  current 65 controls fires through which branch (stub each branch, re-run its control) — done by
+  4.1, which named every site as a declared `Branch`, and 5.1, which made each control assert its own
+  branch; the stubbing approach was not needed
+
+## 2. The tree and the typed values
+
+- [x] 2.1 Add `agent_skill.ids` with `RuleId`, `Tier`, `Location`, `Version`, `Pin`, `Answer`,
+  `Branch`, each with one parser and one printer and property tests for `parse ∘ print = id`
+  — deviates from decision 3: `RuleId` keeps the inserted letter (`ZS-CORE-12a` ships), and
+  `NUMBER`/`rule_id` moved here from `vocabulary`; parsers raise `ValueError` (reading text asks the
+  world nothing, so it is not a `NoAnswer`); a location outside any skill prints as `./file`
+- [x] 2.2 Add `agent_skill.doc`: the fence-first block parser, the printer, and `wrap`; property
+  tests for `parse(print(d)) == d` on generated trees and idempotence of `print ∘ parse`
+  — the printer is `str(Doc)` and the parser `Doc.parse`, as in `ids`; blocks add `Divider` (the
+  `---` after a contents list) and `Quote.alert` (GitHub's `> [!NOTE]`); seeded generators, not
+  hypothesis; `WIDTH` now lives here and `text`, `shared` and `layout` import it
+- [x] 2.3 Add the chapter layer (`Chapter`, `Section`, `Rule`, contents list, tool table, rename
+  table) over `Doc`; verify it reads every shipped chapter and SKILL.md — `agent_skill.doc.chapter`;
+  `Chapter.read(doc).doc() == doc` for every chapter and `SkillMd`, and a test holds it to `model`
+  (rules, lines, contents, tool rows, rename ranges and rows, core rules, Why, Check, examples);
+  `Rule` keeps its blocks in order with `relaxed`/`why`/`check`/`examples` as views rather than
+  fields, `tools` and `renames` are views of their sections, and a contents label may nest labels
+  (zig's `SMELL TEST`)
+- [x] 2.4 Define the canonical form for the subset the skills use, and print every shipped file
+  through it in a scratch tree; list every difference and classify each as a normalisation the
+  spec allows or a parser bug; fix the bugs — classes and counts below; a contents entry is kept
+  on one line however long, as its heading is, which decision 2 did not say
+
+  All 61 shipped files change; `print ∘ parse` is idempotent on every one, and the parsed tree of
+  the canonical text equals that of the original. 1,839 of 45,914 lines are rewritten. Counted by
+  block, top level, against the original lines:
+
+  | Normalisation (a) | Count | Files |
+  |---|---|---|
+  | paragraph re-filled greedily to 100 columns | 527 | 60 |
+  | list whose item text is re-filled (core rules, numbered steps, bullets) | 53 | 17 |
+  | block quote re-filled | 7 | 4 |
+  | blank line added after a heading (zig's rule headings sit on their first line) | 247 | 9 |
+  | blank line added before a heading (`## Contents` straight after the scope) | 23 | 23 |
+  | blank line added between a paragraph and the list it introduces | 9 | 3 |
+  | blank line added after a fence | 1 | 1 |
+  | loose contents list gets a blank before its last item, `- Decided by tools` | 17 | 17 |
+
+  Re-filling also joins about 64 code spans that were broken across two lines (128 unfenced lines
+  hold an odd number of backticks), so a span such as `` `b: *Build` `` or a citation such as
+  `` `references/memory.md` ZS-MEM-06 `` now sits on one line; and it folds
+  `rust-style/references/traits.md:801`, a wrapped line that began `+ Send>>` and so rendered as a
+  list item, back into its paragraph. Five zig quotes open `> [!NOTE] text` on one line, which
+  GitHub does not render as an alert; the canonical form keeps them as written, for the content
+  change to decide.
+
+  | Parser or printer bug (b), fixed | Where |
+  |---|---|
+  | a GitHub alert's `> [!NOTE]` line was filled into the paragraph after it, ending the alert | 3 quotes, `zig-style` memory and migration — `Quote.alert` |
+  | a contents entry over 100 columns was wrapped, which every line-wise reader truncates | 9 entries, 6 files — printed on one line |
+  | an empty table cell printed as `\|  \|` where every table writes `\| \|` | 3 rows, 2 files |
+  | two same-kind lists at different indents parsed as two lists that print as one | found by the noise generator, not the corpus — merged on parse |
+
+  Risk for 3.1, not a defect here: the old line-wise readers will see the joined citations and code
+  spans for the first time (`anatomy`'s citation pattern needs a citation on one line), so 3.1 may
+  surface findings the split lines hid.
+
+## 3. Canonical re-print
+
+- [x] 3.1 Re-print all four skills canonically in one commit containing nothing else; verify
+  `parse(old) == parse(new)` and that the full suite passes — `18315b8`, held to it by
+  `tests/test_reprint.py` (tree equal, `new == canonical(old)`, fence bodies and `Skill.blocks`
+  identical); four line-wise readers fixed first, two Whys fixed after (below)
+- [x] 3.2 Replace `layout`'s physical scans and `shared-text`'s copy comparison with the canonical
+  comparison; keep each existing negative control firing — `layout` reports the first line that
+  differs from `canonical(file)` and keeps branches only for what printing leaves as written;
+  `shared-text` aligns template and passage as trees; every control fires, one added
+
+  Before the re-print every writer was aligned with the printer: `fmt`, `shared.rewrite`,
+  `renumber` (with `carry`) and `demote` all write `doc.canonical`, and `text.reflow` and
+  `shared.wrap` are deleted. Decisions made on the way:
+
+  - `renumber` re-prints only a standard's markdown. The README, sources and tests keep their
+    line breaks: nothing holds them to the canonical form, and re-printing them would rewrite text
+    the renumbering did not touch.
+  - `shared.render` returns blocks and a list is numbered by printing, so `_renumber` went too;
+    `shared.rewrite` splices the template's blocks into the file's tree and prints the whole file.
+  - `Fence.closed` (not compared) records a fence the file ends inside, so `layout` reports it as
+    a file that does not parse as written instead of as a non-canonical last line.
+  - `layout` measures widths, kept tabs and CRs on the canonical text, so a defect the printer
+    removes is reported once. A table row inside an example stays unmeasured, as before. Files
+    are read with `newline=""`: read the usual way every CR was already a line break, so the old
+    `CR present` branch could not fire. `fmt` reads the same way.
+  - A code span or link wider than the line is a note (decision 2); the re-print joins twelve
+    such spans that the old wrapping had split, mostly `rg` commands in bevy's migration chapter.
+
+  What the re-print surfaced, checked by diffing every finding of `check --fast --verbose` before
+  and after, and by counting what the line-wise citation reader matched:
+
+  | Finding | Kind | Resolution |
+  |---|---|---|
+  | ZS-CONC-25, ZS-CONC-33, ZS-TEST-10 "is [M!] with no relaxed form" | reader | `*Relaxed`/`form:*` on two lines; the label is matched across whitespace |
+  | zig `performance.md` "bold-inline rule definitions" | reader | `**ZS-BUILD-25**` mid-paragraph opened a line; a definition is a paragraph that opens with one |
+  | twelve "prose line is N columns" | reader | code spans no line can hold; notes, as decision 2 says |
+  | none: `_paths` read 302 citations before and 294 after | reader | read across a line break, not a blank line: 323 both ways |
+  | RS-TRAIT-36 "Why runs 4 lines" | content | the 101-column type moves into the statement the rule lacked |
+  | ZS-ERR-18 "Why runs 4 lines" | content | two words cut |
+
+  The `_core_citations` control relied on line-wise `_paths` missing a citation split across
+  lines; it now puts the wrong chapter on a list's second ID, which `_paths` does not read. The
+  prose-width control is now a non-canonical paragraph, owned by `_canonical`; a new control, an
+  example line over the limit, keeps `_widths` covered.
+
+## 4. Findings, locations, branches
+
+- [x] 4.1 Give `Finding` a `Location` and a `Branch`; convert every check, deleting the intermediate
+  `(message, where)`, `(row, message)` and `Verdict` forms — `ee747de`; 265 branches over 22
+  checks and 8 of `fmt`, each a module constant beside the sites that fire it
+- [x] 4.2 Introduce `per_skill`; delete `scope`; make `--skill` a post-filter on findings; reject
+  unknown `--only`/`--skill` names — `ee747de`; `model.Tree` is the skills, `PerSkill` lifts a
+  check of one skill, `Result.within` filters, and per-skill checks read only the chosen skills
+
+  Decisions made on the way:
+
+  - A branch name is snake case and its check's name stays kebab case (`shared-text.differs`), so
+    `Branch` takes two grammars (`e70b04d`).
+  - Branches are module-level constants (`DISABLED_CODE = Branch("citations", "disabled_code")`)
+    beside the sites that fire them, so 5.2 can collect them without running anything. A profile's
+    own rules fire through `conventions` or `prose` with the standard's prefix (`rs_setter`,
+    `zs_unwrap`), declared in the profile; a toolchain's steps through `toolchain` or `mutation`
+    with the language's (`py_run`, `zig_fmt`), declared in `lang/`. `fmt` reports through
+    `Branch("fmt", …)`: a command, not a check, so outside the bijection.
+  - `Tree` is `tuple[Skill, ...]` and nothing else. The checks that read beside the skills
+    (`plugin`, `documented`, `controls`) still find the repository from the first skill's root.
+  - `@check(...)` sits above `@per_skill`, so the module name is the lifted check and `.each` the
+    function of one skill; `PerSkill.__wrapped__` lets `inspect.unwrap` find its source.
+  - A per-skill check reads only the chosen skills, which keeps every finding the filter would
+    only if each finding lies in the skill it was reading. `tests/test_controls.py` holds every
+    per-skill control to that. The controls narrow through the same `Check.run(about=…)`.
+  - `pins` is a tree check: the harness's tool pins lie at `./pyproject.toml`, in no skill, so a
+    per-skill `pins` would have broken that law. Reading every skill made each pin control ask the
+    network about Rust and Bevy too, so `_stable` and `_crates_io` answer once a process; the
+    controls cost what they did (21.8 s against 23.6 s at `a7b3094`, same machine, same script).
+  - `fast` stays a keyword only `controls` takes: it is a fact about the run, not the tree.
+  - A location names a chapter by its path in the skill (`references/errors.md`), and a finding
+    about a rule now carries its heading's line where the old one named only the chapter. A
+    message that spelled its file by hand (`assets/ci.yml …`, `` `plugin.json` is missing ``) gave
+    the file to the location; `shared-text` gives the line of the differing block, not `§ section`.
+  - A Rust mutant is found in the crate's module file, which no `Location` can name until a unit
+    keeps its block (decision 6's open question): it lies in the skill, and the module's line leads
+    its message.
+  - For 5.1: 22 of the 23 controls in `BRANCHES` fire exactly one branch, and it is a branch of
+    the function their entry names (`citations.disabled_code`, `layout.canonical`,
+    `skeleton.rename_self`, …). The compiler row control fires `citations.zig_no_probe` and
+    `citations.zig_probe_no_row`: misspelling the row's lint leaves a row without a probe and a
+    probe without a row, never a probe printing another error (`zig_probe_other`).
+
+  `check --fast --verbose` before and after differ in 32 lines, all rendering: 30 `layout` notes
+  name `skill/references/x.md` for `skill/x.md`, and 2 `mirror` notes are located at
+  `python-style [PS-NAME-18]` and `[PS-NAME-19]` where they printed the check's name. With those
+  two spellings mapped back the outputs are identical. `check --skill zig-style --only toolchain
+  --only mutation` passes in 2 min; its nine mutation notes now name their skill
+  (`zig-style/references/build.md:1297 [ZS-BUILD-38]`), which the unit's `chapter:line [rule]`
+  left out.
+- [x] 4.3 Move `skeleton`, `anatomy`, `crossref`, `mirror`, `citations` and `assets` onto the tree,
+  deleting their own scanners; verify the regex-literal count from 1.1 falls to the one in `ids`
+  — the six read `Doc`, the chapter layer and `RuleId` only; by 1.1's commands, rule-ID regex
+  literals 42 → 27 (33 at baseline), heading scanners 24 → 19, fence trackers 13 → 9
+
+  What they read now, and what went:
+
+  - `model` adapts: `Chapter.doc` and `Skill.doc` parse once, `Chapter.typed` and `Skill.typed` are
+    the chapter layer's `Chapter` and `SkillMd`, and `Skill.core`, `Skill.chapter_rules`,
+    `Skill.ids` (the ID union, once per skill) and `Skill.docs` derive from them. A core rule is a
+    `Rule` with a `Tier`; no check unpacks `(id, tier, body)`.
+  - The layer gained what the checks asked of text: `LintRow.line` (a row is its table's line + 2 +
+    its index), `SkillMd.overrides` (the delta table, typed), `citing(doc)` (every top-level block
+    outside a rename table's section), `RenameTable.unchanged` and `.unread`, and `text_of(blocks)`
+    in `doc`. `ids` gained `RuleId.try_parse`, `cited` and `uncited`, all on the one pattern.
+  - Deleted: `skeleton`'s fence and H1 scanners, `shared.section` and `shared.h2s` (their only
+    caller was `skeleton`), `crossref.OVERRIDE_ROW` and `CITATION`, `anatomy`'s fence regex and
+    seven ID spellings, and from `model` the readers left without a caller: `Chapter.toc`,
+    `without_renames`, `Rule.why`, `.statement` and `.where`, `LintRow.where`, `Rename.lint` and
+    `.removed`. The rest of `model` keeps its other callers until they move.
+  - Left outside `ids` and `doc`, each built from `rule_id()`: `anatomy`'s core-rule citation
+    (`` `references/x.md` ID, ID ``), its near citation (a chapter, then an ID within 40 columns)
+    and `_ABBREVIATED`. All three read inline citation grammar inside one block's text, which the
+    tree keeps whole. Three more lines the 1.1 pattern counts there are not regexes:
+    `NUMBERING` twice and the `NUMBER` import.
+
+  Decisions made on the way:
+
+  - A chapter the layer refuses (a block or a rule before the first section, a contents list
+    without its `---`) reads as one with no rules, so no check stops the run on it; `skeleton`
+    reports the refusal (`skeleton.unread`, new, with a control). The layer now refuses a `###`
+    rule before the first `##`, which it used to read as scope and drop, and reads a rename row it
+    cannot read into `unread` rather than raising, so `skeleton.rename_shape` can still fire.
+  - A rule's Why is measured, and a citation's line counted, in the text as printed. In a file
+    `layout` passes that is the file's own; a hard break inside a Why is no longer a line of it.
+    The Why-length control now adds words instead of a line break, and two tests in
+    `test_structure_rules` say the same.
+  - `anatomy` uses the layer's `statement` (prose before the first label) and a core rule's own
+    item, where the old readers took everything before `**Why` and ran a core rule on into the next
+    `###` group heading. Restatement and mis-citation outcomes are the same on every shipped rule.
+  - The reference-map counts are read from section 6, not from all of `SKILL.md`.
+  - `mirror` prints a tier with its printer: `RS-NAME-01 [M] vs ZS-NAME-02 [S]`.
+  - The demo standard in `tests/structure_fixture.py` was not shaped as a chapter (rules with no
+    `## Contents` and no `##` section); it is now.
+  - `BRANCHES` names `anatomy._relaxed` for the two relaxed-form controls: the logic left `_rule`.
+
+  Checked by diffing every finding of the six checks over the shipped tree and over all 74
+  control trees, before and after. The shipped tree and `check --fast --verbose` are identical.
+  Three findings differ, under controls only: the abbreviation control's line is 53 where it was
+  52, because the injected paragraph is not canonical; `mirror`'s tier message; and a temporary
+  directory's name.
+
+## 5. Controls as a bijection
+
+- [x] 5.1 Convert every control to `Control(branch, inject)` with `inject` returning touched paths;
+  delete `TOUCHED`, `BRANCHES` and the test monkeypatching; one runner, run concurrently —
+  `5125a05`; `exercise` is the runner, a thread pool runs it in `controls`; controls 75 → 71, and
+  `controls` 23.3 s → 9.4 s (`time uv run agent-skill check --fast --only controls`, 4 cores)
+
+  Decisions made on the way:
+
+  - A branch is declared with the one level it reports at, `declare(check, name, level)`, and a
+    `Finding` at another level is refused: every one of the 274 branches already reported at one
+    level, so which can fail a run is read off the declarations, not off the sites.
+  - A control fails when its branch does not fire (`controls.silent`, naming what fired instead),
+    and when another branch of its check fires beside it (`controls.beside`) unless its `also`
+    names that branch with why. The per-skill law `test_controls` held beside the runner is in the
+    runner (`controls.elsewhere`). `controls.no_check` is gone: the bijection test holds every
+    control's branch to a registered check.
+  - The corpus cache was a count-bounded `OrderedDict` keyed by root; run concurrently, it evicted
+    and deleted a corpus another control was still searching. It is keyed weakly by the `Skill`
+    read, under a lock, so a corpus lives as long as its tree.
+  - Each control asserted only "some FAIL". Held to its branch, seven fired through, or beside,
+    another, and were fixed: the zig row control fired `zig_no_probe` and `zig_probe_no_row` (as
+    B3 found) and now deletes a row, guarding `zig_probe_no_row`; the unread chapter moved to
+    `migration.md` (refusing `testing.md` broke three rename rows); the reflect control keeps the
+    derive; the deleted override table keeps its rows as prose (deleted, the anchor sweep hit as
+    well); frontmatter with no name deletes the line (misspelt, it was an extra key too); the
+    undocumented check deletes its row (renamed, it was a stale row too); the narrowed sensitivity
+    pattern became an added one (narrowed, its fixture went unmatched too).
+  - Two controls on one branch prove one thing twice. Dropped: two of three on
+    `self-application.decides`, the mid-chapter renumbering beside the end-of-chapter one on
+    `anatomy.numbering`, and one of the two narrowed sensitivity patterns. The COM812 citation now
+    cites `ASYNC101`, which ruff never had, and guards `citations.unknown_code`. `pins.project_pin`
+    split into `project_pin` (an exact pin on another build) and `project_inexact` (a floor or a
+    range), one control each: the floor was a separate defect, found after the first.
+- [x] 5.2 Add the bijection test; for each uncovered branch add a control or an exemption with its
+  reason; report the count added — the domain is refined to the branches that can fail a run
+  (decision 5): 219 FAIL branches over 22 checks have 175 controls (104 added) and 44 exemptions;
+  33 `UNRUN` branches are 18 reached by an absent tool and 15 listed in `test_unrun` with why; 19
+  `NOTE` branches and `fmt`'s 8 are outside. `controls` runs 175 controls in ≈15 s against 23.3 s
+  for 75 serially; `check --fast` 28 s; pytest 819 passed in 2 min 5 s
+
+  | Exemption reason | Branches |
+  |---|---|
+  | `COMPILES` — a branch of `toolchain` or `mutation` (the README exempts both) | 20 |
+  | `HARNESS` — fires on a profile's or the harness's declaration, not on the tree | 9 |
+  | `OTHER_TOOL` — fires on another installed tool or tool behaviour, incl. `assets.no_wheel` | 6 |
+  | `NEWER_RELEASE` — fires on a newer release upstream | 4 |
+  | `MECHANISM` — a branch of `controls`, incl. `empty_corpus` (builds its own empty skill) | 5 |
+
+  Decisions made on the way:
+
+  - The branches are derived: the test imports every module of the package and reads `DECLARED`.
+    A branch of no registered check other than `fmt`'s fails the suite.
+  - Four controls cannot help reaching a second branch, and say so in `also`: a missing contents
+    entry also differs in order (`_contents_order` compares the lists whole); an unknown ty rule is
+    also one the harness does not verify; and `claude plugin validate --strict` warns on a manifest
+    with no version and on a `SKILL.md` that is not a file, failing on the warning.
+  - `plugin.skills` was thought unreachable, since the tree is discovered from the directory the
+    plugin ships; a `SKILL.md` that is a link to nothing is shipped and not discovered.
+  - `test_unrun`'s absence now forgets every process-wide cache before and after: a cached answer
+    from a present tool masked the absence, so `citations.ty_rules_unread` was never reached.
+  - For task 6: the nine `HARNESS` branches (`crossref.delta_declaration`,
+    `crossref.anchor_no_language`, `sensitivity.no_language` and `.no_fixture`, and five of
+    `pins`) check a profile's or the harness's own declarations; once profiles are records, each is
+    a test over the records rather than a branch of a check of the tree.
+
+## 6. Profiles as records
+
+- [x] 6.1 Convert each profile to a frozen record; move `MIRROR`, `FIXTURES`, the delta anchor, the
+  ty rule table, the harness tool pins and every other per-skill constant out of `checks/`
+  — `2703a97`, `20d4290`, `b4d6c5e`; four `Profile` literals in `PROFILES`, `register()` gone; 26
+  constants and tables moved out of generic code (below); every pin the harness holds is a `Pin`
+- [x] 6.2 Replace convention and prose functions with `LineRule` data and one engine; verify every
+  existing finding is reproduced — `95bf590`; 16 `LineRule`s (Python 3 + 1 prose, Rust 6, Zig 5 + 1
+  prose) and 3 exemptions as `Unless` records, read by `checks.lines`; 4 escapes left; findings
+  identical, and old and new agree on 12,000 generated examples and 6,000 generated chapters
+- [x] 6.3 Add the test that no generic module contains a skill or toolchain name literal —
+  `tests/test_profiles.py`, names read off `PROFILES`; the 9 `HARNESS` exemptions are tests over the
+  records there (3 also impossible by type), their branches deleted: exemptions 44 → 35, controls 175
+
+  What moved, from generic code to a profile, a toolchain's module or `harness.py`:
+
+  | From | To |
+  |---|---|
+  | `mirror.MIRROR` (12 pairs), `mirror.ANCHOR` | each profile's `Mirror(anchor, pairs)` |
+  | `citations._ty_tables` reading `PYTHON_STYLE` | the skill's own `PythonSnippet` |
+  | `pins.TOOLS`, `pins.HARNESS`, `proc.PACKAGE`, the pin readers | `harness.HARNESS`, `harness.pinned` |
+  | `INTERPRETER`, `rust_version`, the Bevy dependency line, `ZIG_VERSION` | `Pin`s in the configs |
+  | `toolchain`, `crate`, `library`, `follows_local`, `delta_step`, `anchor`, `pin()` | `toolchain: PythonSnippet \| RustCrate \| ZigBuild`, `subject`, `Delta`; `pin`, `release` derived |
+  | `text._SYNTAX`, `corpus`'s suffix table, `markers`' `//` and `#`, `inside_tests` ×3 | `lang.Language` |
+  | `citations.LEVELS`, `SECTION`, `RUFF_TOML`, `TY_TOML`, `CODE`; `demote.COMPILERS` | toolchain `rows`, `compilers` and module constants |
+  | `pins.WORKFLOW`, `PROJECT`, `RELEASE`, `REQUIREMENT`, `STABLE` | `lang.python`, `lang.rust` |
+  | `fmt.FORMATTERS`, `INJECTED`, `_bodies`; `model.needs_c_object`, `repr_c_above` | `Toolchain.format`, `lang.rust`, `lang.zig`, `REPR_C` |
+  | the `needs` of `citations`, `pins`, `assets`, `toolchain` | read off the toolchains |
+  | `controls`' `PY`, `RS` and 47 skill paths | the profiles' names |
+
+  Escapes left, each a named function of one block in `structural`, because each reads the
+  example's structure rather than a line: Bevy's `component_shape` (a derive list, the attributes
+  above a struct, its fields) and `suffixes` (a plugin type's declaration found by name, a set's two
+  lines below its derive), Rust's `unused_defaults` (whether any line reaches a derived `Default`),
+  and Zig's `import_order` (which of two imports comes first).
+
+  Verification: `check --fast --verbose` differs from `87be9f8` in two notes only, which named the
+  deleted `MIRROR` table and now say the pair is one "its profile does not mirror". The old
+  convention, prose and exemption functions were run beside the engine: on every block of every
+  skill with BAD ones included, on every chapter with its Checks opened, and on generated input
+  built from each rule's own fragments. The one divergence found, Zig's `catch` stated as two
+  patterns reporting a line holding both alternatives twice, is why a branch reports a line once.
+  `check --fast` was red before this task and is unchanged: upstream released `ruff` 0.17.4 and
+  `ty` 0.0.99, so `pins.tool_stale` fires and four pin controls fire it beside their own branch.
+
+## 7. Toolchains
+
+- [x] 7.1 Express Python, Rust and Zig as extract/restore pairs with `Unit` carrying its `Block`;
+  property-test `restore ∘ extract = id` on every shipped skill — `f098fea`; `Unit(path, block)`, a
+  file of one block in every language (Rust's `src/<chapter>/<rule>.rs`, at column zero); the
+  identity holds byte for byte on all 562 verified blocks (`tests/test_extraction.py`), and
+  `SKILL.md`'s `verified` blocks are extracted in every language, as Zig's one already was
+- [x] 7.2 One driver for compile, test, format and mutate with one timeout policy; delete the
+  per-language loops — `f098fea`; `checks.toolchain.verify` and `.mutate` over `Step` data, one
+  policy in `lang.judged`, one mutant grammar `lang.deletable`; every finding on its markdown
+  line, Rust's mutants included (the open question, resolved); a survivor is a note everywhere
+  (design.md, decision 6); `toolchain`/`mutation` branches 28 → 12, exemptions 35 → 22
+- [x] 7.3 Derive `fmt` from the pair for every toolchain; verify `fmt` is idempotent on the repo —
+  `fmt` is `restore ∘ format ∘ extract`; on the tree it rewrote three Rust blocks wrapped for the
+  `pub mod` they no longer sit in (`16049c9`, formatting only) and nothing else — `zig fmt` and
+  `ruff format` agree with every shipped block — and a second run changes nothing
+
+  Verification, against `38e9e14`: `check --fast --verbose` is identical before the content commit;
+  after it, seven notes move up by the lines it removed, and one of them quotes the joined line.
+  Toolchain and mutation, run per pair of skills before and after:
+
+  | Skills | Before | After |
+  |---|---|---|
+  | zig, python | pass; 9 survivor notes, 1 inconclusive; 1 m 46 s | pass; 10 survivor notes, 1 inconclusive; 2 m 24 s |
+  | rust, bevy | pass; no finding; 15 m 24 s | pass; no finding; 12 m 52 s |
+
+  Every difference is the one grammar's. Python's note (`testing.md:193`, `ids=[…]`) was a line
+  inside a test, which Python alone mutated; its five new candidates (`raise`, `return`, a call)
+  are all killed. Zig gains two survivors on statements a trailing comment had hidden:
+  `build.md:1305` `cli.rest = argv[i..];` and `testing.md:511` `errdefer out.deinit(gpa);` — the
+  line its own comment calls the one `checkAllAllocationFailures` exists to verify, which deleted
+  leaves that test green: a test that cannot fail on its stated case, left for the content work.
+  Bevy loses 18 candidates that could only be killed (`const`, `type`, a `));` tail), which is the
+  time saved; rust-style's six are unchanged. The Rust and Bevy runs are at `16049c9`; `cargo fmt`
+  gains `--quiet` after it, and `fmt` on the tree is still a no-op.
+
+## 8. Revision
+
+- [x] 8.1 Implement `revise(tree, plan, chapters)` over the tree with the dangling-capture refusal
+  — `1bc9246`; pure, returns a `Revision`; σ closes the plan per family, identity on `CORE`; one
+  rewrite through `ids.respell`; refuses a citation of a rule the plan takes away and L0's capture;
+  `renumber`/`demote` are `revise` on the command line; renumber.py and demote.py deleted
+- [x] 8.2 Property-test the laws: inverse round trip byte-for-byte, empty plan writes nothing,
+  citation identity preserved — `4096e06`; `tests/test_revise_laws.py`, seeded draws on copies of
+  the shipped repository, 11 cases in ≈11 s; found that swapped chapter names collided (moves are
+  two-phase now); renaming `errors`/`testing` needs a template change (design.md, decision 8)
+- [x] 8.3 Move each rename table to `references/renames.md`; `migration.md` names it once; update
+  `skeleton`; keep `renumber` and `demote` as CLI aliases — `ecdcbdb`; tables moved byte for byte,
+  fences identical; `vocabulary.UNCODED`; three `skeleton` branches, three controls
+
+## 9. Close
+
+- [x] 9.1 Delete every superseded parser, regex, helper and adapter; add the test that fails on a
+  second spelling of any concept from 2.1 — `b48a0ac`, `646d1ed`, `3226db7`; `model` reads no
+  markdown (798 → 478 lines), every check reads the tree and every version is read by `ids`;
+  `tests/test_one_spelling.py` reports 83 sites over the baseline's source, 39 over `acd8694`'s,
+  none now
+- [x] 9.2 Re-measure everything in 1.1 and record the deltas in this file — "After task 9
+  (measured)", below the baseline: `check --fast` 33.4 s → 24.6 s, pytest ≈2 min 35 s → 2 min
+  9 s, full `check` ≈22 min → 14 min 59 s, all passed
+- [x] 9.3 Update README sections that describe the harness's internals; `documented` passes —
+  `0a45acf`; Layout, a new "One reader per concept", renumbering, formatting, `self-application`,
+  the negative controls, and the `dialect` row
+
+  What went, and where each reader is now:
+
+  | Deleted | Now |
+  |---|---|
+  | `model`: `Chapter.rules`, `.lint_rows`, `.rename_tables`, `.renames`, regex `blocks`; `Skill.rules`, `.lint_rows`, `.rename_tables`, `.renames`, `.by_id`, `.core_rules`; `model.Rule`, `LintRow`, `Rename`, `RenameTable`, `rename_tables`, `_rows`, `_section`, `unfenced`, `FENCE`, `SECTION`, `RENAMED`, `DASH`, `_RANGE`, `DECIDED` | the chapter layer (`Chapter.typed`, `Skill.chapter_rules`, `Skill.core`) |
+  | `model.prose_lines` | `chapter.owned` and the printed blocks, in `checks.lines` |
+  | the regex in `Chapter.blocks`, its rule found by a heading regex that read fences too | a `Fence` of the tree under the rule `chapter.owned` says; `Block.rule` a `RuleId` |
+  | `layout.HEADING`, `TOC`, `_walk` | `doc.entry` over the tree; `doc.walk` |
+  | `prose._broken_quotes`' line state, `POSITIONAL`'s ID pattern | `Quote.lazy`; `ids.cited_at` |
+  | `documented.ROW`, `CELL` | the README's `Table` |
+  | `frontmatter`'s `^---` regex | `Doc.frontmatter` |
+  | `fmt.put_back`'s fence text | the tree's `Fence` on the block's line |
+  | `chapter._entry`, `chapter._RANGE`, `chapter.DASH` | `doc.entry`; `ids.ranges`, `print_range`, `DASH` |
+  | `pins._sort_key`, `SortKey`, `shared.major_minor`, Rust's `_minor`, Python's `RELEASE` and `FREE_THREADED`, `harness._VERSION` and its pin regex, anatomy's pin match and `release_token` | `Version.released`, `.search`, `.series`, `ids.releases`; `lang.python.listed` |
+  | `anatomy.MAP`, `patterns`' `[A-Z]{2}-`, the family counts' `[A-Z]+` | `shared.MAP`; `ids.STANDARD`, `ids.FAMILY` |
+  | `dialect.WRAPPED` and its control | unreachable on the tree; `layout.canonical` |
+
+  Decisions made on the way:
+
+  - A section's heading and lead sit under no rule (`chapter.owned`); the line-wise readers
+    carried the last rule on into them. No example's rule and no finding changed.
+  - The prose rules skip the paragraph a Check label opens, as the line-wise reader did, not the
+    Check part, which would hide about 650 more lines from them.
+  - `dialect.wrapped` could not fire once a Check is read from the tree, which reads a code span
+    as one word: FAIL branches 200 → 199, controls 178 → 177, exemptions 22. A wrapped command is
+    a non-canonical line, which `layout` reports and `fmt` joins.
+  - `Version.released` keeps `_sort_key`'s precision (three numbers, a stage, no local label):
+    `Version` orders `15.2` before `15.2.0`, so a coarser answer would read as older than a pin.
+  - B8's law gap. A `{cited}` slot giving the first rule of the first two chapters the map lists
+    survived a renaming of `errors` and failed two demo tests: a rule a template cites is cited in
+    every standard, so `revise` refuses to remove it while `fmt` writes it back. The passage now
+    cites no rule (`Rules are cited by ID: PS-, then the family of the chapter that owns the rule,
+    then its number`), a test holds every template to that, and the laws rename `errors` and
+    `testing` and back in two standards; the new law fails on the old template.
+  - `text.py` stays: `group`, `strip_comment` and `code_only` read code and regex matches, not
+    markdown, and none has a second spelling.
+
+  Checked by diffing `check --fast --verbose` against `acd8694`: identical but for four
+  zig-style `SKILL.md` notes one line lower, because the re-rendered how-to-use paragraph is one
+  line longer; fence bodies are unchanged. `check --skill zig-style --skill python-style --only
+  toolchain --only mutation` passes in 2 min 9 s with the ten survivor notes and one
+  inconclusive mutant task 7 recorded. pytest: 944 passed, 7 deselected.
+
+  Not achieved: a profile's maps still key rules by their printed ID (`exempt`, `not_decisive`,
+  `fires`, `unproven`, `unless_own`), so a rule ID there is a string checked by
+  `tests/test_profiles.py` rather than a `RuleId`; and `self-application` and `crossref` print a
+  hit list's `chapter:line [rule]` inside a finding's message by hand, beside `Location`.
+
+## Baseline (measured)
+
+Taken at `4b46e84`, on a 4-core container, Python 3.15.2 (free-threaded), before any code of this
+change landed. Times are one wall-clock run each, through `uv run`; every `--only` run includes the
+≈0.18 s that `uv run agent-skill --help` takes to start and exit.
+
+| Measure | Value | How |
+|---|---|---|
+| full `check` | ≈22 min | reported for this commit; not re-run in this step |
+| `check --fast` | 33.4 s, all passed | `time uv run agent-skill check --fast` |
+| pytest, not toolchain | 543 passed, 4 deselected, ≈2 min 35 s | `uv run pytest -q -m "not toolchain" -p no:cacheprovider` |
+| rule-ID regex literals | 33 lines | `rg -n --type py '\[A-Z\]\+\)?-\(?\\d\|rule_id\(\|NUMBER' src/` |
+| heading scanners | 24 lines | `rg -n --type py -g '!**/checks/controls.py' -e 'startswith\("#+ ' -e '\^#' -e '\\n##' src/` |
+| fence trackers | 19 lines | `rg -n --type py -F '```' src/ \| grep -v '^\S*:\s*#'` |
+| `WIDTH` definitions | 3 | `rg -n --type py 'WIDTH\s*=' src/` (`text.py`, `shared/__init__.py`, `checks/layout.py`) |
+
+The heading-scanner pattern counts every line that finds a heading by its `#` text (`## ` boundaries,
+`### ` rule heads, the H1 lookups in `skeleton`); `controls.py` is excluded because its hits are
+injected fixture text, not scanners. The fence count includes the two lines in `fmt.py` that locate a
+block by rebuilding its fence text.
+
+Per-check, `uv run agent-skill check --fast --only NAME` (seconds):
+
+| Check | s | Check | s | Check | s |
+|---|---|---|---|---|---|
+| `anatomy` | 2.34 | `dialect` | 0.62 | `pins` | 1.37 |
+| `assets` | 0.78 | `documented` | 0.14 | `plugin` | 1.62 |
+| `citations` | 2.35 | `frontmatter` | 0.61 | `prose` | 0.38 |
+| `controls` | 19.93 | `layout` | 0.26 | `self-application` | 3.13 |
+| `conventions` | 0.25 | `lints` | 0.16 | `sensitivity` | 1.08 |
+| `crossref` | 0.72 | `markers` | 0.25 | `shared-text` | 0.70 |
+| `mirror` | 0.94 | `skeleton` | 0.65 | | |
+
+`toolchain` and `mutation` are the two slow checks; they are most of the 22 minutes and were not
+timed alone, for the same reason the full check was not re-run.
+
+## After task 9 (measured)
+
+Taken at `0a45acf`, on the same 4-core container and interpreter, with the same commands; one
+wall-clock run each. The full check is the one run of task 9.2.
+
+| Measure | Baseline | After | Note |
+|---|---|---|---|
+| full `check` | ≈22 min, reported | 14 min 59 s, all 22 checks passed | `time uv run agent-skill check --verbose`, run once |
+| `check --fast` | 33.4 s, all passed | 24.6 s, all passed | `controls` runs 177 controls at once where 65 ran one by one |
+| pytest, not toolchain | 543 passed, 4 deselected, ≈2 min 35 s | 944 passed, 7 deselected, 2 min 9 s | |
+| rule-ID regex literals | 33 lines | 15 lines | `ids` 7; `anatomy`'s three citation patterns (4 lines) and its `NUMBER` import; 3 lines naming the `NUMBERING` branch, which the pattern also matches |
+| heading scanners | 24 lines | 0 | |
+| fence trackers | 19 lines | 9 lines, none a tracker | 7 are markdown `controls` injects, 1 `layout`'s three backticks inside text, 1 `doc` |
+| `WIDTH` definitions | 3 | 1, in `doc` | the command's 5 lines include 4 `layout` branches named `*_WIDTH` |
+
+Per-check, `uv run agent-skill check --fast --only NAME` (seconds, baseline → after):
+
+| Check | s | Check | s | Check | s |
+|---|---|---|---|---|---|
+| `anatomy` | 2.34 → 2.47 | `dialect` | 0.62 → 0.48 | `pins` | 1.37 → 0.96 |
+| `assets` | 0.78 → 0.62 | `documented` | 0.14 → 0.14 | `plugin` | 1.62 → 2.06 |
+| `citations` | 2.35 → 1.67 | `frontmatter` | 0.61 → 0.46 | `prose` | 0.38 → 0.80 |
+| `controls` | 19.93 → 12.47 | `layout` | 0.26 → 1.19 | `self-application` | 3.13 → 2.31 |
+| `conventions` | 0.25 → 0.60 | `lints` | 0.16 → 0.16 | `sensitivity` | 1.08 → 0.73 |
+| `crossref` | 0.72 → 0.89 | `markers` | 0.25 → 0.49 | `shared-text` | 0.70 → 0.55 |
+| `mirror` | 0.94 → 0.79 | `skeleton` | 0.65 → 0.51 | | |
+
+What got slower parses where a regex scanned: `layout` prints every file and parses the print
+(3.2), `prose` prints each chapter's blocks, and `conventions` and `markers` find their examples
+in the tree. `controls` is faster for running concurrently (5.1), with 112 more controls.

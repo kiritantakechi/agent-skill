@@ -53,11 +53,22 @@ CHAPTERS: dict[str, str] = {
 #: The family of the rules `SKILL.md` states itself.
 CORE = "CORE"
 
-#: The one chapter outside the table: it owns no rules, so it has no
-#: code.
+#: The review protocol: a chapter outside the table, which owns no
+#: rules, so it has no code.
 REVIEW = "review-checklist"
 
-#: Chapters every standard ships.
+#: The rename history: every rule ID a revision changed, and what it
+#: became. Not a chapter at all — it owns no rules and nothing on the
+#: reading path loads it — but it ships beside them, so it is named here
+#: rather than allowed by a second list somewhere else.
+RENAMES = "renames"
+
+#: The files under `references/` that have no family code, because none
+#: owns a rule.
+UNCODED: tuple[str, ...] = (REVIEW, RENAMES)
+
+#: Chapters every standard ships. The rename history is not one: a
+#: standard no revision has renumbered has none.
 REQUIRED: tuple[str, ...] = ("migration", REVIEW)
 
 
@@ -70,5 +81,5 @@ def code_for(stem: str) -> str:
 
 
 def allowed(stem: str) -> bool:
-    """May a chapter file be called this?"""
-    return stem in CHAPTERS or stem == REVIEW
+    """May a file under `references/` be called this?"""
+    return stem in CHAPTERS or stem in UNCODED

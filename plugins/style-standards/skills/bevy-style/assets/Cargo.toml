@@ -1,6 +1,6 @@
 # Canonical workspace manifest for a Bevy 0.20 game.
 # Copy, then delete what does not apply.
-# Referenced by BV-BUILD-02, BV-BUILD-04, BV-BUILD-07 and RS-BUILD-23.
+# Referenced by BV-BUILD-02, BV-BUILD-04, BV-BUILD-07 and RS-BUILD-22.
 
 [workspace]
 resolver = "3"                       # implied by edition 2024; explicit is fine
@@ -33,7 +33,7 @@ bevy = { version = "=0.20.1", default-features = false, features = ["2d", "ui", 
 # This table is `rust-style`'s, with exactly two entries relaxed. Both were
 # measured against a representative plugin, and both say which kind of
 # divergence they are. Adding a third needs the same treatment: the API that
-# forces it, the count, and whether a compliant form exists (BV-BUILD-14).
+# forces it, the count, and whether a compliant form exists (BV-BUILD-12).
 # ---------------------------------------------------------------------------
 
 [workspace.lints.rust]
@@ -64,7 +64,7 @@ panic = "deny"
 todo = "deny"
 unimplemented = "deny"
 indexing_slicing = "deny"            # `get` where an entity count reaches the index
-dbg_macro = "deny"                   # BV-ERR-09
+dbg_macro = "deny"                   # RS-OUT-06
 undocumented_unsafe_blocks = "deny"  # inert under `forbid`, live the moment that drops to "deny"
 mem_forget = "deny"
 
@@ -80,7 +80,7 @@ cast_sign_loss = "warn"
 float_cmp = "warn"
 
 
-# RELAXED (BV-BUILD-13). Fires on every `Res<T>` parameter a system does not
+# RELAXED (BV-BUILD-12). Fires on every `Res<T>` parameter a system does not
 # consume, and the suggestion does not compile: `&Res<'_, T>` is not a
 # `SystemParam`, so following the lint produces E0277 at the `add_systems`
 # call. This one has no compliant form.
@@ -88,8 +88,8 @@ needless_pass_by_value = "allow"
 
 # NOT relaxed, deliberately: `type_complexity` and `too_many_arguments` both
 # fire on ordinary Bevy code, and upstream Bevy allows both. A `type` alias
-# (BV-ECS-19) and `#[derive(SystemParam)]` (BV-SCHED-09) silence them, and both
-# are the better code. See BV-BUILD-14.
+# (BV-ECS-19) and `#[derive(SystemParam)]` (BV-SCHED-10) silence them, and both
+# are the better code. See BV-BUILD-12.
 
 [profile.dev]
 # The game's own crates stay unoptimised, so the edit-compile-run loop is fast.

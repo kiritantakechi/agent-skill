@@ -9,6 +9,12 @@ running anything.
 import re
 from dataclasses import dataclass
 
+from agent_skill.doc import text_of
+from agent_skill.doc.chapter import CHECK
+from agent_skill.ids import STANDARD
+lazy from agent_skill.doc.chapter import Rule
+lazy from agent_skill.lang import language
+
 #: A backticked span is worth running only if it looks like code, not
 #: prose.
 CODEISH = re.compile(r"[\[\](){}<>:\\|*+?^$]|_")
@@ -30,6 +36,9 @@ FILE_ARG = re.compile(
 )
 
 COMMAND = re.compile(r"`(rg\s[^`]*)`")
+#: `| rg -v '…'` to the end of its command: a second search that drops
+#: lines from the first one's output.
+NEGATED = re.compile(r"\|\s*(rg\s+-v\b[^`]*)")
 QUOTED = re.compile(r"'([^']*)'|\"([^\"]*)\"")
 #: A prose span shorter than this is not run as a pattern.
 SHORTEST = 4
@@ -43,16 +52,31 @@ class Pattern:
     mode: str  #: `-F` literal text, `-E` regex — there is no third
     kind: str  #: "command" — the Check ships it; "prose" — a span it names
 
-    @property
-    def over_comments(self) -> bool:
+    def over_comments(self, lang: str) -> bool:
         """Does this Check mean the comment, rather than the code?
 
-        A fact about the pattern, so it is asked once. `hits` and
-        `lines_for` each spelled it, ten lines apart, and they have to
-        agree: the exemption hook reads line `n` of whichever list
-        `lines_for` returns, numbered by whichever file `hits` searched.
+        A fact about the pattern in `lang`, so it is asked here once.
+        `hits` and `lines_for` each spelled it, ten lines apart, and
+        they have to agree: the exemption hook reads line `n` of
+        whichever list `lines_for` returns, numbered by whichever file
+        `hits` searched.
+
+        The language's own comment token. This asked for `//` whatever
+        the language, so a Python pattern over a comment — `# noqa` —
+        was run over the code with every comment stripped, and could
+        never fire.
         """
-        return "//" in self.text
+        return language(lang).comment in self.text
+
+
+def check_text(rule: Rule) -> str:
+    """What a rule's **Check:** says, its label left out.
+
+    Every block of the Check as printed, up to the next label, example
+    or heading, so a command is read whole: the printer never splits a
+    code span. "" for a rule with no Check.
+    """
+    return text_of(rule.check).removeprefix(CHECK)
 
 
 def dialect_of(command: str) -> str:
@@ -107,6 +131,21 @@ def patterns_of(check_text: str) -> list[Pattern]:
         for span in re.findall(r"`([^`\n]+)`", check_text):
             if len(span) < SHORTEST or not CODEISH.search(span):
                 continue
-            if not re.match(r"^(references/|[A-Z]{2}-)", span):
+            if not re.match(rf"^(references/|{STANDARD}-)", span):
                 out.append(Pattern(span, "-F", "prose"))
     return [p for p in out if p.text not in TOO_BROAD]
+
+
+def filtered_of(check_text: str) -> tuple[list[Pattern], list[Pattern]]:
+    """The patterns a Check searches for, and those it filters out.
+
+    `rg -n 'pub use' src/ | rg -v '^src/lib.rs'` searches for the
+    first and drops what the second matches — here by which file a hit
+    is in. Read whole, the second reads as one more pattern to find.
+    """
+    filters = [
+        p
+        for command in NEGATED.findall(check_text)
+        for p in patterns_of(f"`{command}`")
+    ]
+    return patterns_of(NEGATED.sub("", check_text)), filters

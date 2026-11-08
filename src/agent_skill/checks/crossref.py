@@ -1,4 +1,4 @@
-"""Citations into another skill, and the table saying they disagree.
+"""Citations into another skill, and the table saying where they depart.
 
 `bevy-style` is a delta on `rust-style`: it states what changes when
 Bevy is in the dependency list and defers for everything else. That
@@ -11,29 +11,51 @@ A citation into a skill that is not in the tree is not checked, because
 it cannot be: the claim is about a document nobody here can read.
 """
 
-import re
-from pathlib import Path
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterator
+lazy from pathlib import Path
 
+from agent_skill import shared
 from agent_skill.checks import check
-from agent_skill.report import fail, note, unrun
+from agent_skill.doc import Paragraph, Table, text_of, walk
+from agent_skill.doc.chapter import departures, departures_header
+from agent_skill.ids import (
+    DEPARTING,
+    Breach,
+    Location,
+    RuleId,
+    breaches,
+    cited,
+    cited_lines,
+)
+from agent_skill.layout import root_of
+from agent_skill.model import SKILL_MD
+from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks.corpus import Corpus, corpus_for
 lazy from agent_skill.checks.patterns import patterns_of
 lazy from agent_skill.checks.search import find, searcher_problem
-lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.doc import Block, Doc
+lazy from agent_skill.doc.chapter import Departure, Rule
+lazy from agent_skill.model import Skill, Tree
+lazy from agent_skill.profiles import PROFILES
 lazy from agent_skill.report import Finding
 
-#: `| `RS-API-15` Keep every struct field private | `BV-ECS-01` — … |`
-OVERRIDE_ROW = re.compile(
-    r"^\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`\s*(.*?)\s*\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`",
-    re.MULTILINE,
-)
+# The branches a finding of this check comes from.
+APPARATUS_CITATION = declare("crossref", "apparatus", Level.FAIL)
+DELTA_NO_TABLE = declare("crossref", "delta_no_table", Level.FAIL)
+FOREIGN_CITATION = declare("crossref", "citation", Level.FAIL)
+OVERRIDE_TARGET = declare("crossref", "override_target", Level.FAIL)
+ANCHOR_ABSENT = declare("crossref", "anchor_absent", Level.UNRUN)
+SEARCHER = declare("crossref", "searcher", Level.UNRUN)
+ANCHOR_EMPTY_CORPUS = declare("crossref", "anchor_empty_corpus", Level.FAIL)
+ANCHOR_NO_ANSWER = declare("crossref", "anchor_no_answer", Level.FAIL)
+ANCHOR_HIT = declare("crossref", "anchor_hit", Level.FAIL)
 
-CITATION = re.compile(r"\b([A-Z]{2})-([A-Z]+-\d+[a-z]?)\b")
-
-
-def _ids(skill: Skill) -> set[str]:
-    return {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
+# The branches of the delta map (`_departures`).
+RELATION = declare("crossref", "relation", Level.FAIL)
+DEPARTURE_TIER = declare("crossref", "departure_tier", Level.FAIL)
+DEPARTURE_REASON = declare("crossref", "departure_reason", Level.FAIL)
+DEPARTS = declare("crossref", "departs", Level.FAIL)
+REDEFINES = declare("crossref", "redefines", Level.FAIL)
 
 
 #: Everything outside the skills that names a rule. `assets.py`
@@ -50,15 +72,15 @@ FIXTURES = ("checks/controls.py", "tests/test_crossref.py")
 
 
 def _apparatus_citations(
-    known: dict[str, set[str]], root: Path | None = None
+    known: dict[str, frozenset[RuleId]], root: Path
 ) -> Iterator[Finding]:
     """A rule id named in the code or the README still has to resolve.
 
-    `root` is injectable so this has a real test: the control harness
-    copies the skills and the README and nothing else, so it cannot
-    reach the files this reads.
+    `root` is the repository the checked tree sits in, not the one this
+    file sits in: a control's copy holds the README beside the skills,
+    and its code and tests not at all, so a control reaches this branch
+    through the copy's README, at the line it wrote.
     """
-    root = root or Path(__file__).resolve().parents[3]
     files: list[Path] = []
     for name in APPARATUS:
         target = root / name
@@ -67,112 +89,64 @@ def _apparatus_citations(
         rel = path.relative_to(root).as_posix()
         if not path.exists() or any(rel.endswith(f) for f in FIXTURES):
             continue
-        for m in CITATION.finditer(path.read_text()):
-            prefix = m.group(1)
-            if prefix in known and m.group(0) not in known[prefix]:
+        for rid, line in cited_lines(path.read_text()):
+            if rid.standard in known and rid not in known[rid.standard]:
                 yield fail(
-                    f"cites {m.group(0)}, which is not a rule",
-                    f"{path.relative_to(root)}",
+                    f"cites {rid}, which is not a rule",
+                    Location(file=rel, line=line),
+                    APPARATUS_CITATION,
                 )
-
-
-def _plain(s: str) -> str:
-    """A title, comparable however it was quoted.
-
-    Titles are quoted with backticks in one place and not the other.
-    """
-    return " ".join(s.replace("`", "").split()).lower()
 
 
 @check(
     "crossref",
-    "citations into another skill, and the override table",
-    scope="all",
+    "citations into another skill, and the departures table",
     needs=("rg",),
 )
-def crossref(skills: Sequence[Skill]) -> Iterator[Finding]:
-    """Every citation across skills, and each delta's override table."""
-    by_prefix = {s.prefix: s for s in skills}
-    known = {p: _ids(s) for p, s in by_prefix.items()}
-    titles = {p: {r.id: r.title for r in s.rules} for p, s in by_prefix.items()}
+def crossref(tree: Tree) -> Iterator[Finding]:
+    """Every citation across skills, and each delta's departures."""
+    by_prefix = {s.prefix: s for s in tree}
+    by_name = {s.name: s for s in tree}
+    known = {p: s.ids for p, s in by_prefix.items()}
 
-    for skill in skills:
+    for skill in tree:
         yield from _citations(skill, by_prefix, known)
+        # A delta's departures are one typed table (decision 10).
+        if skill.profile.anchor:
+            yield from _departures(skill, by_name.get(skill.profile.anchor))
+        yield from _anchor_patterns(skill, by_name)
 
-        # The override table: each row names a rule of the other
-        # standard, the rule that applies instead, and enough of the
-        # other's title to prove the row still points where it did when
-        # it was written.
-        rows = list(OVERRIDE_ROW.finditer(skill.text))
-        yield from _override_rows(skill, rows, titles)
+    # The harness cites the standards it ships; a fixture's IDs in a
+    # test (a demo standard's, made up to be wrong) are not citations.
+    shipped = {p: ids for p, ids in known.items() if by_prefix[p].name in PROFILES}
+    if shipped:
+        yield from _apparatus_citations(shipped, root_of(tree.skills[0].root.parent))
 
-        yield from _anchor_patterns(skill, by_prefix, rows)
 
-        # A skill that cites another standard at all should say where it
-        # disagrees with it; one that cites none needs no table.
-        cites_other = any(
-            p != skill.prefix and p in known
-            for path in skill.markdown
-            for p, _ in CITATION.findall(path.read_text())
-        )
-        if cites_other and not rows:
-            yield note(
-                "cites another standard but states no override table", skill.name
-            )
-
-    yield from _apparatus_citations(known)
+def _named(doc: Doc) -> Iterator[RuleId]:
+    """Every rule ID `doc` names, of any standard, block by block."""
+    for block in doc.blocks:
+        yield from cited(text_of((block,)))
 
 
 def _citations(
-    skill: Skill, by_prefix: dict[str, Skill], known: dict[str, set[str]]
+    skill: Skill, by_prefix: dict[str, Skill], known: dict[str, frozenset[RuleId]]
 ) -> Iterator[Finding]:
     """Every id this skill cites in another skill names a rule there."""
-    for path in skill.markdown:
-        text = path.read_text()
-        where = f"{skill.name}/{path.name}"
-        for m in CITATION.finditer(text):
-            prefix = m.group(1)
+    for path, doc in skill.docs.items():
+        for rid in _named(doc):
+            prefix = rid.standard
             if prefix == skill.prefix or prefix not in known:
                 continue
-            if m.group(0) not in known[prefix]:
+            if rid not in known[prefix]:
                 yield fail(
-                    f"cites {m.group(0)}, "
-                    f"which is not a rule in {by_prefix[prefix].name}",
-                    where,
+                    f"cites {rid}, which is not a rule in {by_prefix[prefix].name}",
+                    skill.at(path),
+                    FOREIGN_CITATION,
                 )
 
 
-def _override_rows(
-    skill: Skill, rows: list[re.Match[str]], titles: dict[str, dict[str, str]]
-) -> Iterator[Finding]:
-    """Each override row names a rule here and quotes a title whole."""
-    for m in rows:
-        theirs, quoted, ours = m.group(1), m.group(2), m.group(3)
-        if theirs.startswith(skill.prefix) or theirs[:2] not in titles:
-            continue
-        if ours not in _ids(skill):
-            yield fail(
-                f"override row names {ours}, which is not a rule here", skill.name
-            )
-        actual = titles[theirs[:2]].get(theirs)
-        if actual is None:
-            continue  # the citation check above already reported it
-        # The whole title, not a prefix of it. A title's tail is
-        # where its scope lives — `RS-BUILD-21` ends "in a library"
-        # — so a row that quotes a prefix can invent a divergence by
-        # dropping the clause that rules it out. Two rows did
-        # exactly that.
-        if quoted and _plain(actual) != _plain(quoted):
-            yield fail(
-                f"override row quotes {quoted!r} for {theirs}, "
-                f"which is titled {actual!r}",
-                skill.name,
-            )
-
-
-def _anchor_patterns(
-    skill: Skill, by_prefix: dict[str, Skill], rows: list[re.Match[str]]
-) -> Iterator[Finding]:
+def _anchor_patterns(skill: Skill, by_name: dict[str, Skill]) -> Iterator[Finding]:
     """The other standard's own patterns, run over this one's examples.
 
     A delta claims that everything the anchor says still holds except
@@ -185,35 +159,49 @@ def _anchor_patterns(
     travel: `assert_eq!` and `.iter()` matched a third of the corpus.
 
     A hit is allowed when the delta's `SKILL.md` names that rule
-    anywhere: in the override table, or in the prose that says why a
+    anywhere: in the departures table, or in the prose that says why a
     rule is *not* on it. Either way the reader has been told.
+
+    The anchor is the one the profile declares. It used to be every
+    standard the override table cited, so deleting the table emptied
+    the set and the sweep returned having run nothing.
     """
-    anchors = {
-        p
-        for p in by_prefix
-        if p != skill.prefix and any(m.group(1)[:2] == p for m in rows)
-    }
-    if not anchors or not skill.profile.languages:
+    if not skill.profile.anchor:
         return
-    named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
+    other = by_name.get(skill.profile.anchor)
+    if other is None:
+        yield unrun(
+            f"its anchor {skill.profile.anchor} is not among the skills read, so "
+            "none of its patterns ran over these examples",
+            skill.at(),
+            ANCHOR_ABSENT,
+        )
+        return
+    named = set(_named(skill.doc))
+    # `tests/test_profiles.py` holds a delta to naming the language its
+    # examples are in, which the anchor's patterns run over.
     lang = skill.profile.languages[0]
     if problem := searcher_problem():
-        yield unrun(problem, skill.name)
+        yield unrun(problem, skill.at(), SEARCHER)
         return
     corpus = corpus_for(skill, lang)
     if not corpus.blocks:
+        yield fail(
+            f"no verified {lang} example to run {other.name}'s patterns over — an "
+            "empty corpus passes every one of them",
+            skill.at(),
+            ANCHOR_EMPTY_CORPUS,
+        )
         return
-    for prefix in sorted(anchors):
-        other = by_prefix[prefix]
-        for rule in other.rules:
-            if not rule.check or rule.id in named:
-                continue
-            yield from _sweep(skill, corpus, other, rule)
+    for rule in other.chapter_rules:
+        if not rule.check or rule.id in named:
+            continue
+        yield from _sweep(skill, corpus, other, rule)
 
 
 def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[Finding]:
     """The anchor rule's decisive patterns, over the delta's corpus."""
-    for pattern in patterns_of(rule.check):
+    for pattern in patterns_of(text_of(rule.check)):
         if pattern.kind != "command":
             continue
         lines, used = find(corpus, pattern)
@@ -227,15 +215,196 @@ def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[F
                 f"{rule.id}: {other.name}'s pattern /{pattern.text}/ gave no "
                 f"answer over {skill.name}'s examples — rejected, timed out, or "
                 "not installed",
-                skill.name,
+                skill.at(),
+                ANCHOR_NO_ANSWER,
             )
             continue
         if not lines:
             continue
-        chapter, owner, line, snippet = corpus.origin(lines[0].start)
+        where, snippet = corpus.origin(lines[0].start)
         yield fail(
             f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
             f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
-            f"      {chapter}:{line} [{owner}] {snippet}",
-            skill.name,
+            f"      {where} {snippet}",
+            skill.at(),
+            ANCHOR_HIT,
+        )
+
+
+# ------------------------------------------------------------------
+# the delta map (normalize-the-standards, decision 10)
+
+
+def _departures(skill: Skill, anchor: Skill | None) -> Iterator[Finding]:
+    """The delta's departures are one typed table its rules agree with.
+
+    `| <anchor> rule | Relation | <delta> rule | Tier | Reason |`: each
+    row an anchor rule, how the delta rule relates to it — it
+    overrides, tightens or extends it — the delta rule, the tier before
+    and after (`[M!] → [M]`), and why. A departing rule opens "Departs
+    from <ID>." and the table and the rules say one set of pairs; a tier
+    the table states is each rule's own; and `[M!]` is the anchor's,
+    scope and all.
+    """
+    name = skill.profile.anchor
+    header = departures_header(name, skill.name)
+    tables = [b for b in walk(skill.doc.blocks) if isinstance(b, Table)]
+    rows = [d for t in tables if t.header == header for d in departures(t)]
+    if not rows:
+        yield fail(
+            f"is a delta on {name} and states no departures table, "
+            f"`| {' | '.join(header)} |` — a delta that says where it departs from "
+            "nothing has either departed silently or lost its table",
+            skill.at(),
+            DELTA_NO_TABLE,
+        )
+    theirs = {r.id: r for r in anchor.chapter_rules} if anchor is not None else {}
+    ours = {r.id: r for r in skill.chapter_rules}
+    for row in rows:
+        yield from _departure(skill, row, theirs, ours)
+    yield from _departs(skill, rows)
+    if anchor is not None:
+        yield from _redefines(skill, anchor)
+
+
+def _departure(
+    skill: Skill,
+    row: Departure,
+    theirs: dict[RuleId, Rule],
+    ours: dict[RuleId, Rule],
+) -> Iterator[Finding]:
+    """One departure: its relation, its rule here, and its two tiers.
+
+    The relation is held to the law the abstract standard's realisations
+    are held to (`ids.breaches`), over the tiers the two rules carry: a
+    tier the row misstates is `departure_tier`'s, not the relation's.
+    """
+    where = skill.at(SKILL_MD, row.line)
+    relation = row.related
+    if relation not in DEPARTING:
+        named = ", ".join(str(r) for r in DEPARTING[:-1])
+        yield fail(
+            f"a departure from {row.theirs} is `{row.relation}`; a delta rule "
+            f"{named} or {DEPARTING[-1]} its anchor's",
+            where,
+            RELATION,
+        )
+    mine = RuleId.try_parse(row.ours)
+    if mine is None or mine not in skill.ids:
+        yield fail(
+            f"departure row names {row.ours}, which is not a rule here",
+            where,
+            OVERRIDE_TARGET,
+        )
+    before = theirs.get(other) if (other := RuleId.try_parse(row.theirs)) else None
+    after = ours.get(mine) if mine is not None else None
+    stated = row.tiers
+    if stated is None or (
+        before is not None and after is not None and stated != (before.tier, after.tier)
+    ):
+        actual = f"{before.tier} → {after.tier}" if before and after else "two tiers"
+        yield fail(
+            f"the departure from {row.theirs} states `{row.tier}`, and the rules "
+            f"are {actual}; a tier changes only as its row says",
+            where,
+            DEPARTURE_TIER,
+        )
+    if relation is None or relation not in DEPARTING:
+        return
+    held = before.tier if before is not None else None
+    tier = after.tier if after is not None else None
+    for breach in breaches(relation, held, tier, row.reason):
+        if breach is Breach.TIER:
+            yield fail(
+                f"{row.ours} {relation} {row.theirs}, and the rules are {held} → "
+                f"{tier}; a rule that {relation} another takes {relation.asks}",
+                where,
+                RELATION,
+            )
+        else:
+            yield fail(
+                f"{row.ours} {relation} {row.theirs} and the row gives no reason; "
+                "every departure says why",
+                where,
+                DEPARTURE_REASON,
+            )
+
+
+#: What a departing delta rule's statement opens with, before the ID.
+DEPARTS_FROM = ("Departs", "from")
+
+
+def departs_from(rule: Rule) -> RuleId | None:
+    """The anchor rule `rule` opens by departing from, if it does.
+
+    Its statement's first words are `Departs from RS-API-21.`
+    """
+    first = next(iter(rule.statement), None)
+    words = first.words if isinstance(first, Paragraph) else ()
+    opening, named = words[: len(DEPARTS_FROM)], words[len(DEPARTS_FROM) : 3]
+    if opening != DEPARTS_FROM or not named or not named[0].endswith("."):
+        return None
+    return RuleId.try_parse(named[0].removesuffix("."))
+
+
+def _departs(skill: Skill, rows: list[Departure]) -> Iterator[Finding]:
+    """The table's pairs and the rules that say they depart agree."""
+    listed = {(row.theirs, row.ours): row for row in rows}
+    said: dict[tuple[str, str], Location] = {}
+    for chapter in skill.chapters:
+        for rule in chapter.typed.rules:
+            if (other := departs_from(rule)) is not None:
+                said[str(other), str(rule.id)] = chapter.where(rule.line, rule.id)
+    for (other, mine), row in listed.items():
+        if (other, mine) not in said:
+            yield fail(
+                f"the departures table says {mine} departs from {other}, and {mine} "
+                f"does not open `Departs from {other}.`",
+                skill.at(SKILL_MD, row.line),
+                DEPARTS,
+            )
+    for (other, mine), where in said.items():
+        if (other, mine) not in listed:
+            yield fail(
+                f"{mine} opens `Departs from {other}.` and no row of the departures "
+                "table says so",
+                where,
+                DEPARTS,
+            )
+
+
+#: The shared passage that says what each tier means, and its scope.
+_TIERS = "1. Tiers"
+
+
+def _scope(skill: Skill) -> tuple[str, tuple[Block, ...]]:
+    """How a standard scopes `[M!]`: the code it binds in, its words.
+
+    The words are what section 1 states in its own region, after the
+    shared tier table.
+    """
+    copy = next((c for c in shared.copies(skill) if c.passage.section == _TIERS), None)
+    if copy is None:
+        return skill.profile.strict_scope, ()
+    al = copy.alignment
+    return skill.profile.strict_scope, tuple(
+        al.actual[a] for _, gap in al.gaps() for a in gap
+    )
+
+
+def _redefines(skill: Skill, anchor: Skill) -> Iterator[Finding]:
+    """A delta's `[M!]` is its anchor's: one predicate, not two.
+
+    Its scope (`Profile.strict_scope`) and the words section 1 gives it
+    are the anchor's; a delta that binds `[M!]` elsewhere has redefined
+    the tier for every rule it defers on.
+    """
+    if _scope(skill) != _scope(anchor):
+        scope = skill.profile.strict_scope
+        yield fail(
+            f"section 1 scopes `[M!]` to {scope!r} code in words of its own; a delta's "
+            f"`[M!]` is {anchor.name}'s, {anchor.profile.strict_scope!r}, as its "
+            "section 1 states it",
+            skill.at(SKILL_MD),
+            REDEFINES,
         )

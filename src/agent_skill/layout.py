@@ -14,6 +14,24 @@ PLUGIN = Path("plugins") / "style-standards"
 #: Every skill, one directory each.
 SKILLS = PLUGIN / "skills"
 
+#: The plugin's behavioural eval suite, as `claude plugin eval` reads it
+#: and `agent-skill evals` writes it: a directory per standard, a case
+#: per directory under it. Inside the plugin, where the command looks.
+EVALS = PLUGIN / "evals"
+
+#: Where each run of the suite writes its results: ignored by git, and
+#: left alone by the harness, which neither writes nor compares them.
+RESULTS = EVALS / "results"
+
+#: The abstract standard: one file per abstract chapter, and the design
+#: questions. Outside the plugin, since no skill reads it: it is the
+#: harness's and the authors', and installs with nothing.
+ABSTRACT = Path("abstract")
+
+#: The repository's own CI: the workflows GitHub runs on it. Outside the
+#: plugin, since they check the repository rather than ship with it.
+WORKFLOWS = Path(".github") / "workflows"
+
 
 def root_of(skills: Path) -> Path:
     """The repository root a skills directory sits in.
@@ -22,3 +40,12 @@ def root_of(skills: Path) -> Path:
     the README beside the root reads the copy's, not the original's.
     """
     return skills.parents[len(SKILLS.parts) - 1]
+
+
+def in_repository(skills: Path) -> bool:
+    """Is `skills` a repository's skills directory, laid out as ours?
+
+    A test's tree written straight under its temporary directory is
+    not, and has no root to read anything beside it from.
+    """
+    return len(skills.parts) > len(SKILLS.parts) and root_of(skills) / SKILLS == skills

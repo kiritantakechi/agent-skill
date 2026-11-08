@@ -23,7 +23,13 @@ build-backend = "uv_build"
 # makes about their catalogues was taken at these versions, and ty states that
 # breaking changes — including changes to diagnostics — may occur between any
 # two releases. Moving either pin is a reviewed event, not a resolver decision.
-dev = ["pytest==9.2.0", "ruff==0.17.3", "ty==0.0.95", "ripgrep-bin==15.2.0"]
+dev = ["pytest==9.2.0", "ruff==0.17.4", "ty==0.0.99", "ripgrep-bin==15.2.0"]
+
+[tool.uv]
+# PS-BUILD-11, kept as the template ships it: nothing younger than a week is
+# locked, except by name the exact pins above, whose pin is the review.
+exclude-newer = "7 days"
+exclude-newer-package = { pytest = false, ruff = false, ty = false, ripgrep-bin = false }
 
 [tool.ruff]
 # The configuration is the one python-style ships. Paths in an extended file

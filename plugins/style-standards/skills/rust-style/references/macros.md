@@ -8,6 +8,7 @@ testing in general are in the testing chapter.
 Macros are the abstraction of last resort. They defeat type inference, produce poor error messages,
 resist `go to definition`, slow compilation, and are invisible to most refactoring tools. Reach for
 them only when generics, traits, and functions genuinely cannot express the pattern.
+
 ## Contents
 
 - **When to use a macro**
@@ -64,9 +65,9 @@ pub fn kib(count: u64) -> u64 {
 
 ### RS-MACRO-02 [S] Know the legitimate reasons for a macro
 
-Variadic arguments (`vec!`, `format!`); implementing a trait across many concrete types;
-generating code from a declarative table; capturing an expression unevaluated (`assert!`,
-`matches!`, lazy logging); and boilerplate that genuinely needs identifiers or syntax as input.
+Variadic arguments (`vec!`, `format!`); implementing a trait across many concrete types; generating
+code from a declarative table; capturing an expression unevaluated (`assert!`, `matches!`, lazy
+logging); and boilerplate that genuinely needs identifiers or syntax as input.
 
 **Why:** all five are things the type system cannot express. Naming them makes the boundary
 checkable — a macro whose reason is not on this list needs a written justification.
@@ -125,7 +126,7 @@ per field.
 
 **Why:** generated `.rs` files you can read, diff, and set a breakpoint in beat a proc macro nobody
 can inspect — especially for large, stable output like tables, FFI bindings, or protocol types. The
-cost is a regeneration step (`references/modules.md` RS-MOD-09).
+cost is a regeneration step (RS-MOD-09).
 
 **Check:** does the generated code change less often than the crate does? Then generating it once is
 cheaper than generating it on every build.
@@ -205,7 +206,7 @@ the `_` arm first, or ask for `expr_2021`, which excludes both.
 your macro at tokens the user never wrote. A tight specifier rejects bad input at the call site with
 a comprehensible error.
 
-**Check:** grep for `:tt` outside a recursive muncher, where it is genuinely required.
+**Check:** is a `:tt` used outside a recursive muncher, where it is genuinely required?
 
 ### RS-MACRO-10 [M] Parenthesize interpolated expressions
 
@@ -215,7 +216,7 @@ a comprehensible error.
 context, so `my_macro!(1 + 2, 3)` computes `1 + 2 * 3`. An `expr` fragment is atomic in most
 positions, but the habit costs nothing and the exceptions are subtle.
 
-**Check:** grep the expansion for `$` variables adjacent to an operator.
+**Check:** in the expansion, is a `$` variable adjacent to an operator without parentheses?
 
 ```rust
 // verified
@@ -236,17 +237,17 @@ pub fn sample() -> u32 {
 
 Bind it to a local first.
 
-**Why:** a macro that expands `$x` twice evaluates the caller's side effect twice — `max!(v.pop(),
-0)` pops twice — and the caller cannot see why. This is invisible at the call site, which is what
-makes it dangerous rather than merely wrong.
+**Why:** a macro that expands `$x` twice evaluates the caller's side effect twice —
+`max!(v.pop(), 0)` pops twice — and the caller cannot see why. This is invisible at the call site,
+which is what makes it dangerous rather than merely wrong.
 
 **Check:** count the occurrences of each `$` variable in the expansion. More than one means bind it.
 
 ### RS-MACRO-12 [S] Wrap multi-statement expansions in a block
 
-`{{ … }}`, ending in an expression with no `;` after it. In expression position that trailing `;`
-is an error (`semicolon_in_expressions_from_macros`, deny by default), for a macro from another
-crate as much as your own.
+`{{ … }}`, ending in an expression with no `;` after it. In expression position that trailing `;` is
+an error (`semicolon_in_expressions_from_macros`, deny by default), for a macro from another crate
+as much as your own.
 
 **Why:** the outer braces make the macro usable in expression position, and the inner ones scope the
 temporaries so they do not leak into the caller's namespace or collide with their bindings.
@@ -278,8 +279,8 @@ pub fn sample() -> Vec<u32> {
 ### RS-MACRO-14 [S] Emit a helpful `compile_error!` from a catch-all arm
 
 **Why:** the default failure is `no rules expected this token in macro invocation`, which tells the
-user nothing about what shape was expected. A final arm with
-`compile_error!("expected `name = value`")` turns that into an instruction.
+user nothing about what shape was expected. A final arm with `compile_error!("expected `name =
+value`")` turns that into an instruction.
 
 **Check:** invoke the macro wrongly and read the error. Would a new user know what to fix?
 
@@ -290,7 +291,7 @@ expansion the generated code. `CONTRIBUTING.md` says how to run `cargo expand`.
 
 **Why:** a macro's messages and its expansion are both interface, and both regress silently:
 reordering arms turns a good message into the default one, and a refactor changes the shipped code
-with every test green (`references/testing.md` RS-TEST-30, RS-TEST-25).
+with every test green (RS-TEST-31, RS-TEST-26).
 
 **Check:** is there a `tests/ui/` directory with a `.stderr` file per failure case, and a snapshot
 of one representative expansion, reviewed rather than auto-accepted?
@@ -329,7 +330,7 @@ saves per use by its uses, against its build cost.
 
 **Why:** a `proc-macro = true` crate can export nothing but macros, so it cannot hold your types.
 Splitting also lets users who do not want the derive turn it off and skip the compile cost
-(`references/build.md` RS-BUILD-14).
+(RS-BUILD-13).
 
 **Check:** does a user depend on one crate, and can they disable the derive?
 
@@ -348,7 +349,7 @@ on everyone downstream — for a derive that only reads struct fields, `derive` 
 location, so the user cannot tell which of their fields is wrong. A spanned error puts the squiggle
 under the offending token, which is the whole difference between usable and not.
 
-**Check:** grep the proc-macro crate for `panic!`, `unwrap`, and `expect`. Each is a message a user
+**Check:** does the proc-macro crate call `panic!`, `unwrap`, or `expect`? Each is a message a user
 will see.
 
 ### RS-MACRO-21 [S] Report all the errors you can find, not just the first
@@ -356,8 +357,7 @@ will see.
 `syn::Error::combine`.
 
 **Why:** a user with five bad field attributes otherwise gets five build-edit cycles. Accumulating
-is the same argument as `references/errors.md` RS-ERR-26, applied at compile time where the cycle is
-slower.
+is the same argument as RS-ERR-28, applied at compile time where the cycle is slower.
 
 **Check:** does the macro return on the first bad field?
 
@@ -367,7 +367,7 @@ And then document the contract on the derive itself.
 
 **Why:** a derive that emits `unsafe impl Send` or a transmute is asserting an invariant on behalf
 of a user who wrote one line and read no documentation. If the derive cannot check the invariant, it
-must be an `unsafe` trait the user opts into explicitly (`references/unsafe.md` RS-UNSAFE-20).
+must be an `unsafe` trait the user opts into explicitly (RS-UNSAFE-20).
 
-**Check:** grep the `quote!` blocks for `unsafe`. For each, what stops a user from deriving it on a
-type where it is false?
+**Check:** for each `unsafe` in a `quote!` block, what stops a user from deriving it on a type where
+it is false?

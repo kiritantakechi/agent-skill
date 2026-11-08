@@ -1,0 +1,78 @@
+# The repository's own CI: python-style's lint and test steps, at the pins its
+# assets/ci.yml gives them, running this harness, and the toolchains the harness
+# asks for. `self-application` holds each step this shares with that file to the
+# file's, and `pins` holds every action here to a commit and its release.
+name: check
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "17 4 * * 1" }]   # weekly, for the full job
+  workflow_dispatch:                   # the full job, on demand
+
+# Read the repository and nothing else.
+permissions:
+  contents: read
+
+env:
+  # uv.lock is committed, and CI installs exactly what it pins: without the
+  # lock file, `uv sync` fails rather than resolving afresh.
+  UV_FROZEN: "1"
+
+jobs:
+  # On every push and pull request. `check --fast` compiles no example, but
+  # `assets`, `citations`, `pins` and `plugin` still ask zig, rustc, clippy,
+  # rustdoc and claude, and an absent tool withholds the pass. So both
+  # toolchains are installed here too, without what only compiling needs.
+  fast:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { persist-credentials: false }
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with: { version: "0.13.7" }
+      - run: uv python install cpython-3.15.2+freethreaded
+      - run: uv sync --group dev
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1, components: clippy }
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
+        with: { version: 0.17.0 }
+      # `plugin` runs `claude plugin validate`, which needs no login. The newest
+      # release at least seven days old, as every pin here is.
+      - run: npm install --global @anthropic-ai/claude-code@2.1.316
+      - run: uv run agent-skill check --fast
+      - run: uv run pytest -q -m "not toolchain"
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run ty check
+
+  # Weekly and on demand: every check and every test, with the examples
+  # compiled and mutated. Each takes about half an hour on four cores.
+  full:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { persist-credentials: false }
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with: { version: "0.13.7" }
+      - run: uv python install cpython-3.15.2+freethreaded
+      - run: uv sync --group dev
+      # python-style's examples run on the free-threaded build, in the venv
+      # `toolchain` and `mutation` look for, with the pytest the lock pins.
+      - run: uv venv --python cpython-3.15.2+freethreaded .cache/python315t
+      - run: uv pip install --python .cache/python315t pytest==9.2.0
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with:
+          toolchain: 1.99.1
+          components: clippy, rustfmt, rust-src
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
+        with: { version: 0.17.0 }
+      - run: npm install --global @anthropic-ai/claude-code@2.1.316
+      - run: uv run agent-skill check
+        timeout-minutes: 75
+      - run: uv run pytest -q
+        timeout-minutes: 90

@@ -1,14 +1,8 @@
-# Packaging: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel
+# Build: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel
 
 Scope: what `pyproject.toml` must say, how dependencies are declared and pinned, how a package is
-built and published, and what the free-threaded build demands of a dependency tree. Module and
-package layout is the naming chapter; the public surface is the API chapter.
-
-Two sources are merged here: the **PyPA living specifications** at
-`packaging.python.org/specifications`, which is where every packaging PEP now redirects — 621, 639,
-735 and 751 all carry a "this PEP is a historical document" banner — and the **empirical conventions
-of `uv`**, which scaffolds the layout this chapter prescribes. Ruff's `INP` and `TID` families reach
-only the edges of this; most of it is a review matter with a runnable command.
+built and published, and what the free-threaded build demands of a dependency tree. Package layout
+is the modules chapter; the public surface is the API chapter.
 
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
@@ -26,20 +20,23 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-BUILD-08 [M] Pin every tool that decides whether the build passes
   - PS-BUILD-09 [M] Give a library floors, not pins
   - PS-BUILD-10 [M] Commit `uv.lock`, and keep it the only lock artefact
-  - PS-BUILD-11 [M!] Refuse a dependency published in the last few days
+  - PS-BUILD-11 [M] Lock nothing younger than seven days but what you pinned exactly
+  - PS-BUILD-12 [M] Justify every dependency; the standard library is the default
 - **Building**
-  - PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
-  - PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
-  - PS-BUILD-14 [M] Give the distribution and the module the same name
-  - PS-BUILD-15 [M] Keep the built artefact reproducible from the repository alone
+  - PS-BUILD-13 [M] Build with `uv_build`, and never invoke `setup.py`
+  - PS-BUILD-14 [M] Keep the built artefact reproducible from the repository alone
+  - PS-BUILD-15 [M] Add to the source distribution with `source-include`, never by excluding
 - **Publishing**
   - PS-BUILD-16 [M] Publish with Trusted Publishing, never a long-lived token
   - PS-BUILD-17 [S] Emit attestations, and do not rely on anyone verifying them
   - PS-BUILD-18 [M] Cut a new version rather than adding a file to an old release
+- **Continuous integration**
+  - PS-BUILD-19 [M] Run `ruff format`; it is not a suggestion
+  - PS-BUILD-20 [M] Pin every third-party CI action to a full commit, with its release as a comment
 - **The free-threaded build**
-  - PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
-  - PS-BUILD-20 [M] Assert in CI that the GIL is actually off
-  - PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
+  - PS-BUILD-21 [M] A free-threaded wheel tag is not a declaration of thread safety
+  - PS-BUILD-22 [M] Assert in CI that the GIL is actually off
+  - PS-BUILD-23 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
 ---
 
@@ -51,8 +48,8 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 typing: `typing.python.org/spec`, not PEP 484.
 
 **Why:** every packaging PEP this chapter would otherwise cite now opens with *"This PEP is a
-historical document"* and redirects to the PyPA specifications. A PEP records what was decided
-once; the specification is the maintained text and records what is true now.
+historical document"* and redirects to the PyPA specifications. A PEP records what was decided once;
+the specification is the maintained text and records what is true now.
 
 **Check:** every packaging or typing reference in the project's own documentation. A bare PEP number
 as the normative citation is the finding; naming the PEP as provenance alongside the spec is fine.
@@ -76,8 +73,8 @@ resolver, or a security scanner answer questions about your package without inst
 expression, which names exactly one licence where the classifier and the free-text field could
 disagree. `license-files` puts the actual text in the distribution, which several licences require.
 
-**Check:** `rg -n 'License ::' pyproject.toml` and `rg -n 'license' pyproject.toml` — a table
-form or a classifier is the finding.
+**Check:** `rg -n 'License ::' pyproject.toml` and `rg -n 'license' pyproject.toml` — a table form
+or a classifier is the finding.
 
 ```toml
 # verified — GOOD
@@ -95,8 +92,8 @@ classifiers = [
 
 ### PS-BUILD-04 [M] Give `requires-python` a floor and no ceiling
 
-`>=3.15`. Never `<4`, never `<3.16`. If a future version genuinely breaks the package, yank or
-patch then.
+`>=3.15`. Never `<4`, never `<3.16`. If a future version genuinely breaks the package, yank or patch
+then.
 
 **Why:** an upper bound is a promise about interpreters that do not exist yet: it makes the package
 uninstallable on the next release even where it would have worked, and only a new release from you
@@ -109,14 +106,15 @@ fixes it. PyPA advises against it for exactly this reason.
 `homepage`, `source`, `issues`, `changelog`, `documentation` — lowercase. Normalisation strips
 punctuation and case, so `"Bug Tracker"` does work, but the plain label is the safe spelling.
 
-**Why:** the labels are normalised and recognised, so an index can render the right icons and a
-tool can find your issue tracker without guessing. Ad-hoc labels render as plain text.
+**Why:** the labels are normalised and recognised, so an index can render the right icons and a tool
+can find your issue tracker without guessing. Ad-hoc labels render as plain text.
 
 **Check:** the `[project.urls]` table against the well-known list.
 
 ### PS-BUILD-06 [M] Classify the package honestly, including its typing and threading status
 
-`Typing :: Typed` when you ship `py.typed`. The free-threading classifier when you have tested it.
+`Typing :: Typed` when you ship `py.typed` (PS-API-04). The free-threading classifier when you have
+tested it.
 
 **Why:** the classifiers are how a consumer filters, and a wrong one wastes their time in the
 direction that is hardest to diagnose — they install expecting support and find none. The
@@ -130,7 +128,7 @@ free-threading classifier in particular is a claim about testing, not about buil
 
 `[dependency-groups] test = [...]`. Not `[project.optional-dependencies] test = [...]`.
 
-**Why:** extras are shipped runtime metadata — anyone can install `yourpkg[test]`, and the index
+**Why:** extras are shipped runtime metadata — anyone can install `acmewidget[test]`, and the index
 displays them as part of your package. Dependency groups are local to the repository and appear
 nowhere in the built distribution, which is exactly right for a linter.
 
@@ -138,7 +136,7 @@ nowhere in the built distribution, which is exactly right for a linter.
 
 ### PS-BUILD-08 [M] Pin every tool that decides whether the build passes
 
-`ruff==0.17.3`, `ty==0.0.95`, `pytest==9.2.0` — exact, in the dependency group.
+`ruff==0.17.4`, `ty==0.0.99`, `pytest==9.2.0` — exact, in the dependency group.
 
 **Why:** a floor lets a new linter release fail CI on code nobody touched, and differently for two
 developers on the same commit; a pin makes the upgrade a reviewed change with its own diff. `ty`
@@ -168,27 +166,43 @@ cannot consume one — so it drifts silently until whoever trusted it finds it s
 **Check:** the lock file in `.gitignore` is the finding. A second lock artefact committed beside it
 is the other one.
 
-### PS-BUILD-11 [M!] Refuse a dependency published in the last few days
+### PS-BUILD-11 [M] Lock nothing younger than seven days but what you pinned exactly
 
-`uv lock --exclude-newer`, as a date or a relative duration. There is no `--cooldown`;
-`--exclude-newer-package` narrows it to one dependency when a project needs the newest of something
-specific.
+`exclude-newer = "7 days"` under `[tool.uv]`, as `assets/pyproject.toml` ships it, so every
+`uv lock` resolves as if the last week's releases did not exist; and `exclude-newer-package` naming
+exactly the dependencies pinned with `==`, no more and no fewer. An exact pin is a review written
+down — moving it is the reviewed change — so it needs no week to be safe, while everything it pulls
+in still waits. `uv lock --exclude-newer` takes the same date or relative duration for one run;
+there is no `--cooldown`.
 
-*Relaxed form:* a project that reviews every dependency change by hand may skip the cooldown, and
-should say so where the CI configuration would otherwise carry it.
+**Why:** the window between a compromised release being published and being pulled lasts hours — a
+documented incident had malicious versions live for two and a half and three and a half hours. Seven
+days covers that window many times over, for the cost of a week-old version.
 
-**Why:** the window between a compromised release being published and being pulled is measured in
-hours — a documented incident had malicious versions live for two and a half and three and a half
-hours. A cooldown removes that window entirely for the cost of installing yesterday's version.
+**Check:** the `[tool.uv]` table. No `exclude-newer`, or an `exclude-newer-package` whose exempt
+names differ from the `==` pins, is the finding.
 
-**Check:** the CI install step. No cooldown and no manual review is the finding.
+### PS-BUILD-12 [M] Justify every dependency; the standard library is the default
+
+Every entry in `[project.dependencies]` is justified, in the commit that adds it, by something it
+does that would take meaningfully longer than an hour to write and maintain. A package for padding a
+string, for `is_even`, or for what the standard library already does is not. Development tooling in
+a group (PS-BUILD-07) is justified the same way: it runs on every developer's machine and in CI.
+
+**Why:** each dependency adds an author who can compromise your users, a constraint that can
+conflict with theirs (PS-BUILD-09), and an install for every consumer. Those costs are permanent and
+shared; the saved hour is one-off and yours.
+
+**Check:** for each entry in `[project.dependencies]`, find the commit that added it and the
+sentence naming what it replaces. An entry with no such sentence, or one the standard library
+covers, is the finding.
 
 ## Building
 
-### PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
+### PS-BUILD-13 [M] Build with `uv_build`, and never invoke `setup.py`
 
-`requires = ["uv_build>=0.13.3,<0.14"]` and `build-backend = "uv_build"`. Build with `uv build`.
-The upper bound is required: `uv_build` follows uv's versioning policy and may break across minor
+`requires = ["uv_build>=0.13.3,<0.14"]` and `build-backend = "uv_build"`. Build with `uv build`. The
+upper bound is required: `uv_build` follows uv's versioning policy and may break across minor
 versions. That is not the ceiling PS-BUILD-04 forbids — that rule governs `requires-python`, a claim
 about interpreters you cannot test, while this is a build dependency you do.
 
@@ -196,34 +210,10 @@ about interpreters you cannot test, while this is a build dependency you do.
 standard library. A declared backend that the frontend calls makes the build reproducible from the
 declaration rather than from whatever a script happens to do.
 
-**Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist
-as a shim; calling it directly may not.
+**Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist as a
+shim; calling it directly may not.
 
-### PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
-
-`src/acmewidget/`, with `py.typed` inside the package directory. `uv_build` includes the marker
-automatically because it lives inside the package — but verify that against the built wheel rather
-than taking it on trust.
-
-**Why:** `src/` is what makes the tests exercise the installed package rather than the working
-copy — see PS-NAME-12. `py.typed` is what makes your annotations visible downstream at all;
-without it a type checker ignores them entirely.
-
-**Check:** unpack the built wheel and look for `py.typed`. Its absence is the finding.
-
-### PS-BUILD-14 [M] Give the distribution and the module the same name
-
-`name = "acmewidget"` and `src/acmewidget/`. Not `acme-widget` wrapping a directory called
-`acmewidget`.
-
-**Why:** a backend finds your package by normalising the distribution name — `acme-widget` becomes
-`acme_widget` — and looking for that directory under `src/`. Name them differently and the build
-fails outright until a `module-name` override papers over it; matched, the layout is inferred.
-
-**Check:** `rg -n '^name' pyproject.toml` against the directory under `src/`. Any difference is
-the finding.
-
-### PS-BUILD-15 [M] Keep the built artefact reproducible from the repository alone
+### PS-BUILD-14 [M] Keep the built artefact reproducible from the repository alone
 
 No network at build time, no generated files that are not in version control or generated by the
 build itself.
@@ -233,6 +223,20 @@ the version number stops identifying the contents. It also cannot be built in an
 audited environment, which is increasingly where builds happen.
 
 **Check:** build with the network disabled. Anything that fails is a hidden input.
+
+### PS-BUILD-15 [M] Add to the source distribution with `source-include`, never by excluding
+
+`uv_build` ships an allowlist: the module under `src/`, `pyproject.toml`, the readme and the licence
+files. Add what a consumer needs to build or test from with
+`[tool.uv.build-backend] source-include`, say `["tests/**"]`, and read `tar -tzf dist/*.tar.gz`
+before publishing.
+
+**Why:** a list of what to leave out ships every file added next until someone remembers to exclude
+it, and a stray `.env` or notebook in a published release stays there (PS-BUILD-18). A list of what
+to put in ships what was named.
+
+**Check:** `uv build`, then `tar -tzf dist/*.tar.gz`. Anything a consumer does not need to build is
+the finding.
 
 ## Publishing
 
@@ -267,9 +271,37 @@ release. Back-filling a wheel is therefore no longer possible.
 
 **Check:** any process that expects to add artefacts to a published version.
 
+## Continuous integration
+
+### PS-BUILD-19 [M] Run `ruff format`; it is not a suggestion
+
+In CI, as a gate, with `--check`. Never as a matter of individual discipline.
+
+**Why:** formatting arguments have no right answer, so the only way to stop having them is to remove
+the choice. A formatter that runs sometimes is worse than none, because the diff noise it produces
+lands on whoever touches the file next rather than on whoever skipped it.
+
+**Check:** `ruff format --check` in CI. Its stderr also names an enabled lint rule that conflicts
+with the formatter — but only for some of the documented conflicts, so the rule set must be checked
+against that list directly rather than inferred from a quiet run.
+
+### PS-BUILD-20 [M] Pin every third-party CI action to a full commit, with its release as a comment
+
+`uses: actions/checkout@<40 hex digits>  # v7.0.1`, as `assets/ci.yml` ships it. Not `@v7`, not a
+branch, and not a commit without the release beside it, which a reviewer could not read. Choose the
+newest release at least seven days old: the cooldown PS-BUILD-11 gives packages applies to what the
+workflow runs too.
+
+**Why:** a tag or a branch can be moved after review, and the commit it names moves with it; the
+action then runs someone else's code with the workflow's token. A full commit names one tree for
+good, and the comment keeps the upgrade a reviewed diff that says what it upgrades to.
+
+**Check:** `rg -n 'uses: [^@ ]+@([0-9a-f]{0,39}([^0-9a-f]|$)|[0-9a-f]{40}\s*$)' .github/` — each hit
+is a ref that is not a full commit, or a commit with no release comment.
+
 ## The free-threaded build
 
-### PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
+### PS-BUILD-21 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 `cp315t`, or `abi3t` for the free-threaded stable ABI: a package can ship either and still re-enable
 the GIL on import, and several do.
@@ -279,16 +311,11 @@ shipped one that re-enabled the GIL on import, and major numerical libraries cal
 "experimental" or "preliminary" and say explicitly that it does not mean the library is thread-safe.
 
 **Check:** import the whole dependency tree on the free-threaded build and assert the GIL is still
-off — PS-BUILD-20's command. The wheel tag cannot tell you this.
+off — PS-BUILD-22's command. The wheel tag cannot tell you this.
 
-### PS-BUILD-20 [M] Assert in CI that the GIL is actually off
+### PS-BUILD-22 [M] Assert in CI that the GIL is actually off
 
 Two assertions, because a GIL build fails the second for a different reason:
-
-```sh
-python -c "import sys; assert sys.abi_info.free_threaded"           # the CI image
-python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"  # the dependency tree
-```
 
 **Why:** the re-enable is silent apart from a `RuntimeWarning` that CI logs swallow, so without this
 assertion a dependency upgrade can quietly turn a free-threaded deployment into a GIL one and
@@ -296,7 +323,12 @@ everything still passes — just slower, and with the parallelism you were relyi
 
 **Check:** the CI workflow. No such assertion is the finding.
 
-### PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
+```sh
+python -c "import sys; assert sys.abi_info.free_threaded"              # the CI image
+python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"  # the dependency tree
+```
+
+### PS-BUILD-23 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
 Not in production, not in CI, not in a Dockerfile.
 
@@ -304,5 +336,4 @@ Not in production, not in CI, not in a Dockerfile.
 without the GIL anyway, and suppresses the one warning you had. CPython's own message says "at your
 own risk"; the risk is memory corruption rather than a wrong answer.
 
-**Check:** `rg -n 'PYTHON_GIL|gil=0' .github/ Dockerfile* 2>/dev/null` — every hit is the
-finding.
+**Check:** `rg -n 'PYTHON_GIL|gil=0' .github/ Dockerfile* 2>/dev/null` — every hit is the finding.

@@ -9,10 +9,22 @@ import re
 import tomllib
 lazy from collections.abc import Iterator
 
-from agent_skill.checks import check
-from agent_skill.report import Finding, fail
+from agent_skill.checks import check, per_skill
+from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import group
 lazy from agent_skill.model import Skill
+
+#: The asset whose `[workspace.lints]` is compared.
+CARGO = "assets/Cargo.toml"
+
+#: The asset holding clippy's own configuration.
+CLIPPY = "assets/clippy.toml"
+
+# The branches a finding of this check comes from.
+UNVERIFIED = declare("lints", "unverified", Level.FAIL)
+UNSHIPPED = declare("lints", "unshipped", Level.FAIL)
+LEVEL = declare("lints", "level", Level.FAIL)
+CLIPPY_CONFIG = declare("lints", "clippy_config", Level.FAIL)
 
 
 def table(text: str, prefix: str = "") -> dict[str, str]:
@@ -34,36 +46,41 @@ def table(text: str, prefix: str = "") -> dict[str, str]:
 
 
 @check("lints", "the shipped lint table equals the verified one")
+@per_skill
 def lints(skill: Skill) -> Iterator[Finding]:
     """How the shipped lint tables differ from the verified ones."""
-    manifest = skill.root / "assets" / "Cargo.toml"
+    manifest = skill.root / CARGO
     crate = skill.profile.crate
     if crate is None or not manifest.exists():
         return
     shipped = table(manifest.read_text(), "workspace.")
     verified = {f"{s}.{k}": v for s, t in crate.lints.items() for k, v in t.items()}
 
+    where = skill.at(CARGO)
     for key in sorted(set(shipped) - set(verified) - crate.unverifiable):
-        yield fail(f"assets/Cargo.toml ships `{key}` that nothing verifies", skill.name)
+        yield fail(f"ships `{key}` that nothing verifies", where, UNVERIFIED)
     for key in sorted(set(verified) - set(shipped)):
         yield fail(
-            f"the verified crate has `{key}` the shipped asset does not", skill.name
+            f"the verified crate has `{key}` the shipped asset does not",
+            where,
+            UNSHIPPED,
         )
     for key in sorted(set(shipped) & set(verified)):
         if shipped[key] != verified[key]:
             yield fail(
                 f"`{key}` is {shipped[key]} in the asset, "
                 f"{verified[key]} in the verified crate",
-                skill.name,
+                where,
+                LEVEL,
             )
 
     # clippy's own configuration: the same two tables, compared the same
     # way.
-    asset = skill.root / "assets" / "clippy.toml"
+    asset = skill.asset(CLIPPY)
     shipped_clippy = tomllib.loads(asset.read_text()) if asset.exists() else {}
     if shipped_clippy != crate.clippy:
         yield fail(
-            f"assets/clippy.toml is {shipped_clippy} "
-            f"and the verified crate's is {crate.clippy}",
-            skill.name,
+            f"is {shipped_clippy} and the verified crate's is {crate.clippy}",
+            skill.at(CLIPPY),
+            CLIPPY_CONFIG,
         )

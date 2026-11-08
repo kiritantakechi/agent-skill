@@ -2,13 +2,8 @@
 
 Scope: designing an exception hierarchy, raising and catching, what `try` should enclose, exception
 groups, and the control-flow shapes that keep a function readable — guards, early return, `match`,
-the walrus. What to log when you catch is the output chapter; what a public function should raise
-is the API chapter; concurrency-specific control flow is the async and concurrency chapters.
-
-Two sources are merged here: the **CPython 3.15 documentation**, including PEP 765's new restriction
-on `finally` and the exception-group machinery, and **Ruff's `B`, `TRY`, `RET`, `EM` and `BLE`
-families**, which decide most of this mechanically. Where a rule can cite a code it does, and the
-shipped `assets/ruff.toml` enables it.
+the walrus. What to log when you catch is the output chapter; what a public function should raise is
+the API chapter; concurrency-specific control flow is the async and concurrency chapters.
 
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
@@ -39,6 +34,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-ERR-18 [S] Use `match` for structure, not as a switch
   - PS-ERR-19 [S] Bind with the walrus only where it removes a line without hiding one
   - PS-ERR-20 [M] Return one type from one function
+  - PS-ERR-21 [M!] Use an explicit stack where the input decides the recursion depth
 - Decided by tools
 
 ---
@@ -62,15 +58,15 @@ class AcmeError(Exception):
 
 
 class ConfigError(AcmeError):
-    pass
+    """A configuration this package cannot use."""
 
 
-class TimeoutError_(AcmeError, TimeoutError):
-    """Also a builtin `TimeoutError`, so existing handlers keep working."""
+class RequestTimeoutError(AcmeError, TimeoutError):
+    """Also a `TimeoutError`, so existing handlers keep working."""
 
 
 assert issubclass(ConfigError, AcmeError)
-assert issubclass(TimeoutError_, TimeoutError)
+assert issubclass(RequestTimeoutError, TimeoutError)
 ```
 
 ### PS-ERR-02 [M] Inherit from the closest builtin that is already right
@@ -131,23 +127,37 @@ deliberate translation. `from exc` says "this caused that"; `from None` suppress
 
 ```python
 # verified — GOOD
-class ConfigError(Exception):
-    pass
+import pytest
+
+
+class AcmeError(Exception):
+    """Base for everything this package raises."""
+
+
+class ConfigError(AcmeError):
+    """A configuration value this package cannot use."""
+
+    def __init__(self, *, key: str, raw: str) -> None:
+        """Record which key held which unusable value."""
+        super().__init__(f"{key} must be a number, got {raw!r}")
+        self.key = key
+        self.raw = raw
 
 
 def port_from(raw: str) -> int:
     try:
         return int(raw)
     except ValueError as exc:
-        msg = f"port must be a number, got {raw!r}"
-        # `from exc` keeps the cause; the caller sees both and knows which is which.
-        raise ConfigError(msg) from exc
+        # `from exc` keeps the cause; the caller sees both and knows
+        # which is which.
+        raise ConfigError(key="port", raw=raw) from exc
 
 
-try:
-    port_from("http")
-except ConfigError as exc:
-    assert isinstance(exc.__cause__, ValueError)
+def test_translation_keeps_the_cause() -> None:
+    with pytest.raises(ConfigError, match="port") as caught:
+        port_from("http")
+    assert isinstance(caught.value.__cause__, ValueError)
+    assert (caught.value.key, caught.value.raw) == ("port", "http")
 ```
 
 ### PS-ERR-07 [M] Never use `assert` to validate input
@@ -158,8 +168,10 @@ except ConfigError as exc:
 silently disappears in exactly the deployment where you most wanted it. And a failed assertion
 blames *this* code for the caller's mistake, which misdirects whoever reads the traceback.
 
-**Check:** ruff `S101` outside tests. Inside a test the assertion is the point, which is why the
-shipped configuration ignores `S101` under `tests/`.
+**Check:** ruff `S101`, which flags every `assert` outside tests because it cannot tell input from
+belief: a hit that checks what a caller passed is the finding, and one stating an invariant the code
+itself guarantees carries `# noqa: S101` naming it. Inside a test the assertion is the point, which
+is why the shipped configuration ignores `S101` under `tests/`.
 
 ## Catching
 
@@ -192,8 +204,8 @@ from pathlib import Path
 
 cache = Path("cache.bin")
 
-# `suppress` says in the syntax what `except ... : pass` says only in a comment:
-# the cache is best-effort and its absence is not an error.
+# `suppress` says in the syntax what `except ... : pass` says only in a
+# comment: the cache is best-effort and its absence is not an error.
 with contextlib.suppress(FileNotFoundError):
     cache.unlink()
 
@@ -227,7 +239,8 @@ may raise a group. A plain `except` there is the finding.
 ```python
 # verified — GOOD
 def failing() -> None:
-    raise ExceptionGroup("two problems", [ValueError("a"), KeyError("b")])
+    msg = "two problems"
+    raise ExceptionGroup(msg, [ValueError("a"), KeyError("b")])
 
 
 caught: list[str] = []
@@ -246,9 +259,9 @@ assert caught == ["value:1", "key:1"]
 `try: return d[k] / except KeyError:` beats `if k in d: return d[k]` when the key is usually there.
 Where the failure is *common*, the exception machinery costs more than the check, so check first.
 
-**Why:** the check-then-act form is two lookups instead of one, and under free threading it is
-also PS-CONC-03's race: the key can vanish between the test and the use. The `try` form is atomic
-with respect to that.
+**Why:** the check-then-act form is two lookups instead of one, and under free threading it is also
+PS-CONC-03's race: the key can vanish between the test and the use. The `try` form is atomic with
+respect to that.
 
 **Check:** every `if x in y:` immediately followed by an access to `y[x]`. `SIM401` catches the
 subset that `dict.get` replaces outright.
@@ -270,9 +283,8 @@ catches it as well.
 
 ### PS-ERR-14 [M] Release with a context manager rather than with `finally`
 
-`with lock:`, `with open(...) as f:`, `with contextlib.closing(x):`. Not `try/finally`. Note
-PS-CONC-22: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
-is exhausted, so prefer the `with` form where the hold time matters.
+`with lock:`, `with open(...) as f:`, `with contextlib.closing(x):`. Not `try/finally`, and not a
+decorator built from a context manager where the hold time matters (PS-CONC-20).
 
 **Why:** the context manager puts the acquisition and the release in one place where they cannot
 drift apart, and it makes the pair impossible to forget at a new call site. Hand-written
@@ -296,9 +308,9 @@ the original exception with its own, and the original is what you needed to see.
 
 `if not valid: raise ...` first, then the body at one level of indentation.
 
-**Why:** the alternative nests the real work inside the success branch, so the reader tracks an
-open condition through the whole function. Guards leave the body describing only the case that
-matters, and adding a rejection is one line at the top rather than another level of nesting.
+**Why:** the alternative nests the real work inside the success branch, so the reader tracks an open
+condition through the whole function. Guards leave the body describing only the case that matters,
+and adding a rejection is one line at the top rather than another level of nesting.
 
 **Check:** ruff `RET505`–`RET508` for the `else`-after-`return` shapes, and `PLR0911` for a function
 that has grown too many exits to follow.
@@ -335,7 +347,7 @@ transformations. The guard form is exempt because there the rejection *is* the s
 
 `match` earns its place when it destructures — a shape, a sequence, a class with fields. Matching a
 single value against constants is an `if`/`elif` chain wearing a costume. The enum case is the
-exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-15 requires.
+exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-14 requires.
 
 **Why:** `match` reads well when the patterns show the shape of the data and badly when they are a
 list of equalities, because the reader is primed by the syntax to look for structure that is not
@@ -348,9 +360,9 @@ there.
 `if (found := lookup(k)) is not None:` yes. A walrus inside a comprehension condition that is also
 used in the output, usually not.
 
-**Why:** the walrus is at its best where the binding and the test are genuinely one thought, and
-at its worst where it buries a side effect inside an expression the reader scans rather than
-parses. The test is whether removing it would need one extra line or three.
+**Why:** the walrus is at its best where the binding and the test are genuinely one thought, and at
+its worst where it buries a side effect inside an expression the reader scans rather than parses.
+The test is whether removing it would need one extra line or three.
 
 **Check:** every `:=`. If the bound name is used more than twice, or the expression spans more than
 one line, the plain assignment reads better.
@@ -361,12 +373,68 @@ Not `str | None` where `None` means failure, and not a value on success with a `
 `X | None` is legitimate where `None` is a *value* the domain has, such as an optional field, and
 illegitimate where it means "it went wrong".
 
-**Why:** every extra shape in the return type propagates to every caller, each of whom must
-handle it or ignore it — and ignoring it is the default. Failures belong in exceptions, which
-callers cannot ignore by accident.
+**Why:** every extra shape in the return type propagates to every caller, each of whom must handle
+it or ignore it — and ignoring it is the default. Failures belong in exceptions, which callers
+cannot ignore by accident.
 
-**Check:** every function returning `X | None`. Ask whether `None` is a value or a failure; if it
-is a failure, it is an exception.
+**Check:** every function returning `X | None`. Ask whether `None` is a value or a failure; if it is
+a failure, it is an exception.
+
+### PS-ERR-21 [M!] Use an explicit stack where the input decides the recursion depth
+
+A recursion whose depth a constant bounds — a tree your own builder makes, a directory walk with a
+depth cap — stays recursive and asserts that constant at entry.
+
+*Relaxed form:* code whose only inputs are ones its author nests, accepting the `RecursionError`.
+
+**Why:** CPython raises `RecursionError` past `sys.getrecursionlimit()`, 1000 frames by default, so
+recursion over attacker-controlled nesting is a crash the caller did not choose. Raising the limit
+only trades that exception for a stack overflow, which no `except` can catch.
+
+**Check:** for each function that calls itself, what bounds the depth? If the answer is "the input",
+it needs a `deque` worklist, or an asserted cap.
+
+```python
+# verified — BAD: the input decides how deep this goes
+def flatten(node: object) -> list[object]:
+    if not isinstance(node, list):
+        return [node]
+    return [leaf for child in node for leaf in flatten(child)]
+
+
+nested = 0
+for _ in range(5_000):
+    nested = [nested]
+
+try:
+    flatten(nested)
+except RecursionError as exc:
+    assert "recursion" in str(exc)
+```
+
+```python
+# verified — GOOD
+from collections import deque
+
+
+def flatten(node: object) -> list[object]:
+    leaves: list[object] = []
+    work = deque([node])
+    while work:
+        item = work.popleft()
+        if isinstance(item, list):
+            work.extendleft(reversed(item))
+        else:
+            leaves.append(item)
+    return leaves
+
+
+nested = 0
+for _ in range(5_000):
+    nested = [nested]
+
+assert flatten(nested) == [0]
+```
 
 ## Decided by tools
 
@@ -374,6 +442,8 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `EM101` | error | a string literal passed straight to an exception — assign it to `msg` first |
-| ruff | `EM102` | error | an f-string passed straight to an exception |
-| ruff | `E722` | error | a bare `except:`, which also catches `KeyboardInterrupt` and `SystemExit` |
+| ruff | `EM101` | error | a string literal passed straight to an exception — assign it to `msg` first — listed because it is why every example here raises a named `msg` |
+| ruff | `EM102` | error | an f-string passed straight to an exception — listed because it is why an f-string message is a named `msg` too |
+| ruff | `E722` | error | a bare `except:`, which also catches `KeyboardInterrupt` and `SystemExit` — listed because it is the one handler PS-ERR-08 forbids that a tool can see |
+| ty | `division-by-zero` | warn | a division the checker proves is by zero |
+| ty | `redundant-condition-strict` | warn | a condition the checker proves always true or always false |

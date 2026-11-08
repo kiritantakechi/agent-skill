@@ -7,7 +7,7 @@ this chapter is about the handles.
 ## Contents
 
 - **Handles**
-  - BV-ASSET-01 [M] Treat a handle as a reference count, not a path
+  - BV-ASSET-01 [M] Hold a strong handle exactly as long as the asset is needed
   - BV-ASSET-02 [M] Load once and store the handle, never per frame
   - BV-ASSET-03 [S] Reach for `uuid_handle!` only for a built-in
 
@@ -21,23 +21,24 @@ this chapter is about the handles.
 - **Change and lifetime**
   - BV-ASSET-09 [M] React to `AssetEvent`, not to a per-frame comparison
   - BV-ASSET-10 [S] Keep hot reload working by loading through the server
-  - BV-ASSET-11 [M] Do not hold a strong handle to something the game has finished with
 
 ---
 
 ## Handles
 
-### BV-ASSET-01 [M] Treat a handle as a reference count, not a path
+### BV-ASSET-01 [M] Hold a strong handle exactly as long as the asset is needed
 
-A strong `Handle<T>` is a reference count: every clone keeps the asset alive, the one in an
-entity's component included, and dropping the last one frees it.
+A strong `Handle<T>` is a reference count: every clone keeps the asset alive, the one in an entity's
+component included, and dropping the last one frees it. Keep one wherever the asset is still to be
+used, and let it go with what used it: when a level ends, its handle resource goes with it.
 
-**Why:** the trap is the handle nothing else holds — a preload whose handle is discarded, or an
-`AssetId` kept in its place. Its drop cancels the load or frees the asset, so the next `load` of the
-path reads the disk again and the id finds nothing: a hitch or a missing texture, never an error.
+**Why:** a handle nothing holds — a discarded preload, an `AssetId` kept in its place — cancels the
+load or frees the asset, and the next `load` reads the disk again; one held past its use, in a map
+only ever inserted into, is memory no leak detector reports, because nothing leaked.
 
-**Check:** for each `AssetServer::load`, follow the handle. If it is not stored anywhere that
-outlives its use, the asset can be dropped.
+**Check:** for each `AssetServer::load`, follow the handle: it is stored somewhere that outlives its
+use. For each collection of handles, find the removal: a collection with no remove is a cache with
+no eviction.
 
 ### BV-ASSET-02 [M] Load once and store the handle, never per frame
 
@@ -48,8 +49,9 @@ Load at startup or in `OnEnter`, into one resource per feature — `SpriteHandle
 frame per entity is measurable, and it hides the real load point. One resource per feature also
 makes the loading screen's "is everything here" a walk over one struct.
 
-**Check:** grep for `asset_server.load` inside `Update` or `FixedUpdate` systems. Then, for each
-feature, is there one type holding its handles, or are they built in more than one system?
+**Check:** read each `asset_server.load`: one in a system that runs in `Update` or `FixedUpdate` is
+a load per frame. Then, for each feature, is there one type holding its handles, or are they built
+in more than one system?
 
 ```rust
 // verified
@@ -90,7 +92,7 @@ itself. Game content goes through the asset server.
 of the program is expected to insert. For a texture on disk, that is a handle that never resolves
 and an entity that renders nothing.
 
-**Check:** grep for `uuid_handle!`. Each occurrence should have a matching insertion into
+**Check:** `rg -n 'uuid_handle!' src/` finds each one; each has a matching insertion into
 `Assets<T>` in the same crate.
 
 ## Loading
@@ -102,8 +104,8 @@ that must read the asset's contents waits for the load; anything that only passe
 renderer does not.
 
 **Why:** loading is asynchronous, so `Assets::get` on the next frame returns `None` — except on a
-fast machine with a warm cache, which is worse: the bug then appears only on the slow machine or
-the cold start.
+fast machine with a warm cache, which is worse: the bug then appears only on the slow machine or the
+cold start.
 
 **Check:** for each `Assets::<T>::get` shortly after a load, ask what the code does when it returns
 `None`. "It cannot" is the defect.
@@ -233,8 +235,8 @@ what "ready" means, and `RecursiveDependencyLoadState` asks the same question in
 failure case needs distinguishing.
 
 **Why:** the top-level asset arrives first, so a loading screen that waits for it dismisses itself
-while the textures are still arriving, which the player sees as a level that fades in over the
-first second of play.
+while the textures are still arriving, which the player sees as a level that fades in over the first
+second of play.
 
 **Check:** for each readiness check, ask whether the asset has dependencies. Meshes, scenes, glTF
 and materials all do.
@@ -248,19 +250,19 @@ Loader settings, an unapproved path and a guard all go through `AssetServer::loa
 `load_with_settings_override` — and is the form upstream extends, so code written against it
 survives the next option being added. It also keeps a load with five options readable.
 
-**Check:** grep for `load_with_settings`, `load_override` and `load_acquire`. Each is a removed
-call; the builder's `with_settings`, `override_unapproved` and `with_guard` replace them.
+**Check:** `rg -n '\.load_(override|acquire|with_settings)' src/` finds a removed call; the
+builder's `with_settings`, `override_unapproved` and `with_guard` replace them.
 
 ### BV-ASSET-08 [M] Keep asset paths out of the code that uses them
 
-A path literal appears where the handle is created — a handle resource, a manifest, a content file
-— and nowhere else.
+A path literal appears where the handle is created — a handle resource, a manifest, a content file —
+and nowhere else.
 
 **Why:** a path is content, and content moves. A literal in the system that spawns an enemy makes
 renaming a file a code change, found by grep, in every system that touched it; paths kept together
 can be checked against the disk by a build step.
 
-**Check:** grep for string literals ending in a file extension. Each one outside a handle resource,
+**Check:** read each string literal ending in a file extension. Each one outside a handle resource,
 a content file, or a loader is a path that has escaped.
 
 ## Change and lifetime
@@ -271,14 +273,14 @@ a content file, or a loader is a path that has escaped.
 compares this frame's asset against a cached copy. `Modified` fires only on an actual mutation:
 `AssetMut<A>` sets its flag on `DerefMut`, so a `get_mut` that only reads raises nothing. Where the
 reaction is per entity — this entity's mesh changed — the filter `AssetChanged<C>` on its handle
-component says it with no id-to-entity join, and `Or<(Changed<C>, AssetChanged<C>)>` also catches
-a swapped handle.
+component says it with no id-to-entity join, and `Or<(Changed<C>, AssetChanged<C>)>` also catches a
+swapped handle.
 
 **Why:** the events are the mechanism the asset server already maintains, so a comparison duplicates
 it and gets it wrong in the interesting cases: a modified asset with the same length, an asset
 replaced by hot reload between two frames.
 
-**Check:** grep for a cached `Handle` or a cached asset value compared each frame. That is an
+**Check:** read for a cached `Handle` or a cached asset value compared each frame. That is an
 `AssetEvent` reader, or an `AssetChanged` filter when the answer is per entity.
 
 ```rust
@@ -309,9 +311,7 @@ fn reindex(
 ) {
     for change in changes.read() {
         match change {
-            AssetEvent::Added { .. }
-            | AssetEvent::Modified { .. }
-            | AssetEvent::Removed { .. } => {
+            AssetEvent::Added { .. } | AssetEvent::Modified { .. } | AssetEvent::Removed { .. } => {
                 index.longest = dialogues
                     .iter()
                     .map(|(_, dialogue)| dialogue.lines.len())
@@ -385,17 +385,5 @@ does not. A custom format gets a small `AssetLoader`, half a page that buys the 
 `fs::read_to_string` at a time — usually for a config or a level file, exactly the content people
 most want to edit while the game runs.
 
-**Check:** grep for `std::fs`, `File::open` and `include_str!` on anything under the asset
-directory.
-
-### BV-ASSET-11 [M] Do not hold a strong handle to something the game has finished with
-
-When a level ends, its handle resource goes with it. A handle held in a resource that outlives the
-level keeps the level in memory.
-
-**Why:** handles are the only thing keeping an asset loaded, so an accumulating collection of them
-is an accumulating memory footprint with no other symptom — no leak detector fires, because nothing
-leaked. The usual shape is a `HashMap<String, Handle<Image>>` that is only ever inserted into.
-
-**Check:** for each collection of handles, find the removal. A collection with no remove is a cache
-with no eviction.
+**Check:** `rg -n 'std::fs|File::open|include_str!' src/` finds a read past the server; each one of
+a file under the asset directory is the finding.

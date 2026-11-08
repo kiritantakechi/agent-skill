@@ -1,15 +1,11 @@
-# Typing: Annotations, Generics, Narrowing, and the Checker
+# Types: Annotations, Generics, Narrowing, and the Checker
 
-Scope: how to spell a type in 3.15, what the annotation machinery actually does now that PEP 649
-made it lazy, which narrowing construct to reach for, how to read annotations at runtime without
-breaking, and which checker this standard mandates. What to put *in* a type is the data chapter;
-what a public signature should accept is the API chapter.
-
-Two sources are merged here: the **Python Typing Spec** at `typing.python.org/spec`, which is the
-living specification the typing PEPs now redirect to and which the Typing Council maintains under
-PEP 729, and **Ruff's `ANN`, `UP` and `TC` families**, which decide mechanically whether annotations
-are present and whether they are spelled the modern way. Correctness of the types themselves is
-`ty`'s job — PS-TYPE-01 mandates it — and presence is Ruff's. The two compose rather than overlap.
+Scope: how a type states what a seam needs and what a set lists: the capability named as a
+`Protocol`, a closed set kept a union and closed with `assert_never`, a protocol's contract, and how
+far a signature is generic; and how to spell a type, what the lazy annotation machinery does, which
+narrowing construct to reach for, how to read annotations at runtime without breaking, and which
+checker this standard mandates. What to put *in* a type is the data chapter; what a public signature
+should accept is the API chapter.
 
 Unless a block shows its own imports, it assumes `from typing import …` for the names it uses.
 
@@ -25,21 +21,26 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
   - PS-TYPE-06 [M!] Use `FORWARDREF` when a name may not resolve
 - **Spelling a type**
   - PS-TYPE-07 [M] Write unions with `|`, and put `None` last
-  - PS-TYPE-08 [M] Use the builtin and `collections.abc` generics
-  - PS-TYPE-09 [M] Declare type parameters with PEP 695 syntax
-  - PS-TYPE-10 [M] Declare an alias with the `type` statement
-  - PS-TYPE-11 [M] Never write variance by hand
-  - PS-TYPE-12 [M] Do not use the spellings 3.15 retired
+  - PS-TYPE-08 [M] Declare type parameters with PEP 695 syntax
+  - PS-TYPE-09 [M] Declare an alias with the `type` statement
+  - PS-TYPE-10 [M] Never write variance by hand
+  - PS-TYPE-11 [M] Do not use a `typing` spelling 3.15 retired
 - **Precision**
-  - PS-TYPE-13 [M] Use `object` for "anything", and `Any` only with a reason
-  - PS-TYPE-14 [M] Narrow with `TypeIs`, not `TypeGuard`
-  - PS-TYPE-15 [M] Close an exhaustive match with `assert_never`
-  - PS-TYPE-16 [M] Mark what may not be subclassed or reassigned
-  - PS-TYPE-17 [S] Reach for `@overload` only when a type parameter cannot express it
+  - PS-TYPE-12 [M] Use `object` for "anything", and `Any` only with a reason
+  - PS-TYPE-13 [M] Narrow with `TypeIs`, not `TypeGuard`
+  - PS-TYPE-14 [M] Close an exhaustive match with `assert_never`
+  - PS-TYPE-15 [M] Mark what may not be subclassed or reassigned
+  - PS-TYPE-16 [S] Reach for `@overload` only when a type parameter cannot express it
+  - PS-TYPE-17 [M] Call a `singledispatchmethod` through an instance, never through its class
 - **What 3.15 adds**
   - PS-TYPE-18 [M] Take a `TypeForm` when the argument is a type expression
   - PS-TYPE-19 [S] Close a `TypedDict` that models a fixed wire format
   - PS-TYPE-20 [M] Build a sentinel with `sentinel`, not with `object()`
+- **Interfaces and generics**
+  - PS-TYPE-21 [M] Name a seam's capability as a `Protocol`, not an ABC, unless you ship behaviour
+  - PS-TYPE-22 [M] Model a closed set of implementations as a union, not a `Protocol`
+  - PS-TYPE-23 [M] Document the contract of a `Protocol`, not just its signatures
+  - PS-TYPE-24 [S] Declare a type parameter only where it relates two positions
 - Decided by tools
 
 ---
@@ -48,7 +49,7 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
 
 ### PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
 
-`ty==0.0.95`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience. The pin is exact,
+`ty==0.0.99`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience. The pin is exact,
 and moving it is a reviewed change: bump it, run the suite, read what moved, and update the
 configuration in the same commit — never let a resolver do it. Mandated means required, not
 exclusive: a second checker is permitted, nothing here promises the two agree, and **no rule is
@@ -116,17 +117,18 @@ hand back bare strings without raising, and every consumer then gets text it mus
 reading it off a class namespace during class creation sees something different from reading it
 afterwards. `annotationlib` is the supported door, and the only one offering PS-TYPE-06's formats.
 
-**Check:** `rg -n '__annotations__' src/` — every hit outside a test of the machinery itself
-is the finding.
+**Check:** `rg -n '__annotations__' src/` — every hit outside a test of the machinery itself is the
+finding.
 
 ### PS-TYPE-06 [M!] Use `FORWARDREF` when a name may not resolve
 
-Library code that reads someone else's annotations asks for `Format.FORWARDREF`, not `Format.VALUE`,
-and resolves a `ForwardRef` it gets back with `typing.evaluate_forward_ref()` once the name exists.
+Code reading annotations whose names it cannot vouch for — someone else's, or any that name what is
+imported only under `TYPE_CHECKING` — asks for `Format.FORWARDREF`, not `Format.VALUE`, and resolves
+a `ForwardRef` it gets back with `typing.evaluate_forward_ref()` once the name exists. Code reading
+its own annotations, every name importable at runtime, may use `VALUE`, with a comment saying so:
+the assumption is invisible otherwise.
 
-*Relaxed form:* application code reading its own annotations, where every name is importable at
-runtime, may use `VALUE` — and should say so in a comment, because the assumption is invisible
-otherwise.
+*Relaxed form:* `VALUE` anywhere, with that comment, since a `NameError` is a crash its author sees.
 
 **Why:** `VALUE` evaluates, so a name imported only under `TYPE_CHECKING` raises `NameError`, and
 PEP 649 makes such names legitimate in far more code. `FORWARDREF` returns the real object where it
@@ -142,18 +144,19 @@ import decimal
 from typing import TYPE_CHECKING, evaluate_forward_ref
 
 if TYPE_CHECKING:
-    # Not imported at runtime — the common, legitimate reason a name in an
-    # annotation cannot be resolved.
+    # Not imported at runtime: the common, legitimate reason a name in
+    # an annotation cannot be resolved.
     from decimal import Decimal
 
 
 def price(amount: Decimal) -> None:
-    """PEP 649 makes this legal: the annotation is never evaluated here."""
+    """Legal under PEP 649: the annotation is never evaluated here."""
 
 
 try:
     annotationlib.get_annotations(price, format=annotationlib.Format.VALUE)
-    raise AssertionError("VALUE should not have resolved a TYPE_CHECKING-only name")
+    msg = "VALUE should not have resolved a TYPE_CHECKING-only name"
+    raise AssertionError(msg)
 except NameError:
     pass  # This is what a library reading someone else's annotations would hit.
 
@@ -182,18 +185,7 @@ be *passed*, not about what it may hold. `|` needs no import and reads as the al
 
 **Check:** ruff `UP007` and `UP045` rewrite both automatically at this target version.
 
-### PS-TYPE-08 [M] Use the builtin and `collections.abc` generics
-
-`list[int]`, `dict[str, int]`, `collections.abc.Sequence`, `collections.abc.Callable`. Never
-`typing.List`, `typing.Dict`, `typing.Callable`.
-
-**Why:** PEP 585 deprecated the `typing` aliases, which survive only so that old code keeps
-importing. And `Sequence` is a real ABC about behaviour, so importing it from `typing` misfiles it
-as a typing artefact.
-
-**Check:** ruff `UP006` and `UP035`.
-
-### PS-TYPE-09 [M] Declare type parameters with PEP 695 syntax
+### PS-TYPE-08 [M] Declare type parameters with PEP 695 syntax
 
 `class Box[T]:`, `def first[T](items: Sequence[T]) -> T:`. Never a module-level `TypeVar` plus
 `Generic[T]`, and never both styles in one declaration: the spec says they "should not be combined".
@@ -206,16 +198,18 @@ name that can be — and was — reused across unrelated declarations, silently 
 
 ```python
 # verified — GOOD
-from collections.abc import Sequence
+lazy from collections.abc import Sequence
 
 
 class Box[T]:
-    """The parameter is scoped to the class; nothing outside can reuse it."""
+    """Hold one item; `T` is scoped to the class alone."""
 
     def __init__(self, item: T) -> None:
+        """Hold `item`."""
         self.item = item
 
     def get(self) -> T:
+        """Return the item."""
         return self.item
 
 
@@ -227,7 +221,7 @@ assert Box(3).get() == 3
 assert first([], "none") == "none"
 ```
 
-### PS-TYPE-10 [M] Declare an alias with the `type` statement
+### PS-TYPE-09 [M] Declare an alias with the `type` statement
 
 `type Handler = Callable[[Request], Response]`. Never a bare assignment, and never `TypeAlias`.
 
@@ -235,9 +229,10 @@ assert first([], "none") == "none"
 type. The `type` statement says which in the syntax and evaluates lazily, so an alias may name
 something defined later without quotes. `typing.TypeAlias` is deprecated in its favour.
 
-**Check:** ruff `UP040`.
+**Check:** ruff `UP040` for a `TypeAlias` annotation. A module-level name bound to a type expression
+with no `type` statement is review: nothing tells it from a variable holding a class.
 
-### PS-TYPE-11 [M] Never write variance by hand
+### PS-TYPE-10 [M] Never write variance by hand
 
 No `covariant=True`, no `contravariant=True`, no `infer_variance=True`.
 
@@ -246,31 +241,31 @@ correct more often than a human is and impossible to get out of sync with the cl
 Hand-written variance is a second source of truth about the same fact.
 
 **Check:** `rg -n '(co|contra)variant[ \t]*=|infer_variance' src/` — every hit is either legacy
-`TypeVar` (PS-TYPE-09) or a hand-written variance.
+`TypeVar` (PS-TYPE-08) or a hand-written variance.
 
-### PS-TYPE-12 [M] Do not use the spellings 3.15 retired
+### PS-TYPE-11 [M] Do not use a `typing` spelling 3.15 retired
 
-`AnyStr` (removal 3.18), `ByteString` (removal 3.17), `Text`, `typing.no_type_check_decorator`
-(removed in 3.15), `# type:` comments, and `Unpack` where PEP 695 variadics fit. In place of
-`ByteString` take `collections.abc.Buffer`, which every buffer satisfies: `array`, `mmap` and a
-third party's types too, all of which `bytes | bytearray | memoryview` rejects.
+Its rows in the migration table name each replacement. `ByteString` is the one that needs a reason:
+take `collections.abc.Buffer`, which every buffer satisfies — `array`, `mmap` and a third party's
+types too, all of which `bytes | bytearray | memoryview` rejects. Nor write a `# type:` comment, or
+`Unpack` where PEP 695 variadics fit.
 
 **Why:** each has a live replacement, and several are on a removal schedule that turns a warning
 into an error within two releases. `ByteString` is the subtle one: 3.15 dropped it from `__all__`
 but left it importable, so it works, warns on plain access, and fails once 3.17 removes it.
 
-**Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17. The migration chapter
-carries the full table as one runnable grep, and ruff `UP` and `PYI` catch the ones that are
-statically decidable.
+**Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17. The command after the
+migration table finds the other rows, and ruff `UP` and `PYI` the ones that are statically
+decidable.
 
 ```python
 # verified — GOOD
 import array
-from collections.abc import Buffer
+lazy from collections.abc import Buffer
 
 
 def checksum(data: Buffer) -> int:
-    """Sum the bytes of any buffer: `bytes`, `memoryview`, `array`, `mmap`."""
+    """Sum the bytes of any buffer: `bytes`, `array`, `mmap`."""
     return sum(memoryview(data).cast("B"))
 
 
@@ -280,7 +275,7 @@ assert checksum(array.array("B", [1, 2])) == 3
 
 ## Precision
 
-### PS-TYPE-13 [M] Use `object` for "anything", and `Any` only with a reason
+### PS-TYPE-12 [M] Use `object` for "anything", and `Any` only with a reason
 
 If the function truly accepts anything, the type is `object` and you narrow before use. `Any` needs
 a comment naming what cannot be expressed: the typing best-practices guidance reserves it for "when
@@ -293,10 +288,10 @@ in a signature quietly erases the types of everything it touches.
 
 **Check:** ruff `ANN401` for `Any` in a public signature. Every surviving `Any` needs a comment.
 
-### PS-TYPE-14 [M] Narrow with `TypeIs`, not `TypeGuard`
+### PS-TYPE-13 [M] Narrow with `TypeIs`, not `TypeGuard`
 
-`def is_str(x: object) -> TypeIs[str]:`. Reach for `TypeGuard` only where the narrowed type is not
-assignable to the input type, and say why in the docstring.
+`def is_str(value: object) -> TypeIs[str]:`. Reach for `TypeGuard` only where the narrowed type is
+not assignable to the input type, and say why in the docstring.
 
 **Why:** `TypeGuard` narrows only the positive branch, so the `else` keeps the original union and
 the reader meets a type error in the arm that should have been obvious. `TypeIs` narrows both ways,
@@ -310,22 +305,22 @@ constraint cannot hold.
 from typing import TypeIs
 
 
-def is_str(x: object) -> TypeIs[str]:
-    return isinstance(x, str)
+def is_str(value: object) -> TypeIs[str]:
+    return isinstance(value, str)
 
 
-def width(x: str | int) -> int:
-    if is_str(x):
-        return len(x)
-    # TypeIs narrows here too: `x` is `int`, not `str | int`.
-    return x.bit_length()
+def width(value: str | int) -> int:
+    if is_str(value):
+        return len(value)
+    # TypeIs narrows here too: `value` is `int`, not `str | int`.
+    return value.bit_length()
 
 
 assert width("abcd") == 4
 assert width(255) == 8
 ```
 
-### PS-TYPE-15 [M] Close an exhaustive match with `assert_never`
+### PS-TYPE-14 [M] Close an exhaustive match with `assert_never`
 
 Every `match` and every `if`/`elif` chain over a closed set ends with a branch that asserts the
 remainder is `Never`.
@@ -344,6 +339,8 @@ from typing import assert_never
 
 
 class Kind(enum.Enum):
+    """What an access does."""
+
     READ = "read"
     WRITE = "write"
 
@@ -355,25 +352,28 @@ def describe(kind: Kind) -> str:
         case Kind.WRITE:
             return "writer"
         case _:
-            # Adding a third member makes this a type error at every call site.
+            # A third member makes this a type error at every call.
             assert_never(kind)
 
 
 assert describe(Kind.READ) == "reader"
 ```
 
-### PS-TYPE-16 [M] Mark what may not be subclassed or reassigned
+### PS-TYPE-15 [M] Mark what may not be subclassed or reassigned
 
-`@final` on a class nothing should subclass. `Final` on a module constant.
+`@final` on a class nothing should subclass. `Final` on a module constant. `@disjoint_base` on a
+class no other disjoint base may share a subclass with: non-empty `__slots__` already implies it for
+a class written in Python, so it is the stub of an extension type that must say it.
 
 **Why:** without them every class is an extension point whether you meant it or not, and every
-constant is a variable; both markers are checked. `@final` also lets the checker narrow more
+constant is a variable; each marker is checked. `@final` also lets the checker narrow more
 aggressively, because it knows no subclass can widen the behaviour.
 
 **Check:** ruff `PYI` for the stub cases; the rest is review. A module-level name in
-`SCREAMING_SNAKE_CASE` without `Final` is the finding.
+`SCREAMING_SNAKE_CASE` without `Final` is the finding. `ty` reports a class inheriting two disjoint
+bases as `instance-layout-conflict`.
 
-### PS-TYPE-17 [S] Reach for `@overload` only when a type parameter cannot express it
+### PS-TYPE-16 [S] Reach for `@overload` only when a type parameter cannot express it
 
 Two overloads that differ only in a container's element type are a type parameter written the long
 way.
@@ -384,6 +384,19 @@ Where a `T` expresses the relation, it does so in one signature that also compos
 
 **Check:** every `@overload` group. If the variants differ only in one position and the return
 follows that position, a type parameter replaces the group.
+
+### PS-TYPE-17 [M] Call a `singledispatchmethod` through an instance, never through its class
+
+`a.m(1)`, not `A.m(a, 1)`. Through an instance, the method dispatches on the first argument after
+`self`; through the class, 3.15 dispatches on that argument too, where earlier releases dispatched
+on the instance.
+
+**Why:** a call through the class runs a different registered implementation on 3.15 than it did
+before, with no error and no warning, so code written against either behaves differently on the
+other. Through an instance, every release agrees.
+
+**Check:** `rg -n 'singledispatchmethod' src/` lists the methods; a call of one through its class,
+`Class.method(instance, …)`, is the finding.
 
 ## What 3.15 adds
 
@@ -423,10 +436,205 @@ distinction. PEP 661 sentinels narrow by `is` and have a `repr` readable in a tr
 `ty`'s `mismatched-sentinel-name`, which the shipped configuration enables, catches a sentinel bound
 under a name other than its own.
 
+## Interfaces and generics
+
+### PS-TYPE-21 [M] Name a seam's capability as a `Protocol`, not an ABC, unless you ship behaviour
+
+At a seam that will carry two plausible implementations, or a test double, write the `Protocol`
+first, in terms of what the caller needs, and annotate the consumer with it, not with the class that
+happens to provide it. A class with one implementation and no double stays concrete. An ABC only
+when you have concrete methods subclasses inherit.
+
+**Why:** a boundary extracted from an existing class inherits its accidents, and one written against
+the caller's need comes out total, with the test double free. A protocol is structural, so neither
+side imports the other; an ABC forces inheritance and couples the implementer to you.
+
+**Check:** a parameter annotated with a concrete class that the body uses through two or three
+methods, where a second implementation or a test double exists, is the finding; so is every ABC with
+no concrete method, a protocol written the coupling way.
+
+```python
+# verified — GOOD
+from typing import Protocol
+
+
+class Sink(Protocol):
+    """Structural: a caller satisfies this without importing it."""
+
+    def write(self, line: str) -> None:
+        """Take one line."""
+
+
+class Collector:
+    """Keep every line written, in order."""
+
+    def __init__(self) -> None:
+        """Start with no lines."""
+        self.lines: list[str] = []
+
+    def write(self, line: str) -> None:
+        """Keep `line`."""
+        self.lines.append(line)
+
+
+def emit(sink: Sink, lines: list[str]) -> None:
+    for line in lines:
+        sink.write(line)
+
+
+collector = Collector()
+emit(collector, ["a", "b"])
+assert collector.lines == ["a", "b"]
+```
+
+### PS-TYPE-22 [M] Model a closed set of implementations as a union, not a `Protocol`
+
+When every implementation lives in your own tree and no caller outside it adds one, the set is a
+union of its classes, consumed with a `match` that ends in `assert_never` (PS-TYPE-14). A `Protocol`
+is for the set someone else extends.
+
+**Why:** a protocol is open, so the checker can never prove every implementation handled, and adding
+one is silent wherever the set is consumed. A union is closed, so a new member is a type error at
+every `match` that must change, and each member keeps its own data and can be told apart by shape.
+
+**Check:** for each `Protocol`, list the classes that satisfy it. If every one is in this repository
+and none is meant to be supplied from outside, it is a union.
+
+```python
+# verified — GOOD
+from dataclasses import dataclass
+from typing import assert_never
+
+
+@dataclass(frozen=True)
+class Circle:
+    """A circle of radius `r`."""
+
+    r: float
+
+
+@dataclass(frozen=True)
+class Rect:
+    """A rectangle of `w` by `h`."""
+
+    w: float
+    h: float
+
+
+type Shape = Circle | Rect
+
+
+def area(shape: Shape) -> float:
+    match shape:
+        case Circle(r=r):
+            return 3 * r * r
+        case Rect(w=w, h=h):
+            return w * h
+        case _:
+            # A third shape makes this a type error at every call.
+            assert_never(shape)
+
+
+assert area(Rect(2, 3)) == 6
+```
+
+### PS-TYPE-23 [M] Document the contract of a `Protocol`, not just its signatures
+
+What an implementer must uphold, what a caller may assume, whether calls may be concurrent, and what
+happens on error go in the protocol's docstring, and in the method's where it is specific to it.
+
+**Why:** the signatures constrain types and say nothing about behaviour, so a protocol without a
+documented contract can be implemented correctly only by accident. Structural typing makes this
+worse: an implementer never imports the protocol, so its docstring is the only place they meet it.
+
+**Check:** could someone write a conforming implementation from the docstring alone, without reading
+yours?
+
+```python
+# verified — GOOD
+from typing import Protocol
+
+
+class Normalizer(Protocol):
+    """Put text in canonical form.
+
+    An implementation must be idempotent, so that normalizing twice
+    gives what once did, and must never lengthen its input.
+    """
+
+    def normalize(self, text: str) -> str:
+        """Return `text` in canonical form."""
+
+
+class Lower:
+    """Lowercase the text."""
+
+    def normalize(self, text: str) -> str:
+        """Return `text` lowercased."""
+        return text.lower()
+
+
+def canonical(normalizer: Normalizer, text: str) -> str:
+    return normalizer.normalize(text)
+
+
+assert canonical(Lower(), "AbC") == "abc"
+```
+
+### PS-TYPE-24 [S] Declare a type parameter only where it relates two positions
+
+A type parameter earns its place by tying one position in a signature to another: the element type
+that goes in is the one that comes out. One that appears once is the bound it stands for, written
+longer.
+
+**Why:** each parameter costs the reader a name to track and the checker an inference to make, and a
+single-use one buys no precision over the type it stands for. The signature that names the type
+reads at a glance and fails at the call site with the type it expected.
+
+**Check:** for each generic function or class, find the positions where each parameter appears. Once
+is the finding.
+
+```python
+# verified — GOOD
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
+def first[T](items: Sequence[T]) -> T:
+    """Return the first of `items`: the type in is the type out."""
+    return items[0]
+
+
+def count(items: Sequence[object]) -> int:
+    """Count `items`; no parameter, nothing is tied to the result."""
+    return len(items)
+
+
+assert first(["a", "b"]) == "a"
+assert count([1, 2]) == 2
+```
+
 ## Decided by tools
 
 A tool settles these on its own; the shipped configuration enables each at the level shown.
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `UP037` | error | a quoted annotation — annotations are lazy, so `-> Node` needs no quotes |
+| ruff | `UP037` | error | a quoted annotation — annotations are lazy, so `-> Node` needs no quotes — listed because lazy annotations (PS-TYPE-04) are what made the quotes dead |
+| ruff | `UP006` | error | `typing.List` or another `typing` alias of a builtin in an annotation — listed because the aliases are deprecated and still import, so nothing at runtime says so |
+| ruff | `UP035` | error | `typing.Callable`, `typing.Sequence` or another ABC imported from `typing` — `collections.abc` — listed because the alias misfiles a behavioural ABC as a typing artefact |
+| ty | `blanket-ignore-comment` | error | a `# ty: ignore` naming no rule, which silences every diagnostic on its line (PS-TYPE-03) |
+| ty | `dynamic-function-decorator-return` | error | a decorator that turns the function it decorates into `Any`, erasing its signature |
+| ty | `missing-override-decorator` | error | a method overriding a base class's without `@override` |
+| ty | `missing-type-argument` | error | a generic type with its arguments left out: `list` for `list[int]` |
+| ty | `unsound-assignment` | error | an `Any` assigned to a variable declared with a static type |
+| ty | `unsound-return-statement` | error | an `Any` returned from a function declared to return a static type |
+| ty | `unsound-yield` | error | an `Any` yielded from a generator declared to yield a static type |
+| ty | `unsupported-dynamic-base` | error | a class built by `type()` on a base the checker cannot model |
+| ty | `disjoint-cast` | error | a `cast` to a type no value of the source's type can have |
+| ty | `mismatched-sentinel-name` | error | a `sentinel` bound to a name other than the one it was given (PS-TYPE-20) |
+| ty | `possibly-missing-attribute` | warn | an attribute that may not exist on every path to it |
+| ty | `possibly-unresolved-reference` | warn | a name that may not be bound where it is read |
+| ty | `truthiness-test-of-none-union` | warn | `if value:` on an optional type whose own values can be falsy, an `int` or a `str` |
