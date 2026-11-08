@@ -355,7 +355,7 @@ manifests to the layout and the skills, and runs `claude plugin validate` over
 them. Install either the plugin or the links below on one machine, not both:
 both would load every skill twice.
 
-The version is 2.0.0 because an ID cited under 1.0.0 may now name another rule,
+The major version is 2 because an ID cited under 1.0.0 may now name another rule,
 or none. `revise` renumbered the rule IDs of every standard, and removed the
 `CORE` family: each `*-CORE-NN` is now a rule of the chapter that owns its
 subject. Then the sweep that wrote the abstract standard moved each realising rule
