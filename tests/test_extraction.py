@@ -158,11 +158,18 @@ mod tests {
 
 
 def test_one_grammar_zig() -> None:
-    """A trailing comment does not hide a statement."""
+    """A trailing comment hides no statement; a poison write is none."""
     body = """fn f(v: *u32) void {
     v.* += 1; // bump
     std.debug.assert(v.* > 0);
     _ = v;
+}
+
+fn deinit(s: *S) void {
+    var scratch: u32 = undefined;
+    scratch = 0;
+    s.* = undefined;
+    s.field = undefined; // poison
 }
 
 test "f" {
@@ -170,7 +177,7 @@ test "f" {
     f(&v);
 }
 """
-    assert deleted("zig", body) == ["v.* += 1;"]
+    assert deleted("zig", body) == ["v.* += 1;", "scratch = 0;"]
 
 
 def test_rust_leaves_its_build_directory_at_the_dependencies(

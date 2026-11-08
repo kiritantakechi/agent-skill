@@ -1085,9 +1085,11 @@ Three details that are easy to get wrong:
   with the signature ZS-OUT-21 gives.
 - `argv[0]` is the program name. Start the loop at index 1.
 
-Keep `parseArgs` a pure function of a `[]const [:0]const u8` rather than reading `init` directly:
-that is what makes the example's cases a unit test instead of a subprocess test. `main` then does
-one thing — `const cli = parseArgs(try init.minimal.args.toSlice(arena));`.
+Keep `parseArgs` a pure function of a `[]const [:0]const u8` rather than reading `init` directly,
+and have it return a usage error rather than exit: that is what makes every case of the example, the
+refusals included, a unit test instead of a subprocess test. `main` then does one thing: it calls
+`parseArgs` on `try init.minimal.args.toSlice(arena)` and a `Diagnostics` it owns, and on a usage
+error calls `std.process.fatal("'{s}' {s}\n{s}", .{ diagnostics.arg, diagnostics.reason, usage })`.
 
 **Why:** the shape of the answer is so obvious that a model will confidently invent
 `std.process.argsParse`, `std.cli`, or a second `main` parameter, and none of them exist — the
@@ -1109,11 +1111,17 @@ const Cli = struct {
     rest: []const [:0]const u8 = &.{},
 };
 
+/// What `parseArgs` refused, for its caller to report: the argument and why.
+const Diagnostics = struct {
+    arg: []const u8 = "",
+    reason: []const u8 = "",
+};
+
 const usage =
     \\usage: myproj [--verbose] [--output=PATH] [--limit=N] [--] [FILE...]
 ;
 
-fn parseArgs(argv: []const [:0]const u8) Cli {
+fn parseArgs(argv: []const [:0]const u8, diagnostics: *Diagnostics) error{Usage}!Cli {
     var cli: Cli = .{};
     var i: usize = 1; // argv[0] is the program name
     while (i < argv.len) : (i += 1) {
@@ -1124,13 +1132,13 @@ fn parseArgs(argv: []const [:0]const u8) Cli {
         } else if (std.mem.eql(u8, arg, "--verbose") or std.mem.eql(u8, arg, "-v")) {
             cli.verbose = true;
         } else if (std.mem.cutPrefix(u8, arg, "--output=")) |value| {
-            if (value.len == 0) std.process.fatal("--output= requires a path", .{});
+            if (value.len == 0) return refuse(diagnostics, arg, "requires a path");
             cli.output = value;
         } else if (std.mem.cutPrefix(u8, arg, "--limit=")) |value| {
             cli.limit = std.fmt.parseInt(u32, value, 10) catch
-                std.process.fatal("--limit=: not a u32: '{s}'", .{value});
+                return refuse(diagnostics, arg, "is not a u32");
         } else if (std.mem.startsWith(u8, arg, "-")) {
-            std.process.fatal("unrecognized flag: '{s}'\n{s}", .{ arg, usage });
+            return refuse(diagnostics, arg, "is not a flag");
         } else {
             cli.rest = argv[i..]; // first operand ends flag parsing
             return cli;
@@ -1139,12 +1147,38 @@ fn parseArgs(argv: []const [:0]const u8) Cli {
     return cli;
 }
 
+fn refuse(diagnostics: *Diagnostics, arg: []const u8, reason: []const u8) error{Usage} {
+    diagnostics.* = .{ .arg = arg, .reason = reason };
+    return error.Usage;
+}
+
 test "flags, --, and operands" {
+    var diagnostics: Diagnostics = .{};
     const argv: []const [:0]const u8 = &.{ "myproj", "-v", "--limit=3", "--", "--not-a-flag" };
-    const cli = parseArgs(argv);
+    const cli = try parseArgs(argv, &diagnostics);
     try std.testing.expect(cli.verbose);
     try std.testing.expectEqual(3, cli.limit);
     try std.testing.expectEqualStrings("--not-a-flag", cli.rest[0]);
+}
+
+test "the first operand ends flag parsing" {
+    var diagnostics: Diagnostics = .{};
+    const argv: []const [:0]const u8 = &.{ "myproj", "--output=out.txt", "in.txt", "-v" };
+    const cli = try parseArgs(argv, &diagnostics);
+    try std.testing.expectEqualStrings("out.txt", cli.output orelse "");
+    try std.testing.expectEqual(2, cli.rest.len);
+    try std.testing.expect(!cli.verbose);
+}
+
+test "a usage error names the argument and why" {
+    var diagnostics: Diagnostics = .{};
+    const refused: []const [:0]const u8 = &.{ "--output=", "--limit=x", "--frobnicate" };
+    const reasons: []const []const u8 = &.{ "requires a path", "is not a u32", "is not a flag" };
+    for (refused, reasons) |arg, reason| {
+        try std.testing.expectError(error.Usage, parseArgs(&.{ "myproj", arg }, &diagnostics));
+        try std.testing.expectEqualStrings(arg, diagnostics.arg);
+        try std.testing.expectEqualStrings(reason, diagnostics.reason);
+    }
 }
 ```
 

@@ -70,7 +70,10 @@ def inside_tests(body: str) -> set[int]:
 #: A mutant deletes no binding or discard, which Zig refuses to compile
 #: unused or missing, and no assertion: a defensive assertion earns its
 #: place on the path the tests do *not* reach, and deleting one and
-#: staying green is what it is for, not a gap.
+#: staying green is what it is for, not a gap. Nor a store of
+#: `undefined`, the poison write zig-style ends every `deinit` with:
+#: reading `undefined` is illegal behaviour, so the store changes only
+#: what an illegal read would see, and no test can kill its deletion.
 LANGUAGE = Language(
     "zig",
     suffix=".zig",
@@ -79,6 +82,7 @@ LANGUAGE = Language(
         *("const ", "var ", "pub const", "pub var", "}", "_ = "),
         *("assert(", "std.debug.assert("),
     ),
+    equivalent=(" = undefined;",),
 )
 
 _EXTERN_FN = re.compile(r'\bextern\s+(?:"[^"]*"\s+)?fn\b')
