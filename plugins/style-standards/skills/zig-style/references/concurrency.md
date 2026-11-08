@@ -185,16 +185,17 @@ const Server = struct {
 `Io.Threaded` is the production backend. `Io.Evented` resolves to `Io.Uring` on Linux, `Io.Kqueue`
 on the BSDs, `Io.Dispatch` on Darwin, and `void` elsewhere.
 
-In 0.17.0 none of the three compiles once a program calls `init`: each backend's vtable still names
-a slot that 0.17 removed from `Io.VTable`, so `Dispatch` and `Uring` fail with
-`no field named 'processReplacePath' in struct 'Io.VTable'` and `Kqueue` with the same error for
-`'fileWriteStreaming'`. None implements networking either — `Uring` and `Dispatch` wire the `net*`
-vtable slots to `…Unavailable` stubs and `Kqueue`'s `listen` and `accept` are `@panic("TODO")` — so
-every rule in the networking section requires `Io.Threaded` in 0.17. Deviate only for a backend that
-builds and implements `std.Io.net`, once a profile shows `Io.Threaded`'s one-thread-per-blocked-task
-model is your bottleneck, and say so in a comment.
+In 0.17.1 none of the three compiles once a program calls `io()`, the only way to use one.
+`Dispatch` and `Uring` switch over an `Io.Operation` tag that does not exist
+(`has no member named 'net_accept'`), and `Kqueue`'s vtable still names a slot that 0.17 removed
+from `Io.VTable` (`no field named 'fileWriteStreaming' in struct 'Io.VTable'`). None implements
+networking either — `Uring` and `Dispatch` wire the `net*` vtable slots to `…Unavailable` stubs and
+`Kqueue`'s `listen` and `accept` are `@panic("TODO")` — so every rule in the networking section
+requires `Io.Threaded` in 0.17. Deviate only for a backend that builds and implements `std.Io.net`,
+once a profile shows `Io.Threaded`'s one-thread-per-blocked-task model is your bottleneck, and say
+so in a comment.
 
-**Why:** in 0.17.0 `Io.Threaded` is the only backend that both builds and implements `std.Io.net`,
+**Why:** in 0.17.1 `Io.Threaded` is the only backend that both builds and implements `std.Io.net`,
 so it is the only one a default can rest on; an evented backend earns its place by a measurement.
 
 **Check:** `Io.Evented`, `Io.Uring`, `Io.Kqueue`, or `Io.Dispatch` named in a diff — each needs a
@@ -382,7 +383,7 @@ the first line and then an infinite stream of zero-length slices — a hang, not
 the call. A single call followed by an explicit discard of the delimiter is the only correct use,
 and it needs a comment saying so.
 
-On 0.17.0:
+On 0.17.1:
 
 ```zig
 // fragment — BAD: infinite loop after the first line
@@ -1736,7 +1737,7 @@ var futures: [shard_max]Io.Future(FetchError!u32) = undefined;
 
 `std.net` is gone; networking is `std.Io.net`, and it obeys every rule above — `Io` after the
 receiver, `Io.Limit` on reads, `error.Canceled` never swallowed, buffers sized deliberately. Only
-`Io.Threaded` implements it in 0.17.0 (ZS-CONC-03).
+`Io.Threaded` implements it in 0.17.1 (ZS-CONC-03).
 
 ### ZS-CONC-41 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
 

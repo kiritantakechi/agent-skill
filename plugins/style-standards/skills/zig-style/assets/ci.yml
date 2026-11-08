@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
-        with: { version: 0.17.0 }         # pinned exactly — never `latest`
+        with: { version: 0.17.1 }         # pinned exactly — never `latest`
       - run: zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
 
   test:
@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
         with:
-          version: 0.17.0
+          version: 0.17.1
           # The cache key names every matrix axis this job declares.
           cache-key: ${{ matrix.os }}-${{ matrix.optimize }}
       - run: zig build --fetch            # dependency resolution as its own step
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2.2.1
         with:
-          version: 0.17.0
+          version: 0.17.1
           cache-key: cross-${{ matrix.target }}
       - run: zig build -Dtarget=${{ matrix.target }} --summary all
       # The run reports `skipped` for foreign targets; compiling the test binary is the check.

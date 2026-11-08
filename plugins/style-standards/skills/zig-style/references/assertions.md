@@ -92,7 +92,7 @@ consequences follow, and conflating them is the usual mistake:
    is a panic in `debug` and `safe`, and an *optimizer assumption* in `fast` and `small`.
 2. **The condition is still evaluated in all four modes.** `ok` is a function argument, so it is
    computed at the call site in every mode; `fast` discards the result, it does not skip the work.
-   The assert is **not** compiled away — only the check is. On 0.17.0, a global counter incremented
+   The assert is **not** compiled away — only the check is. On 0.17.1, a global counter incremented
    inside an assert condition reaches the same value under `-O debug`, `-O safe`, `-O fast` and
    `-O small`. So `assert(list.pop() != null)` still pops in release, it just stops verifying the
    result.

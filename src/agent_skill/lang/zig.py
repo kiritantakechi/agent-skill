@@ -122,7 +122,7 @@ class ZigBuild:
 STD_PATH = re.compile(r"std(?:\.[A-Za-z_]\w*)+")
 
 ZIG_STYLE = ZigBuild(
-    Pin.parse("zig==0.17.0"),
+    Pin.parse("zig==0.17.1"),
     follows_local=(
         "follows this machine's `zig`, and is bumped with the skill, never ahead of it"
     ),

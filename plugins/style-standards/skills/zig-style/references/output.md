@@ -441,7 +441,7 @@ try w.print("[{:>8}]", .{Level.warn});
 
 ### ZS-OUT-11 [M] Use the 0.17 names: `Options`, `Alt`/`alt`, `std.mem.printSentinel`
 
-At 0.17.0, `std.fmt.Formatter`, `std.fmt.FormatOptions` and `std.fmt.bufPrintZ` **do not exist**;
+At 0.17.1, `std.fmt.Formatter`, `std.fmt.FormatOptions` and `std.fmt.bufPrintZ` **do not exist**;
 `std.fmt.Options`, `std.fmt.Alt`/`std.fmt.alt` and `std.mem.printSentinel(buffer, fmt, args, 0)` are
 their replacements. The printing functions moved out of `std.fmt` as well: `std.fmt.bufPrint`,
 `bufPrintSentinel`, `BufPrintError`, `allocPrint` and `allocPrintSentinel` still compile, but each

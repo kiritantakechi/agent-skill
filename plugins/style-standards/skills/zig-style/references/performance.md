@@ -885,7 +885,7 @@ explicit `@Vector(8, u32)` loop gets eight lanes per iteration from the same opt
 auto-vectorized". Each one is either wrong or needs to become an explicit `@Vector`.
 
 ```
-$ zig build-obj vec.zig -O fast -femit-asm=vec.s   # aarch64, Zig 0.17.0
+$ zig build-obj vec.zig -O fast -femit-asm=vec.s   # aarch64, Zig 0.17.1
 
 sumScalar (plain while loop over []const u32):
         ldp     w16, w17, [x15, #-8]  <- unrolled 4x, but scalar 32-bit registers
@@ -1088,7 +1088,7 @@ or does it pass the shared `optimize` variable? Is the benchmark artifact reacha
 step?
 
 ```zig
-// verified — this build.zig was built and `zig build bench` was run against Zig 0.17.0
+// verified — this build.zig was built and `zig build bench` was run against Zig 0.17.1
 const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});

@@ -787,8 +787,9 @@ other (ZS-BUILD-28).
 `zig translate-c` emits `[*c]` for every pointer, because a C `T *` really is nullable and
 unbounded, so its output is the least safe legal translation by construction. It is also
 target-specific: the same header produces different integer types per target, so the output is a
-build artifact, not source. Build time no longer weighs against it: on 0.17.0 a cold run with empty
-caches takes 0.09 s, and the build step caches its output in `.zig-cache`.
+build artifact, not source. Build time barely weighs against it: on 0.17.1 the translator builds
+itself once per machine, in about 30 s, after which a run with an empty project cache takes 0.09 s,
+and the build step caches its output in `.zig-cache`.
 
 If you do use it: declare include paths and macros once in `build.zig`, rather than at every import
 site, import the result as a module, and pin the parts you depend on with `addCheckFile` so a
@@ -837,7 +838,7 @@ metal, and the exported API surface for a WebAssembly module. Allocation comes f
 There is also no usable `Io`: `Io.Threaded`, the only backend std ships that would apply, does not
 compile for either freestanding target, so no `Io.Dir`, `Io.File`, `io.async`, or `io.sleep`.
 
-A `main` written there anyway fails two ways on 0.17.0:
+A `main` written there anyway fails two ways on 0.17.1:
 
 - On `thumb-freestanding-eabi`, `pub fn main(init: std.process.Init) !void` compiles but is dead
   code — the linker reports `cannot find entry symbol _start; not setting start address`, because no
@@ -887,7 +888,7 @@ where `myPanicFn` has the signature `fn (msg: []const u8, first_trace_address: ?
 `pub fn panic(msg, trace, ra) noreturn` form but marks it "Deprecated; make `panic` a namespace
 instead".
 
-Do not use `std.debug.simple_panic` there: in 0.17.0 it **does not compile** on
+Do not use `std.debug.simple_panic` there: in 0.17.1 it **does not compile** on
 `wasm32-freestanding` or `thumb-freestanding-eabi` once any safety check can reach it (it reaches
 `Io.Threaded`), so `FullPanic` with your own function is the portable choice, not just the better
 one. `std.debug.no_panic` compiles for both freestanding targets and is the deliberate "smallest
@@ -963,7 +964,7 @@ comptime {
 
 ### ZS-INTEROP-19 [M] `-fsingle-threaded` removes task concurrency and cancellation
 
-A single-threaded build is not "the same program with one thread". Behavior on 0.17.0:
+A single-threaded build is not "the same program with one thread". Behavior on 0.17.1:
 
 | Construct | Under `-fsingle-threaded` |
 |---|---|
@@ -1065,7 +1066,7 @@ library and `.{ .symbol_name = "_start" }` (or your reset symbol) for bare metal
 symbols go in `mod.export_symbol_names`. `link_libc` and `single_threaded` live on the `Module`, not
 the artifact; `entry` is a property of the executable (ZS-BUILD-05).
 
-Each of the three has a failure mode on 0.17.0:
+Each of the three has a failure mode on 0.17.1:
 
 - `link_libc = true` on freestanding fails the build outright
   (`unable to provide libc for target "thumb-freestanding-eabi"`), and leaving it false under an
@@ -1074,13 +1075,14 @@ Each of the three has a failure mode on 0.17.0:
 - Forcing `single_threaded = false` on `wasm32-wasi` fails inside `Io.Threaded` with
   `comptime assert(builtin.cpu.has(.wasm, .atomics))`. Setting it to `true` is fine and is what
   freestanding gets anyway.
-- Leaving `entry` at `.default` for a freestanding ELF target makes the LLD warning
-  `cannot find entry symbol _start` into a **build failure**, because `zig build` treats unexpected
-  linker stderr as an error.
+- Leaving `entry` at `.default` for a freestanding ELF target draws the LLD warning
+  `cannot find entry symbol _start`, which `zig build` prints as an `error:` under a step it marks
+  `failure`. It still **exits 0 and installs the binary**, which has no entry point, and the next
+  run prints nothing, because the step is cached.
 
-**Why:** each of the three is right for some targets and a build failure on others, so a hard-coded
-value breaks the first cross-compile. For `single_threaded` the default is already right, and
-overriding it is what breaks.
+**Why:** each of the three is right for some targets and wrong on others, so a hard-coded value
+breaks the first cross-compile. For `single_threaded` the default is already right, and overriding
+it is what breaks.
 
 **Check:** in `build.zig`: a literal `.link_libc = true` not derived from `target.result`, any
 `.single_threaded = ` assignment at all, and an artifact built for a freestanding or wasm target

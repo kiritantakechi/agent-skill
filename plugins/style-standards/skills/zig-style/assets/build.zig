@@ -1,6 +1,6 @@
 // Canonical build.zig for a library + CLI project, lifted verbatim from
 // references/build.md ZS-BUILD-01, where it is marked verified against
-// Zig 0.17.0. Rename `myproj` and delete the steps you do not need.
+// Zig 0.17.1. Rename `myproj` and delete the steps you do not need.
 // Referenced by ZS-BUILD-01, ZS-BUILD-04, ZS-BUILD-24.
 
 const std = @import("std");

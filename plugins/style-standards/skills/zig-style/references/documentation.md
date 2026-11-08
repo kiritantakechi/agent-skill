@@ -186,13 +186,13 @@ test parseU8 {
 
 Reuse the house sentences rather than inventing synonyms:
 
-Counts are occurrences of the **bolded stem** of each phrase over `lib/zig/std/**/*.zig` at 0.17.0,
+Counts are occurrences of the **bolded stem** of each phrase over `lib/zig/std/**/*.zig` at 0.17.1,
 case-sensitive — reproduce any row with `rg -I -o '<stem>' -g '*.zig' . | wc -l`. They count the
 phrase family, not the full sentence in the left column.
 
 | Phrase | Meaning | std count |
 |---|---|---|
-| **`Asserts that`** … | violating it trips a safety-checked assertion | 135 |
+| **`Asserts that`** … | violating it trips a safety-checked assertion | 139 |
 | **`Assumes`** … | violating it is unchecked Illegal Behavior | 55 |
 | **`Invalidates`** element pointers if additional memory is needed. | reallocation may move them | 94 |
 | **`Deinitialize with`** \`deinit\`. | ownership: call this | 10 |
@@ -204,8 +204,8 @@ phrase family, not the full sentence in the left column.
 
 The full invalidation sentence, `Invalidates element pointers if additional memory is needed.`,
 appears 33 times across std, 24 of them in `array_list.zig`. Cross-reference by backticked
-identifier always: only backticks become links in generated docs, and 5473 `///` lines in std carry
-a backticked identifier (lines matching `^\s*///` that contain `` `name` ``, 0.17.0).
+identifier always: only backticks become links in generated docs, and 5482 `///` lines in std carry
+a backticked identifier (lines matching `^\s*///` that contain `` `name` ``, 0.17.1).
 
 Omit doc comments that restate the name (langref rule 1). `handle: Handle` is undocumented in
 `Io/File.zig` for a reason.

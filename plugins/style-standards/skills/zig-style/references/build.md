@@ -11,7 +11,7 @@ migration table.
 Every `zig` block here is `build.zig` code and assumes the file opens with
 `const std = @import("std");`; every `zon` block is a `build.zig.zon` fragment.
 
-The single highest-value baseline is the output of `zig init` on 0.17.0. Most of the build-system
+The single highest-value baseline is the output of `zig init` on 0.17.1. Most of the build-system
 advice on the internet predates it and is a hard compile error today. When in doubt, run `zig init`
 in a scratch directory and diff.
 
@@ -363,13 +363,13 @@ no `zig`. A quoted name is `error: expected enum literal`.
     .version = "0.0.0",
     // Generated once by the compiler; never hand-written (ZS-BUILD-10).
     .fingerprint = 0x53faee2adc55a83f, // Changing this has security and trust implications.
-    // DOCUMENTATION ONLY — on 0.17.0, `.minimum_zig_version = "0.99.0"`
+    // DOCUMENTATION ONLY — on 0.17.1, `.minimum_zig_version = "0.99.0"`
     // builds with no error and no warning, in the root package and in
     // dependencies alike. The compiler never reads it; `mlugg/setup-zig` does,
     // resolving the toolchain from it when the workflow omits `version`. Real
     // enforcement is a pinned CI version (ZS-BUILD-26) plus, for a project that
     // pins an exact toolchain, the comptime guard in ZS-BUILD-31.
-    .minimum_zig_version = "0.17.0",
+    .minimum_zig_version = "0.17.1",
     .dependencies = .{},
     // Defines the package hash and is all a consumer receives (ZS-BUILD-11).
     .paths = .{ "build.zig", "build.zig.zon", "src", "LICENSE" },
@@ -383,7 +383,7 @@ use. Keep the `// Changing this has security and trust implications.` comment so
 is visible in review. Regenerate it when you fork a still-maintained upstream; leave it alone when
 you are shipping a new version of your own package.
 
-Mechanics on 0.17.0:
+Mechanics on 0.17.1:
 
 - Omitting the field: `error: missing top-level 'fingerprint' field; suggested value: 0xee480fa3...`
 - A wrong value:
@@ -540,7 +540,7 @@ in a file reached only through a *lazily-analyzed* declaration is **not collecte
 with a `comptime` block that imports every such file by name. This is the owning rule for
 source-file reachability.
 
-On 0.17.0 with `root.zig` (1 test) + `parser.zig` (2 tests), reached only via
+On 0.17.1 with `root.zig` (1 test) + `parser.zig` (2 tests), reached only via
 `pub const P = @import("parser.zig").P;`:
 
 | Bottom of `root.zig` | Result |
@@ -827,7 +827,7 @@ switches to the new linker, which is still off by default.
 deliberate one-line commit with its own CI run, and `safe` alongside `debug` catches UB that only
 manifests under a release memory layout while keeping safety checks armed.
 
-**Check:** the workflow contains a literal `0.17.0` (or whatever you pin) and no `latest`; the
+**Check:** the workflow contains a literal `0.17.1` (or whatever you pin) and no `latest`; the
 cache-key expression mentions every `matrix.*` key the job declares.
 
 ```yaml
@@ -915,7 +915,7 @@ is a ref that is not a full commit, or a commit with no release comment.
 TigerStyle says to appreciate, from day one, all compiler warnings at the compiler's strictest
 setting. Zig has **no warnings and no warning flags** for Zig code — a diagnostic is either a
 compile error or it does not exist. Do not go looking for `-Wall`, `-Wextra`, `-Werror`, `#pragma`s,
-or a lint level; there is nothing to turn up. What the rule honestly translates to on 0.17.0 is
+or a lint level; there is nothing to turn up. What the rule honestly translates to on 0.17.1 is
 these six, all of which belong in CI:
 
 | Gate | Command / setting | Catches |
@@ -934,7 +934,7 @@ which `fast` and `small` builds remove.
 `--verbose` variants (`--verbose-cc`, `--verbose-link`, `--verbose-llvm-ir`) are diagnostics for the
 build, not for your code; they are not part of this.
 
-On 0.17.0:
+On 0.17.1:
 
 - `zig build-exe --help` lists no `-W*` flag of any kind. `-Wall`/`-Werror` reach Clang only via
   `zig cc` or a `flags` array on a C source.
@@ -980,7 +980,7 @@ A project that pins one exact Zig version — an application with a reproducible
 high-reliability service, anything with a vendored or Nix-pinned compiler, as TigerBeetle does —
 puts the check in `build.zig`, where it fires before anything else. `.minimum_zig_version` cannot do
 this: it is documentation, not enforcement. The compiler never reads it, so `"0.99.0"` builds clean
-on 0.17.0 (ZS-BUILD-09's annotated manifest). `builtin.zig_version` is a `std.SemanticVersion` and
+on 0.17.1 (ZS-BUILD-09's annotated manifest). `builtin.zig_version` is a `std.SemanticVersion` and
 is comptime-known inside `build.zig`, so the whole check costs nothing. A *library* has no guard: a
 hard equality check makes it unusable in any dependency tree whose root is on a different patch
 release, so it compiles across the whole minor version, states `.minimum_zig_version`, and lets the
@@ -998,13 +998,13 @@ The guard converts that into one sentence naming both versions.
 or CI has this block, and its version literal matches the one CI installs.
 
 ```zig
-// verified — GOOD: with `.patch = 1` this is
-// `error: unsupported zig version: expected 0.17.1, found 0.17.0`
+// verified — GOOD: with `.patch = 2` this is
+// `error: unsupported zig version: expected 0.17.2, found 0.17.1`
 const builtin = @import("builtin");
 const std = @import("std");
 
 /// The exact toolchain this project is developed and released against.
-const zig_version_required: std.SemanticVersion = .{ .major = 0, .minor = 17, .patch = 0 };
+const zig_version_required: std.SemanticVersion = .{ .major = 0, .minor = 17, .patch = 1 };
 
 comptime {
     const v = builtin.zig_version;
@@ -1020,10 +1020,10 @@ comptime {
 Ship the defaults unless you have a measurement, and never turn on `-fincremental` or `-fnew-linker`
 in a build whose artifacts you ship.
 
-Read off 0.17.0 (with `@compileLog(@import("builtin").zig_backend)`, `--verbose-link`, and the ELF
+Read off 0.17.1 (with `@compileLog(@import("builtin").zig_backend)`, `--verbose-link`, and the ELF
 section table of the produced binaries):
 
-| Setting | Behavior on 0.17.0 | Do |
+| Setting | Behavior on 0.17.1 | Do |
 |---|---|---|
 | `debug` on `x86_64-linux-{gnu,musl}` | `.stage2_x86_64` — the **self-hosted** backend is the default, linked by the legacy self-hosted ELF linker | leave alone; this is the fast-build path |
 | `debug` on aarch64-linux / x86_64-macos / aarch64-macos / x86_64-windows / wasm32-wasi | `.stage2_llvm` | leave alone |

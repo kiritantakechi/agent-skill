@@ -171,7 +171,7 @@ Any test that allocates uses `std.testing.allocator`, pairs every allocation wit
 private arena "to keep it simple". This is the only allocator a test should name; other chapters
 reduce to this rule.
 
-The surface at 0.17.0, `std.testing.allocator` and `std.testing.allocator_instance`:
+The surface at 0.17.1, `std.testing.allocator` and `std.testing.allocator_instance`:
 
 - `pub const allocator` — `allocator_instance.allocator()`, an `std.mem.Allocator` interface value,
   and the allocator you pass as the *backing* allocator to `checkAllAllocationFailures` (ZS-TEST-18)
@@ -334,7 +334,7 @@ try std.testing.expectError(error.Overflow, parsePort("65536"));
 filesystem, no network, and no fault-injection harness. Do not construct your own backend
 (`Io.Threaded`, `Io.Uring`, `Io.Kqueue`) or a hand-rolled test double.
 
-The surface at 0.17.0, `std.testing.io_instance` and `std.testing.io`, is the first example.
+The surface at 0.17.1, `std.testing.io_instance` and `std.testing.io`, is the first example.
 
 `io_instance` is an `Io.Threaded` the test runner initializes with `testing.allocator` before each
 test and tears down after; `testing.io` is the `std.Io` interface value taken from it. The
@@ -706,9 +706,10 @@ The backing allocator you pass is `std.testing.allocator` (ZS-TEST-04) — the t
 `FailingAllocator` per run, so leak detection still applies to every one of the N re-runs. Extra
 arguments are forwarded as a tuple after the allocator, which is why `test_fn` must take
 `std.mem.Allocator` first and cannot close over the test's locals. For a single targeted OOM path
-rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-19). It fails
-allocations, never a resize, so a list that grows in place is swept only at its first allocation:
-the `errdefer` it tests is the one between two separate allocations.
+rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-19). The sweep also
+refuses every in-place resize (`.resize_fail_index = 0`), so each step of a growing list is a new
+allocation and each one is swept; used directly, `FailingAllocator` fails no resize unless you set
+that field.
 
 Under static allocation (ZS-MEM-15) the test is moot, because nothing allocates after startup: there
 the bound is a fixed backing buffer plus `AssumeCapacity` methods, OOM is impossible by

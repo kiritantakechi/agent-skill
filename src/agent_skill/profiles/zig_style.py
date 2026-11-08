@@ -258,7 +258,7 @@ PROFILE = Profile(
         }
     ),
     # One probe per `zig` row in the chapters' `Decided by tools`
-    # tables, each compiled on 0.17.0 and rejected with the row's
+    # tables, each compiled on 0.17.1 and rejected with the row's
     # error (`research/zig-rows.md` in the refresh-zig change).
     probes={
         "unused local constant": (

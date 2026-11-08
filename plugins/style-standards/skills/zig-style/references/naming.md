@@ -9,7 +9,7 @@ chapter, `test` mechanics and fuzzing in the testing chapter, `build.zig` naming
 chapter, and what a comment says (the three comment forms, std's contract phrasings) in the
 documentation chapter.
 
-Two sources are merged here: the **official Zig style guide** (langref 0.17.0 §Style Guide, quoted
+Two sources are merged here: the **official Zig style guide** (langref 0.17.1 §Style Guide, quoted
 verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard). Where they
 disagree, the disagreement is stated outright in the rule, with the side this standard takes.
 
@@ -411,13 +411,13 @@ the same thing. For the function values that genuinely remain — comparators, v
 members — take a written-out function type rather than an `anytype` object with an implied method,
 and do not invent a parameter order: copy `std.sort`'s.
 
-The shape to copy comes from `sort.zig` at 0.17.0 — `insertion`, `heap`, `pdq`, `block`, `argMin`,
+The shape to copy comes from `sort.zig` at 0.17.1 — `insertion`, `heap`, `pdq`, `block`, `argMin`,
 `argMax`, `min`, `max`, `isSorted`, `binarySearch`, `lowerBound`, `upperBound`, `equalRange`, and
 `std.mem.sort` / `sortUnstable` all take the first example's parameter list.
 
 What is uniform across all of them is the **slot order**, not the spelling. std names that parameter
 `lessThanFn` in `insertion`/`heap`/`pdq`/`block`/`mem.sort`/`mem.sortUnstable`, `compareFn` in the
-search family — exactly four at 0.17.0: `binarySearch`, `lowerBound`, `upperBound`, `equalRange`,
+search family — exactly four at 0.17.1: `binarySearch`, `lowerBound`, `upperBound`, `equalRange`,
 where it returns `std.math.Order` rather than `bool` — and a bare `lessThan` in
 `argMin`/`argMax`/`min`/`max`/`isSorted`. (`insertionContext`/`heapContext`/`pdqContext` belong to
 none of the three: they take no fn parameter at all, only a `context` whose `lessThan`/`swap`

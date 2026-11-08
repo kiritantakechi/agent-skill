@@ -10,13 +10,13 @@
     .version = "0.0.0",
     // Generated once by the compiler; never hand-written (ZS-BUILD-10).
     .fingerprint = 0x53faee2adc55a83f, // Changing this has security and trust implications.
-    // DOCUMENTATION ONLY — verified on 0.17.0: `.minimum_zig_version = "0.99.0"`
+    // DOCUMENTATION ONLY — verified on 0.17.1: `.minimum_zig_version = "0.99.0"`
     // builds with no error and no warning, in the root package and in
     // dependencies alike. The compiler never reads it; `mlugg/setup-zig` does,
     // resolving the toolchain from it when the workflow omits `version`. Real
     // enforcement is a pinned CI version (ZS-BUILD-26) plus, for a project that
     // pins an exact toolchain, the comptime guard in ZS-BUILD-31.
-    .minimum_zig_version = "0.17.0",
+    .minimum_zig_version = "0.17.1",
     .dependencies = .{},
     // Defines the package hash and is all a consumer receives (ZS-BUILD-11).
     .paths = .{ "build.zig", "build.zig.zon", "src", "LICENSE" },

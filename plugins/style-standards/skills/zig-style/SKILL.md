@@ -15,7 +15,7 @@ the **empirical conventions of the 0.17 standard library** (API shape, ownership
 and **TigerStyle** (assertions, bounded limits, control-flow discipline). Where they disagree, this
 standard picks a side and says why.
 
-**Target: Zig 0.17.0.** Zig changed enormously in 0.15 and 0.16, and again in 0.17. Most Zig you
+**Target: Zig 0.17.1.** Zig changed enormously in 0.15 and 0.16, and again in 0.17. Most Zig you
 have seen — including most of what is on the public internet — is stale. Section 2 below is the
 single highest-value part of this skill; read it before writing any line of Zig.
 
@@ -40,7 +40,7 @@ the tool enforces them, so they carry no Why and no Check. When rules are renumb
 chapter names the file that maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
-written against Zig 0.17.0, and any test it ships passes. `// fragment` — shown in context rather
+written against Zig 0.17.1, and any test it ships passes. `// fragment` — shown in context rather
 than run as a unit, usually because it uses names the chapter declares around it.
 `// rejected — <tool>: …` — the rejection is the point, and the marker names the tool that rejects
 it: `zig`. A trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A
@@ -331,6 +331,6 @@ asset and the rule cannot drift apart.
 
 | File | Contents |
 |---|---|
-| `assets/build.zig` | The complete library + CLI `build.zig` from ZS-BUILD-01, at 0.17.0: module-level `target`/`optimize`, one test binary per module, a separate `test-integration` step, a host-only codegen tool, and the `fmt` and `check` steps |
+| `assets/build.zig` | The complete library + CLI `build.zig` from ZS-BUILD-01, at 0.17.1: module-level `target`/`optimize`, one test binary per module, a separate `test-integration` step, a host-only codegen tool, and the `fmt` and `check` steps |
 | `assets/build.zig.zon` | The annotated manifest from ZS-BUILD-09…12: enum-literal `.name`, the `.fingerprint` warning, what `.minimum_zig_version` does and does not do, and `.paths` as the thing that defines the package hash |
 | `assets/ci.yml` | The five CI requirements of ZS-BUILD-26 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-25, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |
