@@ -38,8 +38,9 @@ and `ty check` as the asset spells them. It installs Rust with clippy, Zig and C
 although it compiles nothing: `assets`, `citations`, `pins` and `plugin` still ask `zig`,
 `rustc`, `clippy-driver`, `rustdoc` and `claude` for an answer, and an absent tool
 withholds the pass. Its `full` job, weekly and on dispatch, adds rustfmt and rust-src and
-runs every check, `toolchain` and `mutation` included, and every test; a pull request
-skips it.
+the venv python-style's examples run in (`.cache/python315t`, the free-threaded build with
+the pinned pytest), and runs every check, `toolchain` and `mutation` included, and every
+test; a pull request skips it.
 
 `self-application` holds the workflow to the asset of the standard whose profile says
 `harness` (`Profile.harness`, python-style's alone). A step the two share is the asset's
