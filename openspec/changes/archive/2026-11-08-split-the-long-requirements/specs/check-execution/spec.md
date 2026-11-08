@@ -64,11 +64,13 @@ tool is absent SHALL each be reported as a failure. Silence SHALL NOT be reporte
 - **WHEN** a pattern parses successfully yet cannot match any input — an escape read as a literal
   where alternation was meant, for example
 - **THEN** nothing in the report distinguishes it from a clean check, which is why the dialect is
-  singular and why translation is guarded by the requirement below
+  singular and why translation is guarded by the requirement
+  "A pattern carries no syntax from a dialect it will not be read in"
 
 ### Requirement: A search that could not answer is never read as a search that found nothing
 
-The distinction SHALL hold at every place a search result is consumed. A search that could not
+The distinction between *a pattern that ran and found nothing* and *a pattern that could not run or
+could not match* SHALL hold at every place a search result is consumed. A search that could not
 answer and a search that answered *nothing* are both falsy, so a caller testing the result for
 emptiness collapses them; every consumer SHALL test for the absence of an answer explicitly.
 
@@ -132,10 +134,10 @@ that moving a pin is a reviewed event rather than a note nobody reads.
 
 ### Requirement: A pin may follow the local toolchain, and says why
 
-A standard MAY instead declare that its pin follows the local toolchain. For such a pin, the second
-comparison is not made. The first comparison alone is the signal: once the local toolchain moves
-past the pin, the mismatch is what reports the pin as superseded. The declaration SHALL state why
-the standard follows the local toolchain.
+A standard MAY instead declare that its pin follows the local toolchain. For such a pin, the
+comparison against the newest release is not made. The comparison against the running version alone
+is the signal: once the local toolchain moves past the pin, the mismatch is what reports the pin as
+superseded. The declaration SHALL state why the standard follows the local toolchain.
 
 #### Scenario: A pin follows the local toolchain and upstream has moved
 
@@ -158,9 +160,10 @@ the standard follows the local toolchain.
 
 ### Requirement: A pin comparison never resolves input it did not understand to agreement
 
-Neither comparison SHALL answer for input it did not understand. A pin whose source cannot be read
-and a version that cannot be parsed SHALL each be reported, and SHALL NOT be resolved to a value
-that happens to compare as agreement.
+Neither the comparison against the running version nor the comparison against the newest release
+SHALL answer for input it did not understand. A pin whose source cannot be read and a version that
+cannot be parsed SHALL each be reported, and SHALL NOT be resolved to a value that happens to
+compare as agreement.
 
 #### Scenario: The pin cannot be found
 

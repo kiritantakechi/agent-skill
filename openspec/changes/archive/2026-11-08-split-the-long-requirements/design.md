@@ -6,18 +6,20 @@ change rewrites no obligation; it only moves clauses between requirements.
 ## Constraint: meaning preserved exactly
 
 - A split moves whole sentences, verbatim, between requirements. It never rewords what a clause
-  demands. A sentence is cut only where a requirement could not otherwise be split; none was.
+  demands. The one exception is naming an antecedent: where a moved sentence leans on a neighbour
+  it no longer sits beside, the pronoun or positional reference is replaced by the noun it stood
+  for, and nothing else in the sentence changes. There are 12 such edits, listed under "Antecedents".
+  A sentence is cut only where a requirement could not otherwise be split; none was.
 - Every existing scenario is kept verbatim and moves with the behaviour it exercises. No scenario is
   added, so a new requirement exists only where an old scenario fits it.
 - OpenSpec requires a MODIFIED requirement to carry every scenario the main spec holds under that
   heading, so a heading cannot stay and also give a scenario away. Each of the 15 is REMOVED and its
-  parts are ADDED, the part that stays under a new heading naming what it states. The alternative,
-  keeping the heading and repeating the moved scenarios in the new requirements, would duplicate
-  scenarios.
-- Added requirements are appended at the end of a spec. One scenario points by position: "the
-  requirement below" in check-execution's "A pattern that cannot match" scenario (the inert pattern),
-  kept verbatim, now points past the end of the spec rather than at the translation requirement
-  that followed the original.
+  parts are ADDED. A delta cannot REMOVE a heading and ADD it again either: validation refuses
+  ("Requirement present in both ADDED and REMOVED"). So the part that stays takes a new heading
+  naming what it states; no original heading is kept.
+- Archiving places each part where its original stood (the part that stays first, then the split-off
+  parts in the order of the sentences they took), rather than at the end of the spec, where the
+  CLI appends them.
 - Each new requirement is named by a declarative sentence, as its neighbours are.
 
 ## Decisions: the seam chosen for each requirement
@@ -61,8 +63,28 @@ Each line names the original, then what leaves it; the rest is the part that sta
   sections 2.1 and 2.2, leave; the table, its statuses and the definition of a shape stay. Since
   states no `SHALL` of its own, so it goes with the command clause.
 
-## Risks
+## Antecedents named
 
-A moved sentence can lean on its old neighbour ("the second comparison", "the first", "both", "It").
-Each such sentence is kept verbatim under a heading that names its subject, and the sentence it
-leans on is in the sibling requirement of the same capability.
+Each edit replaces words that pointed at a neighbour with the noun they stood for.
+
+- "The distinction SHALL hold" becomes "The distinction between *a pattern that ran and found
+  nothing* and *a pattern that could not run or could not match* SHALL hold".
+- "the second comparison is not made" becomes "the comparison against the newest release is not
+  made".
+- "The first comparison alone is the signal" becomes "The comparison against the running version
+  alone is the signal".
+- "Neither comparison SHALL answer" becomes "Neither the comparison against the running version nor
+  the comparison against the newest release SHALL answer".
+- "and is outside both." becomes "and is outside both the rule that a branch has one control or one
+  exemption and the rule that a could-not-look branch is reached by an absent tool."
+- "It SHALL NOT raise the severity" becomes "The configuration SHALL NOT raise the severity".
+- "It SHALL fail, leaving the tree unchanged" becomes "The operation SHALL fail, leaving the tree
+  unchanged".
+- "The first SHALL be the migration table's" becomes "The first subsection SHALL be the migration
+  table's", and "and the second its `gone` rows" becomes "and the second subsection its `gone`
+  rows".
+- "SHALL be the table restricted" becomes "SHALL be the migration table restricted", and "rendered
+  from the table." becomes "rendered from the migration table.".
+- In check-execution's scenario "A pattern is syntactically valid but inert", "the requirement below"
+  becomes the requirement's heading, "A pattern carries no syntax from a dialect it will not be read
+  in", the requirement that followed it.

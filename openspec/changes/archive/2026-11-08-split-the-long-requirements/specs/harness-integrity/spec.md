@@ -154,7 +154,8 @@ unless the control states why the defect reaches that branch too.
 
 Every branch that reports that a check could not look SHALL be reached by making a tool the check
 declares absent, or be listed with the reason no absence reaches it. A branch that only informs
-SHALL fail no run, and is outside both.
+SHALL fail no run, and is outside both the rule that a branch has one control or one exemption and
+the rule that a could-not-look branch is reached by an absent tool.
 
 #### Scenario: A branch reports that a check could not look
 

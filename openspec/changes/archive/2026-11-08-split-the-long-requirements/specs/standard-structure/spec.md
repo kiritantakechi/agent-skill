@@ -72,10 +72,10 @@ model and write the rename table.
 
 ### Requirement: A renumbering that would change what a citation names fails and leaves the tree unchanged
 
-It SHALL fail, leaving the tree unchanged, unless every citation refers to the same rule after the
-rewrite as before, compared by identity rather than by ID; unless every ID that existed before the
-revision is either still the same rule or has a row; and if any cited ID that named no rule before
-the revision would name one after it.
+The operation SHALL fail, leaving the tree unchanged, unless every citation refers to the same rule
+after the rewrite as before, compared by identity rather than by ID; unless every ID that existed
+before the revision is either still the same rule or has a row; and if any cited ID that named no
+rule before the revision would name one after it.
 
 #### Scenario: A citation would change meaning
 
@@ -176,10 +176,10 @@ SHALL name the rule that owns it.
 
 ### Requirement: The first two subsections of section 2 are rendered from the migration table
 
-The first SHALL be the migration table's `changed` rows whose since is the target's, and the second
-its `gone` rows whose since is the target's, each rendered from the table, as the migration
-requirement states; so the statuses and the first two subsections are one partition, and a row that
-still compiles and means what it did is in neither.
+The first subsection SHALL be the migration table's `changed` rows whose since is the target's, and
+the second subsection its `gone` rows whose since is the target's, each rendered from the table, as
+the migration requirement states; so the statuses and the first two subsections are one partition,
+and a row that still compiles and means what it did is in neither.
 
 #### Scenario: A rejected spelling under what still compiles
 
@@ -226,10 +226,10 @@ be verified rejected by the pinned release.
 
 ### Requirement: Sections 2.1 and 2.2 of `SKILL.md` are the migration table restricted to the target's rows
 
-Sections 2.1 and 2.2 of `SKILL.md` SHALL be the table restricted to the `changed` and to the `gone`
-rows whose since is the target's, each with columns old spelling, target spelling and owning rule,
-followed by one line saying where that status's other rows are and how a reader finds them, rendered
-from the table.
+Sections 2.1 and 2.2 of `SKILL.md` SHALL be the migration table restricted to the `changed` and to
+the `gone` rows whose since is the target's, each with columns old spelling, target spelling and
+owning rule, followed by one line saying where that status's other rows are and how a reader finds
+them, rendered from the migration table.
 
 #### Scenario: Section 2.2 kept by hand
 

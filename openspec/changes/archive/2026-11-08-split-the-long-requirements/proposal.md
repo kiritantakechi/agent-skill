@@ -11,18 +11,18 @@ After this change is archived, every main spec passes `--strict` with no warning
 
 ## What Changes
 
-Each of the 15 is split along the seams between the behaviours it states. No obligation changes. Every
-`SHALL` and `SHALL NOT` clause, every condition and every exception survives, in the same words, in
-exactly one requirement; every existing scenario survives verbatim, under the requirement whose
-behaviour it exercises. Nothing is added, weakened, strengthened or dropped.
+Each of the 15 is split along the seams between the behaviours it states. No obligation changes.
+Every `SHALL` and `SHALL NOT` clause, every condition and every exception survives in exactly one
+requirement, in the same words but for 12 named antecedents (a pronoun or "below" replaced by what it
+stood for; design.md lists them). Every existing scenario survives verbatim, under the requirement
+whose behaviour it exercises. Nothing is added, weakened, strengthened or dropped.
 
 - **Removed:** the 15 long requirements, by name. OpenSpec refuses a MODIFIED requirement that omits
   one of the scenarios the main spec holds, so a requirement cannot keep its heading and also hand a
   scenario to the requirement split from it. Each delta therefore removes the old heading and adds
   its parts, and each removal's migration note names them.
 - **Added:** 35 requirements: for each of the 15, the part that stays (under a heading that says what
-  it now states) and 20 that were split off. OpenSpec appends added requirements at the end of a
-  spec, so the parts no longer sit where the original did.
+  it now states) and 20 that were split off. Archiving places each part where its original stood.
 
 ## Capabilities
 

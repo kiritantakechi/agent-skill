@@ -38,8 +38,9 @@ rather than left to the tool's defaults.
 
 Because the chosen type checker ships no strict preset, the configuration SHALL enable the opt-in
 soundness rules by naming each one, and SHALL set the analysis version to the target Python version.
-It SHALL NOT raise the severity of the whole rule set with a single wildcard: a checker that offers
-no stability guarantee can add rules in any release, and a wildcard silently enrols them.
+The configuration SHALL NOT raise the severity of the whole rule set with a single wildcard: a
+checker that offers no stability guarantee can add rules in any release, and a wildcard silently
+enrols them.
 
 #### Scenario: A tool release adds a rule
 
