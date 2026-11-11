@@ -101,13 +101,16 @@ def shipped(root: Path) -> Iterator[Path]:
 
 
 def package(skill: Skill, out_dir: Path) -> Path:
-    """Zip the skill directory into `<name>.skill`.
+    """Zip the skill directory into `<name>.zip`.
 
     The archive is rooted at the skill name, and holds what `shipped`
-    yields.
+    yields: one folder named after the skill, `SKILL.md` directly in it,
+    which is the shape a skill upload takes, a marketplace's included.
+    The suffix names the format, since an upload that wants a zip
+    refuses the same bytes under another name.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / f"{skill.name}.skill"
+    target = out_dir / f"{skill.name}.zip"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
         for inside in shipped(skill.root):
             z.write(skill.root / inside, Path(skill.name) / inside)

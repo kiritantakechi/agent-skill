@@ -135,7 +135,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    """Package every skill as `<name>.skill`, and print each path.
+    """Package every skill as `<name>.zip`, and print each path.
 
     Exit 1 when any skill could not be packaged.
     """
@@ -394,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     check.set_defaults(func=cmd_check)
 
-    pack = sub.add_parser("build", help="package each skill as <name>.skill")
+    pack = sub.add_parser("build", help="package each skill as <name>.zip")
     pack.add_argument(
         "--out",
         type=Path,

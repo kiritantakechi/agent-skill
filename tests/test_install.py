@@ -170,3 +170,19 @@ def test_the_package_holds_only_the_skill(tmp_path: Path, skill: Skill) -> None:
     assert names
     assert all(n.startswith(f"{skill.name}/") for n in names)
     assert not any("__pycache__" in n or n.endswith(".DS_Store") for n in names)
+
+
+def test_the_package_is_what_a_skill_upload_takes(tmp_path: Path, skill: Skill) -> None:
+    """A `.zip` of the folder named after the skill, `SKILL.md` in it.
+
+    The shape Agensi's checklist asks of an upload: a `SKILL.md` at the
+    archive's root, or two folders down, is refused, and so is a
+    frontmatter `name` that is not the folder's.
+    """
+    archive = package(skill, tmp_path)
+    assert archive.name == f"{skill.name}.zip"
+    with zipfile.ZipFile(archive) as z:
+        names = z.namelist()
+        manifest = z.read(f"{skill.name}/SKILL.md").decode()
+    assert {n.split("/", 1)[0] for n in names} == {skill.name}
+    assert f"\nname: {skill.name}\n" in manifest
