@@ -135,21 +135,23 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    """Package every skill as `<name>.zip`, and print each path.
+    """Write each skill as `<name>.skill` and `<name>.zip`; print both.
 
     Exit 1 when any skill could not be packaged.
     """
     failed = False
     for skill in discover(args.skills):
         try:
-            target = build.package(skill, args.out)
+            targets = build.package(skill, args.out)
         except OSError as e:
             print(f"  {skill.name}: not packaged — {e}", file=sys.stderr)
             failed = True
             continue
-        print(
-            f"  {target.relative_to(REPO) if args.out.is_relative_to(REPO) else target}"
-        )
+        for target in targets:
+            shown = (
+                target.relative_to(REPO) if args.out.is_relative_to(REPO) else target
+            )
+            print(f"  {shown}")
     return 1 if failed else 0
 
 
@@ -394,7 +396,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     check.set_defaults(func=cmd_check)
 
-    pack = sub.add_parser("build", help="package each skill as <name>.zip")
+    pack = sub.add_parser(
+        "build", help="package each skill as <name>.skill and <name>.zip"
+    )
     pack.add_argument(
         "--out",
         type=Path,

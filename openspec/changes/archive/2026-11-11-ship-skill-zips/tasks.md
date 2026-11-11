@@ -25,3 +25,10 @@
   1009 tests pass. `pins` fails, and with it `controls` and three tests, because ty 0.0.101 was
   released on 2026-11-11 and `pyproject.toml` pins 0.0.99; that is upstream, not this change, and
   moving the pin is left to its own change
+
+## 4. Both names
+
+- [x] 4.1 At the owner's request, `build` writes each package as `<name>.skill` and `<name>.zip`,
+  one archive copied under the second name; the workflow publishes both; a test holds that every
+  name holds the same bytes. Result: `tests/test_install.py`, `test_cli.py` and `test_evals.py`
+  pass (71)

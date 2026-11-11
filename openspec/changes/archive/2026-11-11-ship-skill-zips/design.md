@@ -8,11 +8,13 @@ skill here has `references/`, and the `frontmatter` check already holds `name` t
 
 ## Decisions
 
-### 1. One package, named for its format
+### 1. One archive, written under both names
 
-The package is a zip, and its name says so: `<name>.zip`. A `.skill` file was the same bytes under
-another name, and a `.zip` upload refuses it. Making CI copy each `.skill` to a `.zip` would give one
-package two names, so the suffix changes at the one place that names it.
+The package is one zip archive. `build.SUFFIXES` is `(".skill", ".zip")`: `.skill` is what a skill
+file is called, and `.zip` is what an upload that wants a zip accepts. The owner asked for both.
+`package` writes the archive once and copies it under each other suffix, so the names hold the same
+bytes, and a test holds that. A CI step renaming files would put the second name outside the one
+place that names the package.
 
 ### 2. The workflow builds with the harness, never with `zip`
 

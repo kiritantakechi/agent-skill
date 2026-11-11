@@ -491,8 +491,10 @@ def test_a_package_holds_no_part_of_the_suite(
     tmp_path: Path, skills: list[Skill]
 ) -> None:
     for skill in skills:
-        with zipfile.ZipFile(build.package(skill, tmp_path)) as package:
-            assert not [n for n in package.namelist() if "evals" in Path(n).parts]
+        for archive in build.package(skill, tmp_path):
+            with zipfile.ZipFile(archive) as package:
+                names = package.namelist()
+            assert not [n for n in names if "evals" in Path(n).parts]
     assert all(not s.root.is_relative_to(REPO / EVALS) for s in skills)
     assert (REPO / SKILLS).parent == (REPO / EVALS).parent
 

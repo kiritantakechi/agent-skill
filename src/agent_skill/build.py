@@ -1,5 +1,6 @@
 """Packaging a skill, and putting it where an agent will find it."""
 
+import shutil
 import zipfile
 from dataclasses import dataclass
 from fnmatch import fnmatch
@@ -100,21 +101,29 @@ def shipped(root: Path) -> Iterator[Path]:
             yield inside
 
 
-def package(skill: Skill, out_dir: Path) -> Path:
-    """Zip the skill directory into `<name>.zip`.
+#: The names one package is written under, as suffixes. The bytes are
+#: one zip archive: `.skill` is what a skill file is called, and `.zip`
+#: what an upload that wants a zip, a marketplace's, accepts.
+SUFFIXES = (".skill", ".zip")
+
+
+def package(skill: Skill, out_dir: Path) -> tuple[Path, ...]:
+    """Zip the skill directory once, as `<name>` under each suffix.
 
     The archive is rooted at the skill name, and holds what `shipped`
     yields: one folder named after the skill, `SKILL.md` directly in it,
     which is the shape a skill upload takes, a marketplace's included.
-    The suffix names the format, since an upload that wants a zip
-    refuses the same bytes under another name.
+    It is written under the first suffix and copied under the others, so
+    every name holds the same bytes. Returned in `SUFFIXES` order.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / f"{skill.name}.zip"
-    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
+    first, *others = (out_dir / f"{skill.name}{s}" for s in SUFFIXES)
+    with zipfile.ZipFile(first, "w", zipfile.ZIP_DEFLATED) as z:
         for inside in shipped(skill.root):
             z.write(skill.root / inside, Path(skill.name) / inside)
-    return target
+    for other in others:
+        shutil.copyfile(first, other)
+    return (first, *others)
 
 
 def identical(copy: Path, skill: Path) -> bool:

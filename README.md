@@ -12,7 +12,7 @@ uv run agent-skill revise NAME PLAN  # merge, demote, remove or move rules, renu
 uv run agent-skill renumber NAME     # revise with no plan: rename chapters, renumber densely
 uv run agent-skill demote NAME PLAN  # revise with a plan: rules to lint rows, merges or removals
 uv run agent-skill install           # symlink each skill into every agent present
-uv run agent-skill build             # package each as dist/<name>.zip, the shape a skill upload takes
+uv run agent-skill build             # package each as dist/<name>.skill and .zip, one archive, the shape a skill upload takes
 uv run agent-skill list              # each skill's prefix, counts and toolchain
 uv run agent-skill measure           # count, per standard, what the normal form's checks find and how it realises the abstract standard
 uv run agent-skill evals             # write the plugin's eval suite from the standards; it runs nothing
@@ -43,10 +43,10 @@ the pinned pytest), and runs every check, `toolchain` and `mutation` included, a
 test; a pull request skips it.
 
 `.github/workflows/package.yml` publishes the skills. On a `style-standards--v*` tag it runs
-`agent-skill build` and attaches each `<name>.zip` to the tag's release, one asset per skill;
-on dispatch it uploads them as one artifact. Each zip holds one folder named after the skill
-with `SKILL.md` directly in it, the shape a marketplace such as Agensi asks an upload to have,
-so a release's assets upload as they are. bevy-style is a delta on rust-style, and a listing
+`agent-skill build` and attaches each `<name>.skill` and `<name>.zip` to the tag's release; on
+dispatch it uploads them as one artifact. The two are one archive under two names: one folder
+named after the skill with `SKILL.md` directly in it, the shape a marketplace such as Agensi
+asks an upload to have, so a release's assets upload as they are. bevy-style is a delta on rust-style, and a listing
 of it says that it is read with rust-style. Its setup steps are python-style's, held by
 `self-application` as `check.yml`'s are, and `actions/upload-artifact` is pinned to a commit.
 
@@ -129,7 +129,7 @@ else.
 ```
 .claude-plugin/marketplace.json  the marketplace this repository is: one plugin
 .github/workflows/check.yml      the repository's CI: python-style's workflow, plus the harness
-.github/workflows/package.yml    every skill's zip, attached to each release tag's release
+.github/workflows/package.yml    every skill's package, attached to each release tag's release
 abstract/                        the abstract standard: every shared concept, once; installs with nothing
   principles.md                  the design questions every base standard's §3 opens with
 plugins/style-standards/         the plugin, the only part an install copies
@@ -331,7 +331,7 @@ bump starts when `pins` reports the local compiler has moved.
 
 A skill directory holds nothing but the skill. Configuration lives in a profile
 inside the package, because a skill's directory is what ships — copied with the
-plugin, symlinked into each agent and packaged into its `.zip` — so tooling
+plugin, symlinked into each agent and packaged into its `.skill` and `.zip` — so tooling
 settings there would reach the reader. `agent_skill/layout.py` names where the
 plugin and its skills live; nothing else spells the path.
 

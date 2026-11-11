@@ -11,8 +11,9 @@ builds the packages in CI either, so a release is uploaded from whatever a lapto
 
 ## What Changes
 
-- **`agent-skill build` writes `<name>.zip`.** The layout is unchanged. The suffix names the
-  format, which a skill upload such as Agensi's asks for.
+- **`agent-skill build` writes `<name>.skill` and `<name>.zip`.** One archive, under both names. The
+  layout is unchanged. `.skill` is what a skill file is called; `.zip` is what a skill upload such
+  as Agensi's asks for. The owner asked for both.
 - **A `package` workflow builds every skill in CI.**
   - **On a `style-standards--v*` tag:** it attaches each skill's zip to that tag's GitHub release,
     one asset per skill.

@@ -146,7 +146,8 @@ def test_the_package_leaves_out_what_the_repository_ignores(tmp_path: Path) -> N
         (root / junk).write_text("x")
     (root / "SKILL.md").write_text("---\nname: demo-style\n---\n")
     (root / "assets" / "ruff.toml").write_text("")
-    with zipfile.ZipFile(package(Skill(root), tmp_path / "out")) as z:
+    archive, *_ = package(Skill(root), tmp_path / "out")
+    with zipfile.ZipFile(archive) as z:
         names = z.namelist()
     assert sorted(names) == ["demo-style/SKILL.md", "demo-style/assets/ruff.toml"]
 
@@ -164,7 +165,7 @@ def test_the_exclusions_cover_everything_the_repository_ignores() -> None:
 
 
 def test_the_package_holds_only_the_skill(tmp_path: Path, skill: Skill) -> None:
-    archive = package(skill, tmp_path)
+    archive, *_ = package(skill, tmp_path)
     with zipfile.ZipFile(archive) as z:
         names = z.namelist()
     assert names
@@ -179,10 +180,20 @@ def test_the_package_is_what_a_skill_upload_takes(tmp_path: Path, skill: Skill) 
     archive's root, or two folders down, is refused, and so is a
     frontmatter `name` that is not the folder's.
     """
-    archive = package(skill, tmp_path)
-    assert archive.name == f"{skill.name}.zip"
-    with zipfile.ZipFile(archive) as z:
-        names = z.namelist()
-        manifest = z.read(f"{skill.name}/SKILL.md").decode()
-    assert {n.split("/", 1)[0] for n in names} == {skill.name}
-    assert f"\nname: {skill.name}\n" in manifest
+    archives = package(skill, tmp_path)
+    assert [a.name for a in archives] == [f"{skill.name}.skill", f"{skill.name}.zip"]
+    for archive in archives:
+        with zipfile.ZipFile(archive) as z:
+            names = z.namelist()
+            manifest = z.read(f"{skill.name}/SKILL.md").decode()
+        assert {n.split("/", 1)[0] for n in names} == {skill.name}
+        assert f"\nname: {skill.name}\n" in manifest
+
+
+def test_every_name_of_a_package_holds_the_same_bytes(
+    tmp_path: Path, skill: Skill
+) -> None:
+    """`.skill` and `.zip` are one archive under two names, not two."""
+    first, *others = package(skill, tmp_path)
+    assert others
+    assert all(o.read_bytes() == first.read_bytes() for o in others)
