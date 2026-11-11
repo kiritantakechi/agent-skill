@@ -1600,7 +1600,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{PY}/assets/pyproject.toml",
-            'typecheck = ["ty==0.0.99"]',
+            f'typecheck = ["{pinned("ty")}"]',
             'typecheck = ["ty==0.0.60"]',
         ),
     ),

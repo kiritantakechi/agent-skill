@@ -43,7 +43,7 @@ cli = ["typer>=0.15"]
 [dependency-groups]
 test = ["pytest==9.2.0"]
 lint = ["ruff==0.17.4"]
-typecheck = ["ty==0.0.99"]
+typecheck = ["ty==0.0.101"]
 dev = [
   { include-group = "test" },
   { include-group = "lint" },
